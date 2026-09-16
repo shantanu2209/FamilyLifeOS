@@ -1,0 +1,24 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets and local config (never commit consent handles, tokens or PII)
+.env
+.env.*
+!.env.example
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Local-only provenance archive (Word originals, superseded versions, raw exports). Never committed.
+archive/
