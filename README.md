@@ -34,6 +34,8 @@ All foundational documents are in the repository as of 2026-09-16; the Core PRD,
 
 `tools/docx2md.py` converts a Word document to Markdown (headings, lists, tables, code boxes as fenced blocks, callouts as quotes). It is what produced the files under `docs/` and is the way to bring any future Word document into the repository. Standard library only, no dependencies.
 
+`tools/agent-local.ps1` runs the local Ollama-backed agent on a GitHub issue or ad-hoc task through Codex CLI and opens a pull request for review. `tools/codex-config.example.toml` is the matching Codex configuration. Setup guide: [docs/reference/Local_Agent_Setup.md](docs/reference/Local_Agent_Setup.md).
+
 ## Archive
 
 `archive/` (not in this repository; it lives only on the founder's machine and is gitignored) holds every file as it was before the September 2026 consolidation: the Word documents, superseded spec versions, duplicate text exports, AI review notes and the raw claude.ai exports. Everything current was carried into `docs/`.

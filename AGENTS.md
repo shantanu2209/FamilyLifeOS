@@ -157,6 +157,12 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 - Never commit secrets, consent handles, push tokens or real PII. Test data is synthetic.
 - Unit-test the invariants in §4 directly: idempotency reuse, hash-chain canonicalisation, cardinality races, soft-delete filters, gate ordering, fail-closed paths.
 
+### Local agent (Ollama model run through Codex CLI)
+- Setup and rationale: `docs/reference/Local_Agent_Setup.md`. Everyday model `qwen3.5:9b`; heavier local model `qwen3.6:35b`. Launched with `tools/agent-local.ps1` on issues labelled `agent:local`.
+- **May do:** formatting, docstrings, lint fixes, boilerplate from templates, test fixtures, WireMock stubs generated from spec tables, keeping the tracker's status matrix in sync, commit messages, PR summaries. Anything with a script or test that verifies the result.
+- **Must not do:** edit anything under `docs/specs/` or `docs/runbooks/` (frozen), touch the payment, consent or audit code paths, edit `AGENTS.md`, or merge. It never resolves an inconsistency register item.
+- Every local run ends in a PR labelled `agent:local` and `needs-review`; a different agent (Claude Code or Codex cloud) reviews before merge.
+
 ### Communication
 - State assumptions explicitly. When a spec and another spec disagree, do not pick silently; record it in the tracker's inconsistency register (§8) and ask.
 - Keep the author persona and tone of the existing documents: direct, specific, reviewer-hardened.

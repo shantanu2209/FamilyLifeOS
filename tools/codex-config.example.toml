@@ -1,0 +1,41 @@
+# Codex CLI configuration for FamilyLifeOS.
+# Copy to C:\Users\<you>\.codex\config.toml  (see docs/reference/Local_Agent_Setup.md).
+#
+# Default profile = OpenAI cloud (run `codex login` once).
+# `codex --profile local`        -> qwen3.5:9b on Ollama  (everyday local agent)
+# `codex --profile local-heavy`  -> qwen3.6:35b on Ollama (heavier local tasks, runs from system RAM)
+
+# ---- defaults (cloud) ---------------------------------------------------------
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+# AGENTS.md is ~25 KB; make sure Codex reads all of it.
+project_doc_max_bytes = 131072
+# Provider used when you run `codex --oss` without a profile. ALWAYS pass -m with --oss,
+# otherwise Codex pulls gpt-oss:20b (14 GB) by default.
+oss_provider = "ollama"
+
+# ---- local provider -----------------------------------------------------------
+[model_providers.ollama]
+name = "Ollama (local)"
+base_url = "http://localhost:11434/v1"
+wire_api = "responses"
+
+# ---- profiles -------------------------------------------------------------------
+[profiles.local]
+model = "qwen3.5:9b"
+model_provider = "ollama"
+model_context_window = 16384
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.local-heavy]
+model = "qwen3.6:35b"
+model_provider = "ollama"
+model_context_window = 32768
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+# ---- project trust ------------------------------------------------------------------
+# Lets `codex exec` run in the repo without an interactive trust prompt.
+[projects.'D:\FamilyLifeOS']
+trust_level = "trusted"
