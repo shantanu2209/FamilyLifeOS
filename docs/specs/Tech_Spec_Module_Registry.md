@@ -1,6 +1,6 @@
 # Tech Spec: Module Registry & Agent Communication Contract
 
-**Status:** Phase 1 (DRAFT v1.0 — pending review)
+**Status:** Phase 1 (v1.1 — review round 1 applied by Claude Code on 2026-09-17; review round 2 by Codex pending; freezes on approval)
 
 **Purpose:** To define the contract that makes any FamilyLifeOS module implementable: the module manifest schema, the Supervisor→Worker dispatch envelope, the Core vs. Service tier rules, and the isolation model. This document is the last Priority 0 specification of the Phase 1 Build Gate.
 
@@ -9,17 +9,19 @@
 | **Version** | **Date** | **Description of Change** | **Author** |
 |---|---|---|---|
 | v1.0 | 2026-07-03 | Initial specification: manifest schema, dispatch envelope v1.0, tier rules, isolation model, registration flow, error taxonomy. | Alfred |
+| v1.1 | 2026-09-17 | Review round 1 (see §13). Seven fixes: (1) `MOD_EXECUTION_UNCONFIRMED` no longer moves the session to FAILED — it stays in EXECUTION so the Healer's zombie sweep (FTS §6.4) can find it (§6.3, §9, §10); (2) `requires_consent_providers` narrowed to real consent providers (aa, abha, digilocker, ondc); BBPS and Bhashini are DPI providers, not consent providers (§4.1, §4.2, §10); (3) PAY_BILL example sets `biometric_required_above_paise: 0` — every BBPS bill payment needs biometric approval (FTS §2.2 G4); (4) audit writes go through the two-function protocol `fn_lock_audit_tail` / `fn_append_audit` with the hash computed in application code (Data Model v1.3 §3.18) instead of an undefined single function (§7.2, §10); (5) resource lock is the `core.resource_lock` table (Data Model v1.3 §3.11) (§7.3); (6) registry DDL and the four kernel views now have a single source in Data Model v1.3 §3.14–3.17; OI-2 closed; (7) cross-references updated to the current document versions; Master Context and NFR back-annotations recorded. | Alfred (with Claude Code) |
 
 **Cross-references (authoritative, do not duplicate):**
 
 | Document | What this spec defers to it |
 |---|---|
-| FAMILYLIFEOS_MASTER_CONTEXT_v2_0.md | Module list (Eight Pillars), phase prioritization, communication protocol baseline (§3.4), DPI risk profiles |
-| Data_Model_Schema_v1_2_1 | Core tables, module table convention (§9.3), audit action codes, `supervisor_sessions`, `offline_task_queue` |
-| Tech_Spec_Supervisor_State_Machine_v2_1 | FSM states, automation tiers, TTL policy, idempotency key lifecycle |
-| Tech_Spec_Financial_Transaction_Safety (frozen) | Two-phase commit (payment + audit), zombie detection, Healer recovery |
-| Tech_Spec_Consent_Manager (frozen) | Consent handle lifecycle, CONSENT_REVERIFY semantics, revocation propagation |
-| Runbook_DPI_Rate_Limits v1.1 (frozen) | Per-provider rate limits, request coalescing, DPI-level circuit breakers, backoff-with-jitter sequences |
+| Master_Context v2.1 | Module list (Eight Pillars), phase prioritization, communication protocol baseline (§3.4, now annotated for the Phase 1 monolith), DPI risk profiles |
+| Data Model v1.3 | Core tables incl. `resource_lock` (§3.11), registry tables (§3.14–3.15), role permissions and kernel views (§3.16–3.17), audit write functions (§3.18), action codes (§6), module table convention (§9.3) |
+| Tech_Spec_Supervisor_State_Machine v2.1 | FSM states, automation tiers, TTL policy, idempotency key lifecycle |
+| Tech_Spec_Financial_Transaction_Safety v1.2 (frozen) | Two-phase commit (payment + audit), zombie detection, Healer recovery, gates G1–G5 |
+| Tech_Spec_Consent_Manager v1.2 (frozen) | Consent handle lifecycle, purpose registry, CONSENT_REVERIFY semantics, revocation propagation |
+| Runbook_DPI_Rate_Limits v1.2 (frozen) | Per-provider rate limits, request coalescing, DPI-level circuit breakers, backoff-with-jitter sequences |
+| PRD_FamilyLifeOS_Core v2.2 | Roles, scenarios, shared system services, conflict-resolution matrix |
 
 ---
 
@@ -60,7 +62,7 @@
 
 ### 2.3 Deviation notice (Master Context §3.3/§3.4)
 
-Master Context v2.0 lists "REST APIs with JWT authentication" for agent communication and "Docker containers, Kubernetes" for deployment. This spec **narrows** that for Phase 1: the envelope carries the same semantics REST would (auth context, timeout, retry, circuit breaking) without the network hop. JWT between internal agents is unnecessary when they share a process; actor identity travels inside the envelope and is validated by the Supervisor before dispatch. The Master Context values (30s timeout, 3 retries with exponential backoff, circuit breaker) are retained as envelope-level semantics in §6.5. RabbitMQ is likewise deferred: Phase 1 async work uses the Postgres-backed `offline_task_queue` already specified in Data_Model_Schema v1.2.1 §3.9. This deviation should be back-annotated into Master Context at its next revision.
+Master Context v2.0 lists "REST APIs with JWT authentication" for agent communication and "Docker containers, Kubernetes" for deployment. This spec **narrows** that for Phase 1: the envelope carries the same semantics REST would (auth context, timeout, retry, circuit breaking) without the network hop. JWT between internal agents is unnecessary when they share a process; actor identity travels inside the envelope and is validated by the Supervisor before dispatch. The Master Context values (30s timeout, 3 retries with exponential backoff, circuit breaker) are retained as envelope-level semantics in §6.5. RabbitMQ is likewise deferred: Phase 1 async work uses the Postgres-backed `offline_task_queue` already specified in Data_Model_Schema v1.2.1 §3.9. Back-annotated into Master Context v2.1 §3.3–3.4 on 2026-09-17.
 
 ---
 
@@ -165,7 +167,7 @@ Every module ships a `manifest.json` at its package root. The manifest is the mo
             "type": "array", "minItems": 1,
             "items": { "enum": ["admin", "member", "minor", "elder",
                                  "staff", "managed", "passive"] },
-            "description": "RBAC roles permitted to trigger this intent (PRD §2). Deny-by-default: absent role = blocked at PERMISSION_CHECK."
+            "description": "RBAC roles permitted to trigger this intent (PRD §2; identical to users.role in Data Model v1.3). Deny-by-default: absent role = blocked at PERMISSION_CHECK."
           },
           "mutating": {
             "type": "boolean",
@@ -173,12 +175,12 @@ Every module ships a `manifest.json` at its package root. The manifest is the mo
           },
           "requires_consent_providers": {
             "type": "array",
-            "items": { "enum": ["aa", "bbps", "abha", "ondc", "digilocker", "bhashini"] },
-            "description": "Dispatch is rejected with MOD_CONSENT_MISSING unless an active consent handle exists for each listed provider."
+            "items": { "enum": ["aa", "abha", "digilocker", "ondc"] },
+            "description": "Consent providers only — those that issue consent handles (Data Model v1.3 §3.5). BBPS and Bhashini are DPI providers for routing (dpi_providers), not consent providers: payments are gated by biometric approval (FTS §2.2 G4) and voice by the first-party purpose VOICE_INTENT_PROCESSING (CM §3.2). Dispatch is rejected with MOD_CONSENT_MISSING unless an active consent handle exists for each listed provider. (v1.1)"
           },
           "biometric_required_above_paise": {
             "type": ["integer", "null"],
-            "description": "Overrides only downward. System floor is ₹2,000 (200000 paise) per NFR v2.1; a module may require biometrics at a lower threshold, never a higher one."
+            "description": "Overrides only downward. System floor is ₹2,000 (200000 paise) per NFR §2.2; a module may require biometrics at a lower threshold, never a higher one. 0 means always. Every BBPS bill payment is 0 (FTS §2.2 gate G4). (v1.1)"
           },
           "entities_schema": {
             "type": "object",
@@ -287,8 +289,8 @@ Every module ships a `manifest.json` at its package root. The manifest is the mo
       "automation_tier_ceiling": 1,
       "allowed_roles": ["admin", "member"],
       "mutating": true,
-      "requires_consent_providers": ["bbps"],
-      "biometric_required_above_paise": 200000,
+      "requires_consent_providers": ["aa"],
+      "biometric_required_above_paise": 0,
       "entities_schema": {
         "type": "object",
         "required": ["biller_id"],
@@ -313,7 +315,8 @@ Every module ships a `manifest.json` at its package root. The manifest is the mo
       "automation_tier_ceiling": 2,
       "allowed_roles": ["admin", "member"],
       "mutating": true,
-      "requires_consent_providers": ["bbps"]
+      "requires_consent_providers": ["aa"],
+      "biometric_required_above_paise": 0
     }
   ],
   "data_scopes": {
@@ -331,7 +334,7 @@ Every module ships a `manifest.json` at its package root. The manifest is the mo
 
 ## 5. Registry Data Model
 
-Two tables. Both live in the `core` schema (kernel-owned; modules cannot read them — the Registry exposes what modules need via `v_module_permissions`).
+Two tables. Both live in the `core` schema (kernel-owned; modules cannot read them — the Registry exposes what modules need via `v_module_permissions`). v1.1: the DDL below is reproduced from Data Model v1.3 §3.14–3.15, which is the single DDL source; if they ever differ, the Data Model wins.
 
 ### 5.1 `module_registry` — system-wide registration
 
@@ -367,7 +370,7 @@ CREATE TABLE core.intent_routes (
 
 ### 5.2 `family_module_activations` — per-family activation
 
-Modules are activated per family by an Admin (Level 0 action; audit codes `MODULE_ACTIVATED` / `MODULE_DEACTIVATED` already exist in Data_Model_Schema v1.2.1 §6).
+Modules are activated per family by an Admin (Level 0 action; audit codes `MODULE_ACTIVATED` / `MODULE_DEACTIVATED` exist in Data Model v1.3 §6).
 
 ```sql
 CREATE TABLE core.family_module_activations (
@@ -487,7 +490,7 @@ Field rules:
 | Status | Meaning | Supervisor FSM consequence |
 |---|---|---|
 | `success` | Intent completed. | → SUCCESS_CONFIRMATION |
-| `failure` | See `error` object (§9). | RETRYABLE → retry per §6.5; TERMINAL → FAILED |
+| `failure` | See `error` object (§9). | RETRYABLE → retry per §6.5; TERMINAL → FAILED, except `MOD_EXECUTION_UNCONFIRMED`, which keeps the session in EXECUTION for the Healer (§9, v1.1) |
 | `needs_clarification` | Module cannot proceed without more info; `clarification.missing_entities` lists what. | → AWAITING_CLARIFICATION (state persists if user closes app, per FSM spec) |
 | `conflict` | Module detected a cross-domain constraint it is not allowed to resolve (§3.2). `conflict` carries a Conflict Object. | → Conflict Resolution Engine within REASONING |
 
@@ -520,7 +523,7 @@ For every mutating intent, the module MUST:
 | Module circuit breaker | 5 consecutive `failure`/timeout responses → module `OPEN` for 30 minutes; half-open probe = 1 read intent | Master Context §3.4 |
 | DPI provider circuit breaker | Separate layer, owned by the DPI Gateway | Runbook_DPI_Rate_Limits v1.1 |
 
-**Note on the 3-vs-5 discrepancy:** NFR v2.1 states "DPI circuit breakers: 3 failures → 30min"; Master Context §3.4 states 5 failures for module disablement. These are **different breakers at different layers** and both stand: the DPI Gateway trips at 3 consecutive provider failures (protecting rate budgets and the provider relationship), the module breaker trips at 5 (a module can fail for non-DPI reasons). The distinction should be back-annotated into NFR at next revision.
+**Note on the 3-vs-5 discrepancy:** NFR v2.1 states "DPI circuit breakers: 3 failures → 30min"; Master Context §3.4 states 5 failures for module disablement. These are **different breakers at different layers** and both stand: the DPI Gateway trips at 3 consecutive provider failures (protecting rate budgets and the provider relationship), the module breaker trips at 5 (a module can fail for non-DPI reasons). Annotated in NFR v2.2 §3 and PRD Core v2.2 §4.6 on 2026-09-17.
 
 **Breaker-open behavior:** dispatch to an OPEN module returns `MOD_UNAVAILABLE` immediately and the Supervisor invokes the graceful-degradation script for that domain (Master Context §4.7) — e.g., Finance OPEN → queue payment intents to `offline_task_queue`, notify user via WhatsApp on recovery.
 
@@ -554,8 +557,12 @@ GRANT SELECT ON core.v_family_members,
                 core.v_active_consents
   TO role_module_finance;
 
--- Audit is append-only via SECURITY DEFINER function; no table access:
-GRANT EXECUTE ON FUNCTION core.fn_append_audit(...) TO role_module_finance;
+-- Audit is append-only via the two SECURITY DEFINER functions of the audit write protocol
+-- (Data Model v1.3 §3.18); no table access. The hash is computed in application code between
+-- the two calls, inside one transaction, so auditors can verify it without database access:
+GRANT EXECUTE ON FUNCTION core.fn_lock_audit_tail(UUID) TO role_module_finance;
+GRANT EXECUTE ON FUNCTION core.fn_append_audit(UUID,UUID,UUID,VARCHAR,JSONB,VARCHAR,VARCHAR,VARCHAR)
+  TO role_module_finance;
 
 -- Everything else is invisible. No grant on core tables, no grant on
 -- other module schemas, no CREATEROLE, no SUPERUSER. Deny-by-default.
@@ -564,7 +571,7 @@ GRANT EXECUTE ON FUNCTION core.fn_append_audit(...) TO role_module_finance;
 Consequences worth stating explicitly:
 
 - A SQL injection or logic bug inside FinanceAgent **cannot** read `health.*`, `core.consent_handles` (raw handles), or `core.audit_log` history, and cannot UPDATE or DELETE audit rows (append-only preserved by the SECURITY DEFINER function, mirroring the tamper-proof audit requirement).
-- The kernel views expose exactly what the module table convention (Data Model §9.3) assumes modules need: family membership, per-role module permissions, active consent **references** (`consent_id`, `provider`, `status`, `expires_at` — never token material).
+- The kernel views expose exactly what the module table convention (Data Model §9.3) assumes modules need: family membership, per-role module permissions, active consent **references** (`consent_id`, `provider`, `status`, `expires_at` — never token material). Their DDL is Data Model v1.3 §3.17 (v1.1).
 - Module tables follow Data Model §9.3 conventions verbatim (family_id, user_id, created_at, updated_at, deleted_at, `(family_id, created_at DESC)` index). Migrations are Alembic, one migration branch per module schema (Data Model §9.2).
 - Row-level security within a module's own schema is **not** used in Phase 1 (single-tenant-per-query access patterns, app-layer family_id scoping per convention). Revisit at Phase 2 sharding. Logged as Open Issue OI-1.
 
@@ -578,7 +585,7 @@ Before any dispatch, the Supervisor validates, in order — each check deny-by-d
 4. Actor role ∈ manifest `allowed_roles`, cross-checked against `v_module_permissions` → else BLOCKED at PERMISSION_CHECK (never reaches the module).
 5. `automation_tier ≤ tier_ceiling`; Level 3 structurally impossible (schema caps at 2).
 6. Active consent handle exists for each `requires_consent_providers` entry → else `MOD_CONSENT_MISSING`.
-7. Mutating intent: `idempotency_key` present and persisted to `supervisor_sessions`; resource lock acquired (unique partial index per Data Model §3.7) → else `MOD_LOCK_CONFLICT` ("A payment is already in progress").
+7. Mutating intent: `idempotency_key` present and persisted to `supervisor_sessions`; resource lock acquired by INSERT into `core.resource_lock` (partial unique index, Data Model v1.3 §3.11; released only after the Phase 2 COMMIT) → else `MOD_LOCK_CONFLICT` ("A payment is already in progress").
 8. `entities` validate against `entities_schema` → else AWAITING_CLARIFICATION.
 
 The DPI Gateway repeats its own checks at call time (provider declared in manifest, consent handle active, rate budget available) — the module sits between two enforcement layers and is trusted with neither tokens nor budget accounting.
@@ -647,7 +654,7 @@ All module errors use `error: { code, class, retry_after_ms, message_key, detail
 | `MOD_DPI_DOWN` | RETRYABLE | DPI Gateway (provider breaker OPEN) | Degraded-mode script per Master Context §4.7 |
 | `MOD_STALE_DATA` | TERMINAL | Module (TTL hard-stop) | Block mutating action ("balance is stale") per FSM spec §3.2; reads degrade to warning instead |
 | `MOD_LOCK_CONFLICT` | TERMINAL | Resource lock unique index | "A payment is already in progress." No retry |
-| `MOD_EXECUTION_UNCONFIRMED` | TERMINAL* | Module (external call state unknown) | *Not user-retryable.* Session → FAILED with honest message ("payment status being confirmed"); `side_effects` entry hands the case to the Healer |
+| `MOD_EXECUTION_UNCONFIRMED` | TERMINAL* | Module (external call state unknown) | *Not user-retryable.* The Supervisor does **not** move the session to FAILED (v1.1): it leaves it in EXECUTION, keeps the resource lock, and shows the honest message ("payment status being confirmed"). The Healer's zombie sweep (FTS §6.4) finds sessions in EXECUTION older than 5 minutes and resolves them; a FAILED transition would hide the session from that sweep and strand the lock. The `side_effects` entry (`executed_unconfirmed`) is the forensic record. |
 | `MOD_CALLGRAPH_VIOLATION` | TERMINAL | SDK runtime (§7.1) | FAILED + CRITICAL forensic log (module bug) |
 | `MOD_DEPENDENCY_ACTIVE` | TERMINAL | Activation flow (§8.2) | Explain dependency chain to Admin |
 | `MOD_INTERNAL` | TERMINAL | Module (unhandled exception, caught by SDK wrapper) | FAILED; alert; never expose stack traces to users |
@@ -675,8 +682,9 @@ Ramesh (role: `member`, Hindi locale): *"BESCOM ka bill bhar do"* — ₹500 ele
     user's. Dispatch proceeds.
 
  3. PERMISSION_CHECK: member ∈ allowed_roles ✓, finance active for
-    family ✓, tier 1 ≤ ceiling 1 ✓, active bbps consent ✓,
-    resource_lock 'biller:BESCOM...' acquired ✓.
+    family ✓, tier 1 ≤ ceiling 1 ✓, active AA consent ✓ (BBPS is not
+    a consent provider), core.resource_lock row for
+    'BBPS_BESCOM_KA_001' inserted ✓.
 
  4. REASONING dispatch (read phase): FinanceAgent fetches bill via
     DPI Gateway (bbps declared ✓, budget ok ✓). Response:
@@ -694,11 +702,12 @@ Ramesh (role: `member`, Hindi locale): *"BESCOM ka bill bhar do"* — ₹500 ele
     FinanceAgent, in ONE DB transaction:
       - INSERT finance.idempotency_ledger(key, pending)
       - INSERT finance.transactions(state='INITIATED')
-      - core.fn_append_audit('BILL_PAYMENT_INITIATED', ...)
+      - prev = core.fn_lock_audit_tail(family_id); hash computed in code;
+        core.fn_append_audit(..., 'BILL_PAYMENT_INITIATED', ..., prev, hash)
     COMMIT, then calls DPI Gateway → BBPS.
 
  8a. BBPS confirms → transaction state CONFIRMED + audit
-     BILL_PAYMENT_SUCCESS (same-transaction, two-phase commit per
+     BILL_PAYMENT_EXECUTED (same-transaction, two-phase commit per
      Financial Safety spec). Response: status=success,
      side_effects=[{state: executed_confirmed}]. Ledger updated with
      final envelope. → SUCCESS_CONFIRMATION. Notification Engine
@@ -708,8 +717,9 @@ Ramesh (role: `member`, Hindi locale): *"BESCOM ka bill bhar do"* — ₹500 ele
      failure or success. Response: status=failure,
      error={code: MOD_EXECUTION_UNCONFIRMED, class: TERMINAL},
      side_effects=[{state: executed_unconfirmed, external_ref: ...}].
-     Supervisor → FAILED, honest user message. Healer polls BBPS
-     status API within 5 minutes and repairs (confirm or refund).
+     Supervisor leaves the session in EXECUTION (v1.1), keeps the lock,
+     honest user message. Healer polls BBPS status API within 5 minutes
+     and repairs (confirm or refund), then releases the lock.
 
  9. Duplicate safety: network flake causes the Supervisor to re-dispatch
     step 7 with the same idempotency_key → FinanceAgent finds the ledger
@@ -748,7 +758,7 @@ Forensic events (`MODULE_MANIFEST_DRIFT`, `MOD_CALLGRAPH_VIOLATION`, `MOD_CONSEN
 | ID | Issue | Priority | Resolution path |
 |---|---|---|---|
 | OI-1 | No PostgreSQL row-level security inside module schemas; family_id scoping is app-layer per Data Model §9.3 convention. | LOW | Acceptable for Phase 1 single-deployable. Revisit with Phase 2 sharding design (Tech_Spec_Scalability_Architecture.md). |
-| OI-2 | `v_module_permissions` view definition (role→module matrix materialization) is asserted here but its DDL lives in neither this doc nor Data Model v1.2.1. | MEDIUM | Add to Data_Model_Schema v1.3 as a kernel view alongside the RBAC application-layer mapping (Data Model Q2). |
+| OI-2 | ~~`v_module_permissions` view definition had no DDL anywhere.~~ | CLOSED (v1.1) | Data Model v1.3 §3.16 (`role_module_permissions`) and §3.17 (all four kernel views, with grants). |
 | OI-3 | Service Module capability calls have no per-capability rate budget (e.g., Bhashini's 1000 ASR calls/day is enforced at the DPI Gateway, but nothing stops a buggy module from burning the budget). | MEDIUM | Per-module DPI quota sub-allocation — extend Runbook_DPI_Rate_Limits at v1.2 when a second Bhashini consumer exists. |
 | OI-4 | Manifest `display_name` translations are static; Bhashini-generated names need a review flow. | LOW | Module PRD concern (P1). |
 | OI-5 | Import-linter contract does not cover dynamic imports (`importlib`). | LOW | Add a grep-based CI check for `importlib` inside `modules/`; treat any hit as review-required. |
@@ -766,6 +776,22 @@ Forensic events (`MODULE_MANIFEST_DRIFT`, `MOD_CALLGRAPH_VIOLATION`, `MOD_CONSEN
 
 ---
 
+## 13. Review Log
+
+### Round 1 — Claude Code, 2026-09-17 (applied in v1.1)
+
+| # | Finding | Severity | Resolution |
+|---|---|---|---|
+| R1-1 | §9 sent `MOD_EXECUTION_UNCONFIRMED` sessions to FAILED, but the Healer (FTS §6.4) only sweeps sessions in EXECUTION. An unconfirmed payment would have become invisible to recovery and its lock stranded. | Critical | Session stays in EXECUTION with the lock held; Healer resolves. §6.3, §9, §10 updated. |
+| R1-2 | `requires_consent_providers` listed bbps and bhashini, and the PAY_BILL example required a "bbps consent". No such consent handle exists in the Data Model or the Consent Manager; the gate would never have passed. | Critical | Enum narrowed to aa, abha, digilocker, ondc. PAY_BILL and PAY_RECURRING require ["aa"] (balance check). Data Model v1.3 adds ONDC to consent_handles.provider so ONDC_ADDRESS_SHARE can be gated. |
+| R1-3 | PAY_BILL example set `biometric_required_above_paise: 200000`, contradicting FTS §2.2 gate G4 (biometric for every BBPS payment). | High | Example set to 0; description clarifies 0 = always. |
+| R1-4 | §7.2 granted EXECUTE on `core.fn_append_audit(...)`, a function no document defined. Defining it naively in PL/pgSQL would have moved hashing into the database, contradicting Data Model §3.6 (hash in application code, canonical JSON) and making auditor verification impossible because jsonb key order differs from `sort_keys`. | High | Two-function protocol in Data Model v1.3 §3.18: lock the chain head, compute the hash in code, append with head re-check. §7.2 and §10 updated. |
+| R1-5 | §7.3 step 7 cited a partial unique index on `supervisor_sessions.resource_lock`; FTS assumed a separate table. | Medium | Data Model v1.3 §3.11 makes it a table; step 7 updated. |
+| R1-6 | Registry DDL (§5) and the kernel views (§7.2, OI-2) had no single source. | Medium | Data Model v1.3 §3.14–3.17 is the source; §5 says so; OI-2 closed. |
+| R1-7 | Cross-reference table pointed at document versions that no longer exist; back-annotation requests to Master Context and NFR were open. | Low | Table updated; annotations made in Master Context v2.1 and NFR v2.2. |
+
+Round 1 did not change the envelope contract (§6.2–6.4), the tier model (§3) or the isolation layers (§7) beyond the items above. Round 2 (Codex) should focus on: the boot sequence under partial failure (§8.1 steps 5–7), whether `deadline_at` + retries can exceed the NFR 2.0 s end-to-end budget for read intents, and the `consent[].reverified_at` 60-second rule against the FSM's AWAITING_APPROVAL window.
+
 **END OF DOCUMENT**
 
-*Phase 1 Build Gate: this is P0 document 5 of 5. On freeze, the Build Gate closes and simulator-suite work begins.*
+*Phase 1 Build Gate: this is P0 document 5 of 5. On freeze (after review round 2), the Build Gate closes and simulator-suite work begins.*

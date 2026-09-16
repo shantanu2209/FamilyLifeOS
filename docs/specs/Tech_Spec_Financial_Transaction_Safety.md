@@ -2,10 +2,10 @@
 
 _Payment execution protocol, two-phase commit, the Healer, zombie recovery, refunds, FIN error taxonomy_
 
-> **Status:** FROZEN — v1.1 (Hardened; reviewer verdict: launch readiness verified) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-02-21
+> **Status:** FROZEN — v1.2 (v1.1 protocol unchanged; naming aligned with Data Model v1.3) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-09-17
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `Tech_Spec_Financial_Transaction_Safety_v1.1.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted. Superseded versions in the archive: `Tech_Spec_Financial_Transaction_Safety_v1.0.docx`.
 > **Cited elsewhere as:** Tech_Spec_Financial_Transaction_Safety v1.1, Financial Safety spec, FTS §n.
-> **Note:** Depends on: Data_Model_Schema v1.2.1 • Tech_Spec_Supervisor_FSM v2.1 (not in repository) • NFR v2.1 (not in repository).
+> **Note:** Depends on: Data Model v1.3 (`resource_lock` §3.11, `supervisor_sessions` §3.7, audit write protocol §3.18) • Tech_Spec_Supervisor_State_Machine v2.1 • NFR v2.2 • Consent Manager v1.2 (gate G5).
 
 ## 0. Document Governance
 
@@ -13,6 +13,7 @@ _Payment execution protocol, two-phase commit, the Healer, zombie recovery, refu
 |---|---|---|---|
 | v1.0 | 2026-02-21 | Initial release. Payment execution protocol; two-phase commit; idempotency key lifecycle; Healer algorithm (5-min cron, AUDIT_LOG_WRITE priority); zombie classification decision tree; refund policy; concurrent payment prevention (resource_lock); FIN_001–FIN_015 error taxonomy; manual escalation protocol. | Alfred |
 | v1.1 | 2026-02-21 | Hardening patch (two independent reviewer rounds). Four changes: (1) §6.4 NOT_FOUND — explicit hard rule: Healer must reuse original idempotency_key, never generate new, with rationale. (2) §6.1 expanded — distributed lock promoted from Q&A to §6.1.1 (first-class algorithm); per-run processing cap added as §6.1.2; system-level circuit breaker added as §6.1.3. (3) §6.3 — AUDIT_LOG_WRITE exception block cross-references system circuit breaker at §6.1.3. (4) §11.3 — manual override now specifies SELECT FOR UPDATE on latest audit_log row + previous_hash recomputed inside same transaction to prevent hash chain corruption under concurrency. Reviewer 2: LAUNCH READINESS VERIFIED. | Alfred |
+| v1.2 | 2026-09-17 | Alignment release, no protocol change: (1) `session_status` renamed to `fsm_state` throughout to match Data Model v1.3 §3.7 (Inconsistency Register item 2); the columns `intent_type`, `bbps_transaction_ref_id`, `healer_poll_count` and `session_notes` this spec uses now exist there; (2) `resource_lock` is the table of Data Model v1.3 §3.11 — `DELETE FROM resource_lock` in the code blocks below is to be read as the release UPDATE (released_at, release_reason) defined there, and `resource_lock` is only ever released, never physically deleted (§9.2 note); (3) §1.3 wording fixed: every BBPS bill payment requires biometric approval regardless of amount (gate G4); the ₹100 figure comes from FSM §2's automation-tier examples (item 9); (4) action code BILL_PAYMENT_EXECUTED confirmed as canonical in Data Model v1.3 §6 (item 7); (5) audit rows are written through fn_lock_audit_tail / fn_append_audit (Data Model v1.3 §3.18), which is the §11.3 SELECT FOR UPDATE discipline made reusable. | Alfred (with Claude Code) |
 
 > 📋 STATUS: HARDENED v1.1 — Architecture Frozen
 > This document specifies the complete financial transaction safety protocol for FamilyLifeOS v1.
@@ -69,7 +70,7 @@ This spec defines:
 
 > ✅ DESIGN PRINCIPLE: The audit log is part of the transaction, not a side effect. A payment is not 'done' until both the BBPS response and the audit log write succeed. The two-phase commit protocol enforces this.
 
-> ✅ DESIGN PRINCIPLE: Human sovereignty above Level 2. No autonomous financial execution. Every bill payment above ₹100 requires explicit biometric approval. The Healer may reconcile, but cannot approve new payments.
+> ✅ DESIGN PRINCIPLE: Human sovereignty above Level 2. No autonomous financial execution. Every BBPS bill payment requires explicit biometric approval regardless of amount (gate G4, §2.2); the ₹100 figure in FSM §2 marks the Level 1/Level 2 automation boundary for other actions, not the biometric rule (v1.2 wording). The Healer may reconcile, but cannot approve new payments.
 
 > ✅ DESIGN PRINCIPLE: Prefer explicit failure over silent success. If the system cannot confirm an outcome, it surfaces this to the Admin immediately rather than assuming success or silently discarding the transaction.
 
@@ -100,7 +101,7 @@ After all 5 gates pass, the following sequence executes atomically where possibl
 ```sql
 T+0   [DB]  Generate idempotency_key = UUID_v4()
       [DB]  UPDATE supervisor_sessions SET
-                  session_status = 'EXECUTION',
+                  fsm_state = 'EXECUTION',
                   idempotency_key = $key,
                   updated_at = NOW()
             WHERE session_id = $session_id
@@ -131,7 +132,7 @@ T+2b  [DB]  BEGIN TRANSACTION  -- PHASE 2: atomic pair
                 $previous_hash, SHA256(...), 'SUCCESS'
               )
       [DB]    UPDATE supervisor_sessions SET
-                  session_status = 'SUCCESS_CONFIRMATION',
+                  fsm_state = 'SUCCESS_CONFIRMATION',
                   updated_at = NOW()
               WHERE session_id = $session_id
       [DB]  COMMIT
@@ -235,11 +236,11 @@ A financial system faces an inherent problem: the external API call (BBPS) and t
 BEGIN TRANSACTION;
   -- Persist idempotency key BEFORE any external call (NFR v2.1 mandate)
   UPDATE supervisor_sessions
-    SET session_status  = 'EXECUTION',
+    SET fsm_state  = 'EXECUTION',
         idempotency_key = $idempotency_key,   -- UUID_v4, generated in INTENT_ANALYSIS
         updated_at      = NOW()
     WHERE session_id = $session_id
-      AND session_status = 'CONSENT_REVERIFY'  -- guard: only advance from correct state
+      AND fsm_state = 'CONSENT_REVERIFY'  -- guard: only advance from correct state
       AND family_id = $family_id;              -- row-level security
 
   -- Verify exactly one row was updated (race condition guard)
@@ -280,7 +281,7 @@ IF bbps_response.status == 'SUCCESS':
     );
 
     UPDATE supervisor_sessions
-      SET session_status = 'SUCCESS_CONFIRMATION',
+      SET fsm_state = 'SUCCESS_CONFIRMATION',
           updated_at = NOW()
       WHERE session_id = $session_id;
   COMMIT;
@@ -310,7 +311,7 @@ IF bbps_response.status == 'FAILED':
       fsm_exit_state='FAILED');
 
     UPDATE supervisor_sessions
-      SET session_status = 'FAILED', updated_at = NOW()
+      SET fsm_state = 'FAILED', updated_at = NOW()
       WHERE session_id = $session_id;
 
     -- Was money debited despite FAILED status? (some BBPS edge cases)
@@ -366,12 +367,12 @@ The idempotency key MUST be written to supervisor_sessions as part of the Phase 
 -- Before generating a new key, check for any recent key for the same intent
 -- This prevents two identical payments if user double-taps within a session
 
-SELECT idempotency_key, session_status
+SELECT idempotency_key, fsm_state
 FROM supervisor_sessions
 WHERE family_id = $family_id
   AND intent_type = 'BILL_PAYMENT'
   AND intent_payload->>'biller_id' = $biller_id
-  AND session_status NOT IN ('FAILED', 'ABORTED', 'SUCCESS_CONFIRMATION')
+  AND fsm_state NOT IN ('FAILED', 'ABORTED', 'SUCCESS_CONFIRMATION')
   AND created_at > NOW() - INTERVAL '24 hours';
 
 -- If a row is found: return that session's status to the user.
@@ -381,7 +382,7 @@ WHERE family_id = $family_id
 ### 5.4 TTL and Cleanup
 
 - Idempotency keys are valid for 72 hours from creation (covers the 48h offline_task_queue expiry + buffer)
-- After 72 hours: the supervisor_session record is archived (session_status = 'ABORTED' if not already terminal)
+- After 72 hours: the supervisor_session record is archived (fsm_state = 'ABORTED' if not already terminal)
 - The Healer's 48h failed_permanent cutoff for offline_task_queue is the effective operational boundary
 - BBPS itself guarantees idempotency for 24 hours per key — our 72h window exceeds this, but Healer retries must always query BBPS status before re-submitting after 24h
 
@@ -507,7 +508,7 @@ FOR each task:
     # 3. Write audit log + update session in one atomic transaction
     BEGIN TRANSACTION;
       INSERT INTO audit_log (... all fields ...) VALUES (...)
-      UPDATE supervisor_sessions SET session_status='SUCCESS_CONFIRMATION' WHERE session_id=$id
+      UPDATE supervisor_sessions SET fsm_state='SUCCESS_CONFIRMATION' WHERE session_id=$id
       UPDATE offline_task_queue SET status='succeeded' WHERE task_id=$task_id
     COMMIT;
 
@@ -520,7 +521,7 @@ FOR each task:
   ELIF bbps_status == 'FAILED':
     # BBPS subsequently failed — mark as FAILED. This is unusual but possible.
     log_audit(action='BILL_PAYMENT_HEALER_FAILED_CONFIRMATION', ...)
-    UPDATE supervisor_sessions SET session_status='FAILED'
+    UPDATE supervisor_sessions SET fsm_state='FAILED'
     UPDATE offline_task_queue SET status='succeeded'  # task resolved, outcome is FAILED
     push_notification('⚠ Payment outcome unclear. Admin has been notified.')
     alert_admin(FIN_012)
@@ -543,7 +544,7 @@ FOR each task:
 SELECT s.*, r.resource_key
 FROM supervisor_sessions s
 LEFT JOIN resource_lock r ON r.session_id = s.session_id
-WHERE s.session_status = 'EXECUTION'
+WHERE s.fsm_state = 'EXECUTION'
   AND s.updated_at < NOW() - INTERVAL '5 minutes'
   AND s.family_id != SYSTEM_FAMILY_UUID  -- exclude system sessions
 FOR UPDATE;  -- lock rows to prevent concurrent Healer instances
@@ -568,7 +569,7 @@ FOR each zombie_session:
     CASE 'FAILED':
       # Money did not move (or was reversed by BBPS)
       log_audit(action='BILL_PAYMENT_ZOMBIE_FAILED', actor=SYSTEM_ACTOR_UUID)
-      UPDATE supervisor_sessions SET session_status='FAILED'
+      UPDATE supervisor_sessions SET fsm_state='FAILED'
       DELETE FROM resource_lock WHERE resource_key = zombie_session.resource_key
       push_notification('❌ Payment could not be completed. Please try again.')
 
@@ -582,7 +583,7 @@ FOR each zombie_session:
         alert_admin(FIN_011, 'BBPS payment pending for ' + elapsed)
       ELIF elapsed >= 4_hours:
         # BBPS SLA exceeded — Admin must take manual action
-        UPDATE supervisor_sessions SET session_status='FAILED',
+        UPDATE supervisor_sessions SET fsm_state='FAILED',
           session_notes='Zombie: BBPS PENDING exceeded 4-hour SLA'
         alert_admin(CRITICAL: FIN_011, 'Manual resolution required')
         push_notification('⚠ Payment timed out. Admin has been notified.')
@@ -609,7 +610,7 @@ FOR each zombie_session:
         # Beyond 24h BBPS idempotency window — re-submission is unsafe.
         # BBPS will treat the original key as a NEW transaction (double payment risk).
         # Mark FAILED; user must retry fresh (which generates a new key with fresh biometric).
-        UPDATE supervisor_sessions SET session_status='FAILED'
+        UPDATE supervisor_sessions SET fsm_state='FAILED'
         push_notification('Payment expired. Please retry from the app.')
 
     CASE exception (BBPS unreachable):
@@ -635,7 +636,7 @@ FOR each zombie_session:
 
 ### 7.1 Zombie Definition
 
-A zombie transaction is any supervisor_session with session_status = 'EXECUTION' whose updated_at timestamp is more than 5 minutes in the past. The 5-minute threshold is derived from: BBPS typical response time (<3 seconds) + network jitter budget (60 seconds) + Healer detection latency (5-minute cron interval) = practical detection point.
+A zombie transaction is any supervisor_session with fsm_state = 'EXECUTION' whose updated_at timestamp is more than 5 minutes in the past. The 5-minute threshold is derived from: BBPS typical response time (<3 seconds) + network jitter budget (60 seconds) + Healer detection latency (5-minute cron interval) = practical detection point.
 
 > 🔴 CRITICAL: A zombie does not necessarily mean money was lost. It means the system does not yet know the outcome. The Healer's job is to query BBPS and convert the zombie to a known outcome (SUCCESS or FAILED). Admin intervention is only required when the Healer cannot determine the outcome after exhausting retries.
 
@@ -651,7 +652,7 @@ A zombie transaction is any supervisor_session with session_status = 'EXECUTION'
 ### 7.3 Full Decision Tree
 
 ```text
-Is session_status = 'EXECUTION' AND updated_at < NOW() - 5 min?
+Is fsm_state = 'EXECUTION' AND updated_at < NOW() - 5 min?
 │
 └── YES (zombie detected)
     │
@@ -737,12 +738,14 @@ Two admins (or one admin with two open app sessions) could attempt to pay the sa
 
 ### 9.2 Resource Lock Protocol for Payments
 
+> ℹ v1.2: the lock table is Data Model v1.3 §3.11 (`resource_lock`: lock_id, family_id, resource_key, session_id, acquired_by, acquired_at, released_at, release_reason). Acquire is the INSERT with `ON CONFLICT … WHERE released_at IS NULL DO NOTHING` shown below; release is `UPDATE resource_lock SET released_at = NOW(), release_reason = … WHERE session_id = $1 AND released_at IS NULL`. Wherever this document's code blocks say `DELETE FROM resource_lock`, execute that UPDATE. Rows are never deleted by the payment path; the cleanup job purges released rows after 7 days.
+
 ```sql
 -- The resource_key format for BBPS payments: 'BBPS_' + biller_id
 -- Example: 'BBPS_BESCOM_KA_001'
 
 -- Gate G2: Acquire lock (UPSERT-based, relies on unique partial index)
--- Data Model §3.7: UNIQUE (family_id, resource_key) WHERE released_at IS NULL
+-- Data Model v1.3 §3.11: UNIQUE (family_id, resource_key) WHERE released_at IS NULL
 
 INSERT INTO resource_lock (
   family_id, resource_key, session_id, acquired_by, acquired_at
@@ -888,7 +891,7 @@ BEGIN TRANSACTION;
 
   -- Step 4: Change session status (AFTER audit log write, inside same transaction)
   UPDATE supervisor_sessions
-    SET session_status = $new_status, updated_at = NOW()
+    SET fsm_state = $new_status, updated_at = NOW()
     WHERE session_id = $session_id;
 
   -- Step 5: Release resource lock if held

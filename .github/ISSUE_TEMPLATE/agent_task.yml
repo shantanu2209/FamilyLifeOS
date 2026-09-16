@@ -1,0 +1,81 @@
+name: Agent task
+description: A unit of work for one agent (Claude Code, Codex, Gemini, local) or the founder.
+title: "[WP-xx] <short imperative title>"
+labels: ["needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One issue = one unit of work for one agent. Read `coordination/README.md` for the protocol and `AGENTS.md` for the rules.
+  - type: input
+    id: wp
+    attributes:
+      label: Work package
+      description: Id from docs/Execution_Plan.md (or "ad hoc")
+      placeholder: WP-12
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Assigned agent
+      options:
+        - agent:claude
+        - agent:codex
+        - agent:gemini
+        - agent:local
+        - founder
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What must exist when this is done, in one or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: specs
+    attributes:
+      label: Governing spec sections
+      description: The documents and section numbers that define the behaviour. Cite them; do not paraphrase.
+      placeholder: |
+        - Data Model v1.3 §3.11 (resource_lock)
+        - FTS v1.2 §9.2–9.3
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      description: Checklist the reviewer will verify.
+      value: |
+        - [ ] Implements exactly the cited sections; no scope beyond the issue
+        - [ ] Tests or a verifying command included and passing
+        - [ ] No changes under docs/specs, docs/runbooks or AGENTS.md (or a version bump PR if intended)
+        - [ ] Tracker row updated if a status changed
+    validations:
+      required: true
+  - type: textarea
+    id: verify
+    attributes:
+      label: Verification
+      description: The exact command or test the agent must run and paste into the PR.
+      placeholder: uv run pytest tests/kernel/test_resource_lock.py -q
+    validations:
+      required: true
+  - type: textarea
+    id: inputs
+    attributes:
+      label: Inputs and dependencies
+      description: Files to read first; issues this depends on.
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options:
+        - S (≤ 2 h)
+        - M (≤ 1 day)
+        - L (≤ 3 days)
+    validations:
+      required: true

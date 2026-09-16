@@ -2,7 +2,7 @@
 
 _DPDP-native consent framework, purpose registry, CONSENT_REVERIFY, DPI adapters, expiry watchdog, revocation, webhook security_
 
-> **Status:** FROZEN — v1.1 (Hardened) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-02-21
+> **Status:** FROZEN — v1.2 (v1.1 behaviour unchanged; naming aligned with Data Model v1.3) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-09-17
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `Tech_Spec_Consent_Manager_v1.1.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted. Superseded versions in the archive: `Tech_Spec_Consent_Manager_v1.0.docx`.
 > **Cited elsewhere as:** Tech_Spec_Consent_Manager v1.1, Consent_Manager v1.1, CM §n.
 
@@ -12,6 +12,7 @@ _DPDP-native consent framework, purpose registry, CONSENT_REVERIFY, DPI adapters
 |---|---|---|---|
 | v1.0 | 2026-02-21 | Initial release. Full consent framework: DPDP-native first-party consent, purpose registry, consent_records schema, parental consent for minors, data portability, breach protocol, CONSENT_REVERIFY mechanics, AA and ABHA DPI adapters, expiry watchdog, revocation propagation, webhook HMAC security, regulation-agnostic extension points. | Alfred |
 | v1.1 | 2026-02-21 | Hardening. Five fixes applied after first independent review: (1) §4.1 PostgreSQL trigger enforcing consent_handle_id NOT NULL for DPI purpose codes — prevents silent bypass of external consent gate at CONSENT_REVERIFY Check 2; (2) §2.2 deletion sequence now explicitly aborts active supervisor_sessions to prevent orphaned EXECUTION sessions after account deletion; (3) §7.3 renewal flow now inherits fetch_count_today from old handle when revoked within 1 hour — prevents RBI rate-limit evasion via renewal spam; (4) §4.6 consent_ui_disclosures table added — consent_ui_version on consent_records now references an auditable canonical record; (5) §9.3 Step 4 webhook DB writes wrapped in explicit BEGIN/COMMIT — prevents partial state on audit_log failure after consent_handles UPDATE. | Alfred |
+| v1.2 | 2026-09-17 | Alignment release, no behavioural change: (1) `session_status` → `fsm_state` (Data Model v1.3 §3.7); (2) role values written lowercase as stored (`minor`, `admin`, `member`) and the minor check reads `users.role`, not `family_relationships.role` (Inconsistency Register item 3); (3) `offline_task_queue.status = 'cancelled'` is now a valid value (Data Model v1.3 §3.9; item 10); (4) `consent_handles.provider` now includes 'ONDC' so ONDC_ADDRESS_SHARE can carry a handle as the enforce_dpi_handle trigger requires; (5) the `consent_records` and `consent_ui_disclosures` DDL, the trigger, and the audit action codes of §4.4 are now also in Data Model v1.3 (§3.12–3.13, §6); the Data Model is the DDL source and this document remains the behavioural authority. Note the expiry index is named `idx_consent_records_expiry` there. | Alfred (with Claude Code) |
 
 > ✅ STATUS: HARDENED v1.1 — Architecture Frozen
 > This document is the authoritative specification for all consent infrastructure in FamilyLifeOS.
@@ -149,9 +150,9 @@ T+0:  User submits deletion request (requires biometric confirmation)
       → SET consent_records.status = 'revoked' for ALL records (user's own)
       → SET consent_records.revoked_at = NOW() for all active records
       → UPDATE supervisor_sessions
-          SET session_status = 'ABORTED'
+          SET fsm_state = 'ABORTED'
           WHERE user_id = $uid
-            AND session_status NOT IN ('SUCCESS_CONFIRMATION','FAILED','ABORTED');
+            AND fsm_state NOT IN ('SUCCESS_CONFIRMATION','FAILED','ABORTED');
         -- CRITICAL: Abort all non-terminal sessions BEFORE revoking DPI handles.
         -- Without this, an EXECUTION-state session survives account deletion,
         -- completes via Healer, and writes an audit_log entry for a user_id
@@ -206,7 +207,7 @@ Under DPDP Act 2023, users must be informed of a data breach 'without undue dela
 
 > ⚖ DPDP ACT 2023: Processing of personal data of a child (under 18) requires verifiable parental consent. The Data Fiduciary must not undertake processing that is detrimental to the child or involves tracking, behavioural monitoring, or targeted advertising.
 
-In FamilyLifeOS, Minor role users (family_relationships.role = 'MINOR') require specific handling:
+In FamilyLifeOS, minor role users (users.role = 'minor'; v1.2 wording) require specific handling:
 - Any consent_record for a Minor must have parental_consent_user_id set to a verified Adult or Admin in the same family. The system cannot grant consent on behalf of a Minor without this field populated.
 - The Minor's RBAC already restricts access to Vault and Wealth pillars (PRD v2.1). The consent framework adds: no consent for analytics, no consent for behavioural data collection, no consent for any DPI that would create a financial or health record in the Minor's name without explicit Admin approval.
 - When a Minor turns 18: the Supervisor detects this via birth certificate data in the Vault (Scenario 5 in PRD v2.1). The Admin is prompted to confirm role upgrade. Upon confirmation, existing consents granted by the parent are migrated to the user's own consent record. The user receives a notification explaining what data exists and that they can revoke any consent.
@@ -215,11 +216,11 @@ In FamilyLifeOS, Minor role users (family_relationships.role = 'MINOR') require 
 ```text
 -- Enforced at consent_records insert time (application layer, not DB constraint):
 
-IF user.role == 'MINOR':
+IF user.role == 'minor':
   IF consent_record.parental_consent_user_id IS NULL:
     RAISE ConsentError('Minor consent requires verified parental_consent_user_id')
   parent = SELECT * FROM users WHERE user_id = parental_consent_user_id
-  IF parent.family_id != minor.family_id OR parent.role NOT IN ('ADMIN','MEMBER'):
+  IF parent.family_id != minor.family_id OR parent.role NOT IN ('admin','member'):
     RAISE ConsentError('Parental consent must come from verified adult in same family')
   IF purpose_registry[consent_record.purpose_code].minor_allowed == False:
     RAISE ConsentError('This purpose is not permitted for Minor users')
@@ -283,7 +284,9 @@ purpose_registry_overrides:
 
 ## 4. First-Party Consent Framework
 
-### 4.1 consent_records Table (Schema Addition to Data_Model_Schema v1.2.1)
+### 4.1 consent_records Table (DDL also in Data Model v1.3 §3.12)
+
+> ℹ v1.2: this DDL was folded into Data Model v1.3 §3.12 on 2026-09-17, which is now the single DDL source (the expiry index is named `idx_consent_records_expiry` there to avoid clashing with consent_handles' `idx_consent_expiry`). This section is retained for the rationale and the trigger's sync rule.
 
 This table is a backward-compatible addition to the frozen Data Model. It does not modify any existing table. All existing queries in Data_Model_Schema v1.2.1 §5 remain valid.
 
@@ -430,7 +433,7 @@ Step 1: DETECT missing consent
 Step 2: FETCH purpose details from registry
   purpose = purpose_registry[$code]
   IF purpose not found: RAISE ConsentError (unknown purpose — block operation)
-  IF user.role == 'MINOR' AND purpose.minor_allowed == False:
+  IF user.role == 'minor' AND purpose.minor_allowed == False:
     RAISE ConsentError('Purpose not permitted for Minor users')
 
 Step 3: PRESENT consent UI
@@ -560,7 +563,7 @@ Delivery: HTTPS download link (valid 24 hours), AES-256 encrypted,
 Audit_log entry: DATA_EXPORT_COMPLETED (with file_size_bytes, delivered_to)
 ```
 
-### 4.6 consent_ui_disclosures Table (Fix 4 — v1.1)
+### 4.6 consent_ui_disclosures Table (Fix 4 — v1.1; DDL also in Data Model v1.3 §3.13)
 
 consent_records.consent_ui_version records which disclosure version the user saw when they granted consent. Without a canonical record of what each version said, this field is an unverifiable pointer. If a regulator or court asks 'what did the user consent to on 21 Feb 2026?', the answer must be auditable, not inferred.
 The consent_ui_disclosures table is the canonical disclosure record. It is append-only — existing rows are never modified. When disclosure text changes materially, a new row is added with is_material_change=TRUE, and all users who previously granted consent for that purpose_code are queued for re-consent.
@@ -1021,7 +1024,7 @@ Step 3: Purge cached data associated with this consent
   DO NOT delete vault documents — those are stored by user choice, not consent-gated
 
 Step 4: Cancel pending Healer tasks that use this consent
-  UPDATE offline_task_queue SET status='cancelled'
+  UPDATE offline_task_queue SET status='cancelled'   -- valid status since Data Model v1.3 §3.9
     WHERE payload->>'consent_handle_id' = revoked_handle_id
     AND status = 'pending';
 

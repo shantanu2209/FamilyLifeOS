@@ -2,10 +2,10 @@
 
 _Canonical reference for all product, technical and strategic reasoning_
 
-> **Status:** CANONICAL — v2.0 (Comprehensive Blueprint, Ready for Development) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-02-21
+> **Status:** CANONICAL — v2.1 (v2.0 blueprint with four back-annotations; portfolio-first mode in force) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-09-17
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `FAMILYLIFEOS_MASTER_CONTEXT_v2.0.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted. Superseded versions in the archive: `FAMILYLIFEOS_MASTER_CONTEXT_v2.0.md` and `.txt` (same text without the version table).
 > **Cited elsewhere as:** FAMILYLIFEOS_MASTER_CONTEXT_v2_0.md, Master Context v2.0, MC §n.
-> **Note:** Sections 3.3–3.4 (REST/JWT, RabbitMQ, Kubernetes) are narrowed for Phase 1 by Tech_Spec_Module_Registry §2.3, and section 6.1 is superseded by Data_Model_Schema v1.2.1 (10 tables, hash computed in application code). See AGENTS.md §8.
+> **Note:** v2.1 adds inline annotations where later specs narrowed or superseded this text: §3.3–3.4 (Phase 1 modular monolith; two breaker layers), §6 (Data Model v1.3 is the DDL authority), §8 (portfolio-first mode; current plan in docs/strategy/Roadmap.md). The v2.0 text itself is unchanged.
 
 Purpose: Canonical Reference for All Product, Technical, and Strategic Reasoning
 Document Status: Comprehensive Blueprint (Ready for Development)
@@ -16,6 +16,7 @@ Document Status: Comprehensive Blueprint (Ready for Development)
 |---|---|---|---|
 | v1.0 | 2026-02-13 | Initial strategic sketch | Alfred |
 | v2.0 | 2026-02-21 | Comprehensive expansion: Added competitive landscape, monetization, GTM, DPI risk assessment, database schema, quantified metrics, regulatory roadmap | Alfred + Claude |
+| v2.1 | 2026-09-17 | Back-annotations only (Inconsistency Register items 4, 5, 6): §3.3–3.4 note the Phase 1 modular monolith (in-process envelope, Postgres task queue, Docker Compose) and the two circuit-breaker layers; §2.2 lists the database role codes; §6 defers to Data Model v1.3 for DDL, hash formula and role names; §8 records portfolio-first mode and points to the Roadmap. | Alfred (with Claude Code) |
 
 ## 1. Identity & Mission
 
@@ -76,6 +77,8 @@ All access is governed via hierarchical RBAC. Roles include:
 - Staff (Transactional)
 Sensitive domains (Finance, Health, Legal) are strictly permissioned.
 
+> ℹ v2.1: role codes in the database (Data Model v1.3 §3.2): admin, member (spouse or other adult co-owner), minor, elder, staff, managed, passive.
+
 ### 2.3 Family Graph Constraints
 
 - Admins: 1-2 per family (joint ownership model)
@@ -121,12 +124,16 @@ Resolution aims to optimize long-term household stability.
 
 ### 3.3 Technology Stack
 
+> ℹ v2.1 (2026-09-17): Phase 1 runs as a **modular monolith** — one FastAPI deployable, an in-process JSON envelope between the Supervisor and modules, the PostgreSQL-backed `offline_task_queue` instead of RabbitMQ, and Docker Compose instead of Kubernetes (Tech_Spec_Module_Registry §2). The stack below remains the direction for Phase 2+ extraction.
+
 - Backend: Python (FastAPI) for Supervisor, specialized agents
 - Database: PostgreSQL (relational data) + Redis (state management, caching)
 - Message Queue: RabbitMQ (async task orchestration)
 - Deployment: Docker containers, Kubernetes (horizontal scaling)
 
 ### 3.4 Agent Communication Protocol
+
+> ℹ v2.1: two breaker layers. The DPI Gateway trips a provider after 3 consecutive failures (NFR §3; per-DPI values in Runbook §8.2); the 5-failure rule below is the module-level breaker (Module Registry §6.5). JWT between internal agents is unnecessary inside the Phase 1 monolith; actor identity travels in the dispatch envelope and is validated by the Supervisor.
 
 - Protocol: REST APIs with JWT authentication
 - Timeout: 30s per agent call (fail fast)
@@ -264,6 +271,8 @@ Each module operates independently but participates in orchestration.
 - Health → Elder Care (vitals monitoring, medication tracking)
 
 ## 6. Data & Identity Model
+
+> ℹ v2.1: this section is a summary. **Data Model v1.3 is the authoritative DDL** (families, users, relationships, proxies, consent handles, audit log, sessions, devices, task queue, resource lock, consent records and disclosures, module registry, activations, role permissions, kernel views, audit functions). Where the DDL below differs — the audit hash is `SHA256(log_id ‖ user_id ‖ action ‖ canonical_details ‖ previous_hash)` computed in application code with no DB CHECK, and the role codes are admin, member, minor, elder, staff, managed, passive — the Data Model wins.
 
 CRITICAL NOTE: This section has been expanded from placeholder JSON snippets to full PostgreSQL database schema. This is the foundation for all development.
 
@@ -418,6 +427,8 @@ DPI Man-in-the-Middle: Attacker intercepts BBPS payment
 - Data Retention: Financial data cannot be stored >1 year without re-consent
 
 ## 8. Product Phasing Strategy (Regulatory-Aware)
+
+> ℹ v2.1: the project runs in **portfolio-first mode** (tracker Decision Log, 2026-09-17): a working kernel and vertical slices against DPI simulators, no licence applications. The phases, budgets and regulatory track below are retained as the commercial plan; the current plan and dates are in docs/strategy/Roadmap.md.
 
 CRITICAL UPDATE: This section has been revised to account for 6-12 month regulatory approval timelines for FIU (Account Aggregator) and BBPOU (Bill Payment) licenses. DPI integrations cannot be "just added" - they require legal approval.
 **Phase 0: Prototype (Months 1-2)**

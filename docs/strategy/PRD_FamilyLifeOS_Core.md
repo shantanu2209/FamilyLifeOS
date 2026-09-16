@@ -1,6 +1,6 @@
 # PRD: FamilyLifeOS Core (The Micro-Kernel)
 
-> **Status:** CANONICAL — v2.1 (Phase 1, Launch Ready) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-02-13
+> **Status:** CANONICAL — v2.2 (v2.1 plus specification map, three error scenarios and three annotations) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-09-17
 > **Canonical copy.** Recovered on 2026-09-16 from the claude.ai project "FamilyLife OS" knowledge file `PRD_FamilyLifeOS_Core_v2_1.md.docx` (the text claude.ai extracted from the Word file, kept verbatim in `archive/claude-project-exports/`). Content is unchanged; Markdown formatting was normalised (tables, list wrapping, escaped characters).
 > **Cited elsewhere as:** PRD v2.1, PRD_FamilyLifeOS_Core_v2_1, Core PRD, PRD Scenario n, PRD §n.
 > **Note:** The scenario-driven Core PRD that every tech spec cites. The January module-level Master_PRD.md is a different, earlier document.
@@ -23,6 +23,7 @@
 |---|---|---|---|
 | v1.0-2.0 | 2026-02-13 | Iterative refinements (Execution Pivot, Gold Master). | Alfred |
 | v2.1 | 2026-02-13 | **Refinement Release:** Added Resource-Level Locking, SOS Passive Reconciliation, and Telemetry refinements. | Alfred |
+| v2.2 | 2026-09-17 | **Spec-alignment release:** §4.8 specification map linking every requirement to the frozen specs that implement it; Scenarios 12–14 (crash mid-payment, concurrent payment, consent revoked mid-flow) close the tracker's "only happy paths" gap; §4.6 circuit-breaker layering and Consent Manager reference; §4.7 Healer cadence (5 minutes) and audit write protocol; §6 Concurrent Intents scoped per family (Inconsistency Register item 15); §8 portfolio-first note; §9 DPI rate-limit issue closed by the Runbook. Role names unchanged; Data Model v1.3 now uses them. | Alfred (with Claude Code) |
 
 ## 1. The One-Pager (Executive Summary)
 
@@ -86,13 +87,19 @@
 
 - **Scenario 11 (Compromised Dependency & Quarantine):** The HomeOpsAgent attempts to fetch prices from a 3rd-party ONDC seller. The Core detects an unsigned payload or unusual latency spike. It immediately quarantines the connection, blocks the data flow, and alerts the Admin of a "Security Block."
 
+- **Scenario 12 (Crash Mid-Payment) [v2.2]:** Priya approves the BESCOM bill. BBPS confirms the payment, and the server crashes before the audit row is written. The session stays in EXECUTION with its resource lock held. Within five minutes the Healer polls BBPS, finds SUCCESS, writes the audit row through the audit write protocol, releases the lock and pushes "₹2,847 paid to BESCOM". No money is lost and no second payment is possible (Tech_Spec_Financial_Transaction_Safety §4.5, §6).
+
+- **Scenario 13 (Two People Pay the Same Bill) [v2.2]:** Ravi and Priya both say "pay the BESCOM bill" within seconds. The first session acquires the family's lock for that biller; the second is told "A payment to this biller is already in progress" (FIN_009) and never reaches the approval prompt. Different billers proceed in parallel (FTS §9).
+
+- **Scenario 14 (Consent Revoked Mid-Flow) [v2.2]:** Priya approves a payment, then revokes her bank consent on the bank's app before execution. CONSENT_REVERIFY runs live against the database and the DPI, fails, and the session ends without any money moving: "Your bank connection was cancelled externally. Please reconnect." If the BBPS call was already in flight, the payment stands, the revocation applies to future operations, and the Admin is notified (Tech_Spec_Consent_Manager §5, §8.3).
+
 ## 4. Functional Requirements (The Core Loop)
 
 ### 4.1. The Omni-Modal Concierge (Supervisor Engine) [M]
 
 - **Architecture:** The Concierge is driven by a deterministic **Supervisor State Machine** to manage context, interruptions, and approval gates.
 
-- **Reference Spec:** See *Tech_Spec_Supervisor_State_Machine_v2_1.md* for the FSM Logic, Persistence Layer, and Data Freshness Rules.
+- **Reference Spec:** See *Tech_Spec_Supervisor_State_Machine_v2_1.md* for the FSM Logic, Persistence Layer, and Data Freshness Rules. The implementation-depth specs are mapped in §4.8 (v2.2).
 
 - **Modalities:** Supports Text, Voice (ASR/TTS), Image+Text (Asynchronous), and UI-Action (Widget interactions).
 
@@ -142,9 +149,9 @@
 
 - **Offline Queue Manager:** Stores failed non-critical tasks in local storage/Redis and retries when connectivity returns.
 
-- **Circuit Breakers:** If a Module fails >5 times in 1 minute, the Core "Trips the Circuit" and disables the module temporarily.
+- **Circuit Breakers:** If a Module fails >5 times in 1 minute, the Core "Trips the Circuit" and disables the module temporarily. *(v2.2: this is the module-level breaker. The DPI-gateway breaker trips a provider after 3 consecutive failures — NFR §3, Runbook_DPI_Rate_Limits §8.2, Tech_Spec_Module_Registry §6.5.)*
 
-- **Consent Lifecycle Manager:** Tracks consent_expiry dates for AA/ABHA. Triggers proactive renewal flows. Handles "Revocation Propagation".
+- **Consent Lifecycle Manager:** Tracks consent_expiry dates for AA/ABHA. Triggers proactive renewal flows. Handles "Revocation Propagation". *(v2.2: specified in Tech_Spec_Consent_Manager — purpose registry §3, grant/withdraw §4, CONSENT_REVERIFY §5, watchdog §7, revocation propagation §8, webhook security §9.)*
 
 ### 4.7. The Audit Log (V1 Implementation) [M]
 
@@ -152,9 +159,27 @@
 
 - **Scope:** Logs all "Write" actions (Payments, Role Changes, Consent Grants).
 
-- **Atomicity:** The Audit Log write must succeed and be confirmed **before** the system executes the user-facing confirmation (UI/Voice success message). If the Log write fails, the system enters the **FAILED** state, marks transaction as "Executed but Unconfirmed", and alerts Admin silently.
+- **Atomicity:** The Audit Log write must succeed and be confirmed **before** the system executes the user-facing confirmation (UI/Voice success message). If the Log write fails, the system enters the **FAILED** state, marks transaction as "Executed but Unconfirmed", and alerts Admin silently. *(v2.2: the full recovery protocol is Tech_Spec_Financial_Transaction_Safety — two-phase commit §4, Healer every 5 minutes §6, crash scenarios §4.5. The "Background Reconciliation" placeholder is closed.)*
 
-- **Immutability:** Each log entry contains the hash of the previous entry to prevent tampering.
+- **Immutability:** Each log entry contains the hash of the previous entry to prevent tampering. *(v2.2: hash chain per family, computed in application code over canonical JSON, written through the audit write protocol — Data Model v1.3 §3.6, §3.18.)*
+
+### 4.8. Specification Map [v2.2]
+
+Every functional requirement above is implemented by a frozen or canonical specification. This table is the index; the specs are authoritative for detail.
+
+| Requirement | Implementing specification |
+|---|---|
+| Family Graph, roles, proxies, cardinality (§2, §4.3, §4.4) | Data Model v1.3 §3.2–3.4, §4; role codes admin, member, minor, elder, staff, managed, passive |
+| Supervisor state machine, automation tiers, TTL policy (§4.1, §4.2) | Tech_Spec_Supervisor_State_Machine v2.1 §1–4; session journal in Data Model v1.3 §3.7 |
+| Module registry, sandboxing, Core vs Service modules (§4.5) | Tech_Spec_Module_Registry v1.1 (manifest §4, envelope §6, isolation §7, registration §8, errors §9) |
+| Offline queue, circuit breakers, DPI resilience (§4.6, Scenario 8) | Data Model v1.3 §3.9; Runbook_DPI_Rate_Limits v1.2 (budgets §2, per-DPI breakers §8, degraded modes); Master Context §4.7 |
+| Consent lifecycle, revocation, minors (§4.3 kill-switch, §4.6, Scenario 10, 14) | Tech_Spec_Consent_Manager v1.2; Data Model v1.3 §3.5, §3.12–3.13 |
+| Payments, biometric gates, zombie recovery, refunds (§4.7, §5 item 4, Scenarios 8, 12, 13) | Tech_Spec_Financial_Transaction_Safety v1.2 (gates §2.2, two-phase commit §4, Healer §6, locks §9, FIN codes §10) |
+| Audit log (§4.7) | Data Model v1.3 §3.6 (table, hash formula), §3.18 (write protocol), §6 (action taxonomy); typed payloads in Tech_Spec_Audit_Log_Implementation (P1) |
+| Public surface rule (Scenario 9) | Data Model v1.3 §3.8 and view v_device_surfaces §3.17; Module Registry §6.2 |
+| Performance budgets, encryption, retention, telemetry | NFR v2.2 |
+| Vernacular voice, ASR confidence gate (§3.3 of Master PRD, §5 item 2) | Runbook_DPI_Rate_Limits §7; simulator stand-in in Tech_Spec_Simulator_Architecture (P1) |
+| Threat model (Scenario 11 and webhook forgery) | Security_Threat_Model.md (P1, before any internet-facing deployment); interim controls in Consent Manager §9 |
 
 ## 5. Shared System Services (Common Utilities)
 
@@ -179,7 +204,7 @@
 | **Modal Contradiction** | Visual Truth (Photo) overrides static Log Data. |
 | **DPI Failure** | Queue task. Do not crash. Notify User only if urgent. |
 | **Role Violation** | Any restricted role (Child/Staff) attempting to access sensitive pillars (Vault/Wealth) triggers a High-Severity Alert to Admin. |
-| **Concurrent Intents** | One active EXECUTION state per **Resource** (e.g., specific Biller ID) per user. A second request for the *same* resource is blocked; concurrent requests for *different* resources are allowed. |
+| **Concurrent Intents** | One active EXECUTION state per **Resource** (e.g., specific Biller ID) per **family** *(v2.2: was "per user"; the frozen lock in Tech_Spec_Financial_Transaction_Safety §9.4 and Data Model v1.3 §3.11 is scoped to the family, so a spouse is blocked while the admin pays the same biller)*. A second request for the *same* resource is blocked; concurrent requests for *different* resources are allowed. |
 
 ## 7. Success Metrics (KPIs)
 
@@ -209,11 +234,15 @@
 
 - **Phase 3 (Expansion):** Third-party Module Registry and Advanced Spatial Reasoning.
 
+*(v2.2: the project currently runs in portfolio-first mode — kernel plus vertical slices against DPI simulators, no licence applications. Dates and sequencing are in docs/strategy/Roadmap.md; this phasing remains the commercial shape.)*
+
 ## 9. Open Issues & Q&A
 
 ### Open Issues
 
-- **DPI Rate Limits:** Need to assess the strict rate limits of the Account Aggregator framework during peak hours.
+- ~~**DPI Rate Limits:** Need to assess the strict rate limits of the Account Aggregator framework during peak hours.~~ *(Closed v2.2: Runbook_DPI_Rate_Limits v1.2 covers all five DPIs.)*
+
+- **Resource-lock scope [v2.2]:** §6 now says per family. If a genuine per-user case appears (e.g. two adults with separate accounts at the same biller), the resource key must include the payer identity; decide in Finance module PRD review.
 
 - **Hardware Partnerships:** To fully utilize "Surface Context," we need to evaluate partnerships with Smart Screen OEMs (e.g., Echo Show, Google Nest).
 
@@ -241,3 +270,5 @@
 - [x] Shared System Services section defined.
 
 - [x] Success Metrics (adjusted), GTM, Phasing, and Q&A restored.
+
+- [x] v2.2: Specification map (§4.8) and error scenarios 12–14 added.
