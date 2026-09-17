@@ -83,7 +83,6 @@ Existing documents and their versions are in `docs/INDEX.md`. This table lists o
 
 | Priority | Document | Purpose | Where it is planned |
 |---|---|---|---|
-| P1 | `docs/specs/Tech_Spec_Simulator_Architecture.md` | WireMock simulators for AA, BBPS, ABHA and DigiLocker | Written, in review (PR #20); the PR removes this row |
 | P1 | `docs/specs/Test_Automation_Strategy.md` | Test tiers, determinism rules, CI gates | Written, in review (PR #23); the PR removes this row |
 | P1 | `docs/specs/Security_Threat_Model.md` | Entry points, trust boundaries, abuse cases, mitigations; required before any internet-facing deployment | Execution Plan WP-42; checklist under "Open gaps" below; NFR v2.2 §9 |
 | P1 | `docs/reference/Development_Environment_Setup.md` | Fresh-clone guide once there is code | WP-14 |
