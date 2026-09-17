@@ -8,7 +8,7 @@ Instructions for every AI coding agent (Claude Code, Codex, Cursor, Gemini, …)
 
 **FamilyLifeOS** is an India-first, agentic "family operating system": a digital Chief of Staff for a household. It governs Health, Finance, Logistics, Home Operations, Communication, Elder Care, Documents and Learning through specialised worker agents coordinated by a **Supervisor** state machine. It is built natively on India's Digital Public Infrastructure (DPI): Account Aggregator (AA), BBPS, ABHA/ABDM, DigiLocker, ONDC and Bhashini. The atomic unit is the **family** (not the individual), with hierarchical role-based access control over the family graph.
 
-**Current state (2026-09-16): documentation only, pre-development.** There is no application code, no test suite and no CI yet; the repository was put under git on 2026-09-16. The repository holds the strategy blueprint, five Priority-0 technical specifications (four frozen, one draft), a living project tracker and reference material. The next milestone is the **Phase 1 Build Gate** (§7).
+**Current state (2026-09-17): documentation complete, pre-development.** There is no application code, no test suite and no CI yet; the repository was put under git on 2026-09-16. The repository holds the strategy blueprint, the Core PRD and three module PRDs, the technical specifications (Financial Transaction Safety, Consent Manager and the DPI runbook frozen; Data Model v1.3 and Module Registry v1.1 awaiting Codex review round 2; Supervisor State Machine and NFR canonical), a roadmap, an execution plan, a GTM plan, a living project tracker, the coordination protocol and reference material. The next milestone is the **Phase 1 Build Gate** (§7).
 
 The project is run by a solo founder who authors documents under the name **Alfred (Lead Product Architect)**. Specs were hardened through two independent review rounds each and then **frozen**. Treat frozen specs as contracts, not suggestions.
 
@@ -23,11 +23,12 @@ The project is run by a solo founder who authors documents under the name **Alfr
 | # | File | Why |
 |---|---|---|
 | 1 | `AGENTS.md` (this file) | Rules, invariants, status, known gaps |
-| 2 | `docs/strategy/Master_Context.md` | Canonical product, technical and strategy blueprint (v2.0) |
+| 2 | `docs/strategy/Master_Context.md` | Canonical product, technical and strategy blueprint (v2.1) |
 | 3 | `docs/PROJECT_TRACKER.md` | What is done, what is next, the build gate, the inconsistency register |
 | 4 | `docs/strategy/PRD_FamilyLifeOS_Core.md` and `docs/specs/Tech_Spec_Supervisor_State_Machine.md` | The product requirements and the Supervisor FSM the frozen specs build on |
 | 5 | `docs/specs/Data_Model_Schema.md` | Every table, column, index and query. Every other spec references it by name |
 | 6 | The spec for the area you are touching | See the map in §3 |
+| 7 | `coordination/README.md` | How work is assigned, branched, reviewed and merged across the agents |
 
 Read whole documents. The specs put hard rules inside callout boxes and code comments, not only in headings.
 
@@ -39,18 +40,24 @@ Everything current lives under `docs/`. Everything historical lives under `archi
 
 | Path | What it is | Version / status |
 |---|---|---|
-| `docs/strategy/Master_Context.md` | Canonical blueprint: identity, family graph, architecture, DPI strategy and risks, modules, data model summary, security, phasing, metrics, competition, revenue, GTM | **v2.0 — canonical**. Sections 3.3–3.4 and 6.1 are partly superseded (see §8) |
+| `docs/strategy/Master_Context.md` | Canonical blueprint: identity, family graph, architecture, DPI strategy and risks, modules, data model summary, security, phasing, metrics, competition, revenue, GTM | **v2.1 — canonical**; inline notes mark where later specs narrowed it (§3.3–3.4, §6, §8) |
 | `docs/strategy/Vision_Journey.md` | Strategic white paper (Jan 2026): how the product went from a portfolio app to a family OS | Reference / history |
 | `docs/strategy/Master_PRD.md` | "Holistic LifeOS" master PRD v2.1 (Jan 2026): module-level requirements and DPI touchpoints | Reference. **Not** the scenario-driven Core PRD below |
-| `docs/strategy/PRD_FamilyLifeOS_Core.md` | Core PRD v2.1: one-pager, 7-role RBAC matrix, 11 user scenarios, functional requirements, shared services, conflict-resolution matrix, KPIs, GTM | **v2.1 — canonical** (recovered from the claude.ai project 2026-09-16) |
+| `docs/strategy/PRD_FamilyLifeOS_Core.md` | Core PRD: one-pager, 7-role RBAC matrix, 14 user scenarios, functional requirements, specification map (§4.8), shared services, conflict-resolution matrix, KPIs | **v2.2 — canonical** |
+| `docs/strategy/PRD_Module_Secure_Vault.md`, `PRD_Module_Finance.md`, `PRD_Module_Health.md` | Module PRDs for the three Phase 1 modules: scenarios, agentic loop, manifest excerpt, owned schema, DPI touchpoints via simulators, conflict matrix, error codes | **DRAFT v0.1** (2026-09-17), founder review pending |
+| `docs/strategy/Roadmap.md` | Portfolio-first roadmap: phases, week-by-week plan, milestones M0–M5, effort model, what changes if commercial | **DRAFT v0.1**, dates to be confirmed by the founder |
+| `docs/Execution_Plan.md` | Work packages WP-xx in dependency order with owner agent, reviewer, verification and issue seeds | **DRAFT v0.1** |
+| `docs/strategy/GTM_Plan.md` | Portfolio-mode go-to-market: audience, positioning, artefacts, demo script; commercial GTM stays in Master Context §14 | **DRAFT v0.1** |
 | `docs/strategy/Vision_Parking_Lot.md` | Deferred capabilities with trigger conditions: blockchain audit log, live spatial reasoning, sub-800 ms latency, hardware presence, voting, future modules | v2.0 reference (recovered 2026-09-16) |
-| `docs/specs/Data_Model_Schema.md` | 10 core PostgreSQL tables, full DDL, 12 operational queries, audit action taxonomy, lifecycle jobs, seed data | **FROZEN v1.2.1** |
-| `docs/specs/Tech_Spec_Financial_Transaction_Safety.md` | Payment gates, two-phase commit, idempotency, the Healer, zombie recovery, refunds, FIN error codes | **FROZEN v1.1** ("launch readiness verified") |
-| `docs/specs/Tech_Spec_Consent_Manager.md` | DPDP-native consent framework, purpose registry, `consent_records`, CONSENT_REVERIFY, DPI adapters, expiry watchdog, revocation, webhook security | **FROZEN v1.1** |
-| `docs/specs/Tech_Spec_Module_Registry.md` | Module manifest schema, Supervisor→module dispatch envelope, tiers, isolation model, registration, error taxonomy | **DRAFT v1.0 — pending review**. Last P0 doc before the build gate |
+| `docs/specs/Data_Model_Schema.md` | Kernel schema `core`: 16 tables, 4 views, audit write functions, 12 operational queries, 40-code audit taxonomy, lifecycle jobs, seed data, v1.3 change summary | **v1.3 — revision in review** (Codex round 2), then re-freeze. v1.2.1 was frozen |
+| `docs/specs/Tech_Spec_Financial_Transaction_Safety.md` | Payment gates, two-phase commit, idempotency, the Healer, zombie recovery, refunds, FIN error codes | **FROZEN v1.2** (v1.1 protocol; names aligned with Data Model v1.3) |
+| `docs/specs/Tech_Spec_Consent_Manager.md` | DPDP-native consent framework, purpose registry, `consent_records`, CONSENT_REVERIFY, DPI adapters, expiry watchdog, revocation, webhook security | **FROZEN v1.2** (v1.1 behaviour; names aligned with Data Model v1.3) |
+| `docs/specs/Tech_Spec_Module_Registry.md` | Module manifest schema, Supervisor→module dispatch envelope, tiers, isolation model, registration, error taxonomy, review log | **v1.1 — review round 1 applied**; round 2 (Codex) pending; freezes on approval. Last P0 doc before the build gate |
 | `docs/specs/Tech_Spec_Supervisor_State_Machine.md` | Supervisor FSM (state diagram, state definitions, persistence, Healer placeholder), automation tiers, TTL policy, idempotency keys | **v2.1 — canonical** (recovered 2026-09-16); implementation depth lives in the frozen P0 specs |
-| `docs/specs/NFR_Specs.md` | Latency budgets, encryption, authentication, idempotency and rate-limit mandates, DPI circuit breaker, telemetry, compliance and retention | **v2.1 — canonical** (recovered 2026-09-16); scalability and DR sections still to be written |
-| `docs/runbooks/Runbook_DPI_Rate_Limits.md` | Rate limits for all five DPIs, Redis budget tracker, circuit breakers, coalescing, WireMock stubs, on-call runbook | **FROZEN v1.1** |
+| `docs/specs/NFR_Specs.md` | Latency budgets, encryption, authentication, idempotency and rate-limit mandates, DPI circuit breaker, telemetry, compliance, scalability targets, disaster recovery, degradation order | **v2.2 — canonical** |
+| `docs/runbooks/Runbook_DPI_Rate_Limits.md` | Rate limits for all five DPIs, Redis budget tracker, circuit breakers, coalescing, WireMock stubs, on-call runbook | **FROZEN v1.2** (two clarifications) |
+| `docs/reference/Local_Agent_Setup.md` | Ollama + Codex CLI setup for the local agent on the founder's machine, model choice, smoke tests | Guide |
+| `coordination/` | Working protocol (README), handoff template, Now/Next/Later board | Living |
 | `docs/reference/DPI_Integration_Primer.md` | Early (Jan 2026) DPI cheat sheet: Beckn/ONDC flow, AA entity chain, ABHA/FHIR flow, Bhashini APIs, conflict object | Reference. Its JSON schemas and security notes are superseded by the Data Model and Master Context |
 | `docs/templates/PRD_Template.md` | Deep-dive PRD template for module or feature PRDs | Template |
 | `docs/PROJECT_TRACKER.md` | Living scratchpad: status, gaps, test strategy, build gate, parking lot, inconsistency register | Living document |
@@ -60,7 +67,7 @@ Everything current lives under `docs/`. Everything historical lives under `archi
 
 The four foundational documents that were absent at consolidation (Core PRD v2.1, Supervisor State Machine v2.1, NFR v2.1, Vision Parking Lot v2.0) were recovered on 2026-09-16 from the claude.ai project "FamilyLife OS", where they exist as knowledge files, and now live under `docs/` (see the map above). Only one referenced document does not exist yet:
 
-- `Security_Threat_Model.md` — not yet written; escalated to late-P0, required before any external DPI integration. Target path `docs/specs/Security_Threat_Model.md`.
+- `Security_Threat_Model.md` — not yet written. P1 since the portfolio-mode decision (2026-09-17): required before any internet-facing deployment, demo included. Target path `docs/specs/Security_Threat_Model.md`; scope in NFR v2.2 §9.
 
 The claude.ai project does **not** hold the Consent Manager, Financial Transaction Safety, DPI Rate Limits or Module Registry specs; this repository is the only place they exist.
 
@@ -73,7 +80,7 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 ### Family graph and access
 1. `family_id` is the partition key on every table. Every query is family-scoped. (DM §1.1)
 2. RBAC is deny-by-default and enforced in the application layer at every endpoint and before every dispatch. (DM Q2, MR §7.3)
-3. Cardinality per family: admins 1–2, spouse ≤2, child ≤10, elder ≤4, staff ≤5, managed ≤10, passive ≤10; exactly one primary proxy and at most one secondary per managed profile. Checks run inside a transaction with `SELECT … FOR UPDATE` on the family row. (DM §4)
+3. Cardinality per family: admins 1–2, member ≤2, minor ≤10, elder ≤4, staff ≤5, managed ≤10, passive ≤10; exactly one primary proxy and at most one secondary per managed profile. Checks run inside a transaction with `SELECT … FOR UPDATE` on the family row. Role codes are admin, member, minor, elder, staff, managed, passive (DM v1.3 §3.2; PRD §2). (DM §4)
 4. The last admin can never be removed or demoted. (DM §4.1)
 5. Relationship edges are bidirectional and both edges are written in one transaction. (DM §3.3)
 6. A device flagged `is_public_surface` never shows finance, health, vault documents or member PII, whoever is logged in. (DM §3.8, MR §6.2)
@@ -91,14 +98,14 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 ### Financial execution
 15. Automation Level 3 is forbidden in V1; manifests cap `automation_tier_ceiling` at 2. BBPS bill payments require biometric approval. The Healer reconciles; it never approves or creates a payment. (MR §4.1, FTS §2.2, FTS §6.1)
 16. One UUIDv4 idempotency key per session, generated at `INTENT_ANALYSIS`, persisted to `supervisor_sessions` in the Phase 1 COMMIT **before** any external call. Retries and Healer re-submissions reuse the original key. Never generate a new key for the same payment. (FTS §5, §6.4)
-17. Two-phase commit: Phase 1 moves the session to `EXECUTION` with the key; then the external call; Phase 2 writes the audit row and the session update in one transaction. The resource lock is released only after the Phase 2 COMMIT. (FTS §4)
+17. Two-phase commit: Phase 1 moves the session to `EXECUTION` with the key; then the external call; Phase 2 writes the audit row and the session update in one transaction. The resource lock is a row in `core.resource_lock` (DM v1.3 §3.11), acquired by INSERT at gate G2 and released by UPDATE only after the Phase 2 COMMIT, never deleted. (FTS §4, §9)
 18. Five pre-execution gates, in order: RBAC → resource lock → forced AA balance fetch → biometric → CONSENT_REVERIFY. (FTS §2.2)
-19. A session in `EXECUTION` for more than 5 minutes is a zombie. The Healer runs every 5 minutes under a Redis distributed lock, processes `AUDIT_LOG_WRITE` tasks first, applies per-run caps and a system-level circuit breaker. (FTS §6–7)
+19. A session in `EXECUTION` for more than 5 minutes is a zombie. The Healer runs every 5 minutes under a Redis distributed lock, processes `AUDIT_LOG_WRITE` tasks first, applies per-run caps and a system-level circuit breaker. Nothing else may move an EXECUTION session out of that state: not the session-expiry cleanup (DM v1.3 §7.4) and not a `MOD_EXECUTION_UNCONFIRMED` response (MR v1.1 §9). (FTS §6–7)
 20. Financial errors use the `FIN_001`–`FIN_015` taxonomy. Raw codes are never shown to users. (FTS §10)
 
 ### Audit log
 21. `audit_log` is append-only; the application DB user has no UPDATE or DELETE on it. (DM §3.6)
-22. `current_hash = SHA256(log_id || user_id || action || canonical_details || previous_hash)` where `canonical_details = json.dumps(details, sort_keys=True, separators=(',', ':'))`, computed in application code, chained per family, verified daily. (DM §3.6, §7.2)
+22. `current_hash = SHA256(log_id || user_id || action || canonical_details || previous_hash)` where `canonical_details = json.dumps(details, sort_keys=True, separators=(',', ':'))` and a NULL previous_hash serialises as `''`; computed in application code, chained per family, verified daily. Every writer uses the two-call protocol `fn_lock_audit_tail` → hash in code → `fn_append_audit` inside one transaction; modules have no privileges on the table. (DM v1.3 §3.6, §3.18, §7.2)
 23. Only standardised action codes (DM §6 plus the CM §4.4 additions). `details` carries UUIDs and amounts only, never PII. System jobs write as `SYSTEM_ACTOR_UUID`. (DM §6)
 24. Any writer that competes with the Healer locks the latest audit row with `SELECT … FOR UPDATE` before computing `previous_hash`. (FTS §11.3)
 
@@ -109,16 +116,17 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 28. Circuit breakers per DPI: AA and BBPS open after 3 consecutive failures for 30 min, ABHA for 20 min, Bhashini after 5 for 10 min; ONDC uses per-seller blacklisting instead. HTTP 429 never counts as a failure. Backoff uses jitter. (RB §4.4, §8)
 29. When a DPI is down, run the graceful-degradation script for that domain instead of failing the product. (MC §4.7)
 
-### Module architecture (draft, MR v1.0)
+### Module architecture (MR v1.1, Codex review round 2 pending)
 30. Phase 1 is a modular monolith: one FastAPI deployable, modules as Python packages under `modules/`, and a JSON-serialisable `ModuleRequest`/`ModuleResponse` envelope even for in-process calls. (MR §2, §6)
 31. Call graph is deny-by-default: Supervisor→Core, Supervisor→Service, Core→Service and Core→DPI Gateway are allowed; Core→Core and Service→anything are forbidden. Cross-domain needs go back to the Supervisor as `conflict` or `needs_data`. (MR §3.2)
 32. Each core module owns one PostgreSQL schema named after its `module_id`, connects with its own role, and sees only whitelisted kernel views. Audit writes go through a SECURITY DEFINER function. (MR §7.2)
 33. Manifest validation fails closed. Duplicate intent codes abort registration. Manifest hash drift without a version bump blocks modules with mutating intents. (MR §4, §5, §8)
 34. Unrecognised or malformed errors are `MOD_INTERNAL` (terminal). Mutating intents are never blind-retried. (MR §9)
+35. `requires_consent_providers` may name only providers that issue consent handles: aa, abha, digilocker, ondc. BBPS and Bhashini are DPI providers for routing, not consent providers; a bill payment is gated by biometric approval and by an active AA consent for the balance check. (MR v1.1 §4.1)
 
 ### Design constraints (MC §10–11)
-35. Solo-founder feasibility: managed services, proven tech, one language (Python), no Kubernetes or microservices at zero users.
-36. When documents or suggestions conflict, prioritise in this order: user trust, system stability, long-term defensibility, DPI alignment, operational realism. No feature may trade privacy for growth.
+36. Solo-founder feasibility: managed services, proven tech, one language (Python), no Kubernetes or microservices at zero users.
+37. When documents or suggestions conflict, prioritise in this order: user trust, system stability, long-term defensibility, DPI alignment, operational realism. No feature may trade privacy for growth.
 
 ---
 
@@ -133,6 +141,10 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 - **Testing:** pytest for unit tests, Testcontainers for integration, Playwright for end-to-end, k6 for load. Pyramid 60/30/10, 80 % coverage on core logic, 100 % pass on main. (PROJECT_TRACKER, Test Automation Strategy)
 - **Observability:** structured JSON logs, Prometheus metrics with the names given in RB §10 and MR §11, Grafana, PagerDuty for P1 alerts.
 - **Hosting:** India regions only (DPDP data localisation). Managed services over self-hosted. (MC §7.4, §10.1)
+- **Frontend (decided 2026-09-17):** a PWA — React + Vite + TypeScript, Vitest for unit tests, Playwright for end-to-end. WebAuthn platform passkeys stand in for biometric approval. Native apps are deferred; the NFR's "local database" clause applies to them, not to the PWA.
+- **LLM (decided 2026-09-17, default provider pending founder confirmation):** the Supervisor talks to a pluggable **LLM gateway** with a deterministic stub for tests, a local Ollama model (`qwen3.5:9b`) for development, and a hosted model for demo quality. No LangChain-style framework: plain provider SDK calls behind one interface, Pydantic schemas for intents. **PII boundary:** a hosted LLM receives only the utterance and non-PII context (roles, module names, amounts); never names, phone numbers, account or consent identifiers.
+- **Python and packaging:** Python 3.12 managed by uv; ruff for lint/format; import-linter for the module contracts (MR §7.1); pre-commit runs both.
+- **Local development:** Docker Compose with PostgreSQL 15, Redis and WireMock; no cloud resources until the demo deployment. **Hosting** is deferred: the demo runs on a single container host in an India region; the commercial choice (AWS ap-south-1 vs others) is made only if the project goes commercial.
 - **Money:** integers in paise. **Time:** IST for user-facing windows, UTC in storage. **Languages:** `users.preferred_language` enum (en, hi, te, kn, ta, mr, gu, pa, bn, ml); user-facing strings are i18n keys rendered at runtime, never hardcoded in modules. (DM §3.2, MR §6.3)
 
 ---
@@ -163,6 +175,11 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 - **Must not do:** edit anything under `docs/specs/` or `docs/runbooks/` (frozen), touch the payment, consent or audit code paths, edit `AGENTS.md`, or merge. It never resolves an inconsistency register item.
 - Every local run ends in a PR labelled `agent:local` and `needs-review`; a different agent (Claude Code or Codex cloud) reviews before merge.
 
+### Coordination (how work moves between agents)
+- The protocol is `coordination/README.md`. Tasks are GitHub issues from the Agent-task template with exactly one `agent:*` label; work happens on `agent-<name>/issue-<n>` branches; every PR uses the template, carries `needs-review`, and is reviewed by a **different agent** than its author; only the founder merges.
+- Decisions live in the tracker's Decision Log and are not reopened by agents. New inconsistencies are added to the register, not resolved in code.
+- Weekly, Claude Code syncs `coordination/BOARD.md` from the issues and proposes the next issues from `docs/Execution_Plan.md`.
+
 ### Communication
 - State assumptions explicitly. When a spec and another spec disagree, do not pick silently; record it in the tracker's inconsistency register (§8) and ask.
 - Keep the author persona and tone of the existing documents: direct, specific, reviewer-hardened.
@@ -173,42 +190,36 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 
 **Phase 1 Build Gate** (defined in `docs/PROJECT_TRACKER.md`). Nothing from P1/P2 starts until it passes.
 
-Pre-conditions:
-- [x] Data_Model_Schema v1.2.1 — frozen
-- [x] Tech_Spec_Financial_Transaction_Safety v1.1 — frozen
-- [x] Tech_Spec_Consent_Manager v1.1 — frozen
-- [x] Runbook_DPI_Rate_Limits v1.1 — frozen
-- [ ] Tech_Spec_Module_Registry v1.0 — **draft, needs the two-reviewer round and freeze**
-- [ ] Security_Threat_Model.md — not started (must exist before any external DPI integration)
-- [x] The four foundational documents recovered from the claude.ai project and added as Markdown (2026-09-16)
+Pre-conditions (status 2026-09-17):
+- [x] Data Model v1.3 written (roles, resource lock table, session columns, folded-in tables, audit write protocol) — **Codex review round 2 pending, then re-freeze**
+- [x] Tech_Spec_Financial_Transaction_Safety v1.2 — frozen
+- [x] Tech_Spec_Consent_Manager v1.2 — frozen
+- [x] Runbook_DPI_Rate_Limits v1.2 — frozen
+- [x] Tech_Spec_Module_Registry v1.1 — review round 1 applied (7 fixes, §13) — **Codex review round 2 pending, then freeze**
+- [x] PRD Core v2.2, NFR v2.2, Master Context v2.1 — aligned with the specs
+- [x] Module PRDs (Vault, Finance, Health), Roadmap, Execution Plan, GTM Plan — drafted 2026-09-17, founder review pending
+- [ ] Security_Threat_Model.md — P1, before any internet-facing deployment
+- [ ] Tooling on the founder's machine: Docker Desktop, Codex CLI, Ollama models, Antigravity (planned 2026-09-18)
 
-Then, in order:
-1. Resolve inconsistency register items 1–3 (resource lock storage, session column names, role vocabulary) with a Data Model v1.3 that also folds in `consent_records`, `consent_ui_disclosures` and the registry tables.
+Then, in order (details and owners in `docs/Execution_Plan.md`):
+1. Codex review round 2 of Data Model v1.3 and Module Registry v1.1; apply fixes; freeze both. Seed the Phase 0/1 issues.
 2. Infrastructure: Docker Compose with PostgreSQL (all core tables), Redis, WireMock for BBPS (SUCCESS, FAILED, PENDING, NOT_FOUND, 429, timeout) and AA; `.env.example`.
 3. Build targets: resource lock acquire/release → `supervisor_sessions` lifecycle → audit log write with hash chain → Healer cron → FinanceAgent BBPS call with Phase 2 commit.
 4. Crash simulations A–D (FTS §4.5) and the single Playwright test "Priya pays BESCOM bill" must pass.
 
-The week numbers in the tracker date from February 2026 and are stale; re-baseline the timeline before planning against them.
+Dates: `docs/strategy/Roadmap.md` (2026-09-18 onward, targets pending the founder's confirmation). The February 2026 week numbers still visible in the tracker's milestone section are historical.
 
 ---
 
-## 8. Known cross-document inconsistencies
+## 8. Cross-document inconsistencies — status
 
-Full detail and resolution paths are in `docs/PROJECT_TRACKER.md` → "Cross-Document Inconsistency Register". Summary, most important first:
+All fifteen items found at consolidation were resolved or annotated on 2026-09-17; the register in `docs/PROJECT_TRACKER.md` records where each landed. In short: Data Model v1.3 settled the resource lock (table), the session columns (`fsm_state` plus four new columns), the role vocabulary (member, minor), the `cancelled` status, the ONDC provider, the action-code taxonomy (union; `BILL_PAYMENT_EXECUTED`, `CONSENT_WITHDRAWN`), the Healer cadence in the cleanup job, and `fetch_count_today` semantics. Master Context v2.1, NFR v2.2, PRD v2.2, FTS v1.2, CM v1.2 and RB v1.2 carry the matching annotations. Module Registry v1.1 fixed its own conflicts with the frozen specs (review log in MR §13).
 
-1. **Resource lock storage.** DM §3.7 models the lock as a column `supervisor_sessions.resource_lock` with a partial unique index; FTS §2.3, §4, §9 and the build gate assume a separate `resource_lock` table (`family_id, resource_key, session_id, acquired_by, acquired_at, released_at`). Pick one via DM v1.3.
-2. **Session column names.** DM uses `fsm_state`; FTS and CM use `session_status`. FTS also uses `intent_type`, `bbps_transaction_ref_id`, `healer_poll_count` and `session_notes` on `supervisor_sessions`, none of which exist in DM §3.7.
-3. **Role vocabulary.** DM and MC store `admin, spouse, child, elder, staff, managed, passive`; MR manifests and the (missing) PRD v2.1 use `admin, member, minor, elder, staff, managed, passive`; CM uses upper-case `MINOR`, `ADMIN`, `MEMBER`. The frozen DB values win until a migration says otherwise; define the mapping.
-4. **Architecture deviation.** MC §3.3–3.4 say REST + JWT between agents, RabbitMQ and Kubernetes; MR §2 (draft) specifies an in-process modular monolith with a JSON envelope and the Postgres task queue. MC needs a v2.1 back-annotation once MR is frozen.
-5. **Circuit-breaker thresholds.** NFR §3 says BBPS 3 consecutive failures → 30 min; MC §3.4 and PRD §4.6 say a *module* trips after 5 failures. MR §6.5 resolves this as two layers (DPI gateway 3, module breaker 5); RB §8.2 has per-DPI values. NFR and PRD need the same note.
-6. **Audit hash formula.** MC §6.1 keeps a DB CHECK on `SHA256(timestamp||user_id||action||previous_hash)`; DM §3.6 removed the CHECK and defines the hash over `log_id, user_id, action, canonical_details, previous_hash` in application code. DM wins; MC §6 is superseded by DM.
-7. **Action-code names.** DM §6 defines `BILL_PAYMENT_INITIATED / SUCCESS / FAILED`; FTS writes `BILL_PAYMENT_EXECUTED`, `BILL_PAYMENT_ZOMBIE_FAILED`, `BILL_PAYMENT_REFUND_*`, `ADMIN_SESSION_OVERRIDE`; RB writes `VOICE_ASR_LOW_CONFIDENCE`; CM adds ten more. The taxonomy in DM §6 needs the union.
-8. **Healer cadence.** FTS sets 5 minutes; DM §7.4 still says "every 15 minutes (same cadence as Healer)".
-9. **Biometric threshold.** NFR §2.2: above ₹2,000 or any PII export; FTS §1.3: above ₹100 (the ₹100 comes from the FSM §2 automation-tier examples, where it marks the Level 1/Level 2 boundary, not a biometric rule); FTS §2.2 gate G4: all BBPS payments regardless of amount. G4 is the operative rule for bill pay; manifests may only lower a threshold (MR §4.1).
-10. **`offline_task_queue.status = 'cancelled'`** (CM §8.2) is not an allowed value in DM §3.9.
-11. **`fetch_count_today` semantics.** DM §7.3 resets it daily at midnight UTC and Q6 compares it to the hourly AA limit; RB §2 enforces AA hourly in Redis and treats the DB column as the persistent record for renewal inheritance. State the semantics in one place.
-12. **Module Registry date.** Its governance table says 2026-07-03 while every other document says 2026-02-21; the pre-consolidation tracker still listed it as not started.
-13. **Resource-lock scope.** PRD §6 allows one active EXECUTION per resource *per user*; FTS §9.4 scopes the lock per *family* (a spouse is blocked while the admin pays the same biller). FTS is the frozen spec; PRD needs the note.
+Still open:
+1. **Re-freeze.** Data Model v1.3 and Module Registry v1.1 are awaiting Codex review round 2. Until then, treat them as the current text but expect small changes.
+2. **Per-user lock case.** PRD v2.2 §6 scopes the resource lock per family. If a genuine per-user case appears (two adults, separate accounts, same biller), the resource key must include the payer identity; decide during the Finance module PRD review (PRD §9).
+
+If you find a new conflict, add a row to the tracker's register and stop; do not pick a side in code.
 
 ---
 

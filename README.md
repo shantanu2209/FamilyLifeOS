@@ -2,28 +2,33 @@
 
 An India-first, agentic family operating system: a digital Chief of Staff for a household, built natively on India's Digital Public Infrastructure (Account Aggregator, BBPS, ABHA/ABDM, DigiLocker, ONDC, Bhashini). Specialised worker agents are orchestrated by a Supervisor state machine; the family, not the individual, is the atomic unit.
 
-**Status (September 2026):** documentation only, pre-development. Portfolio-first scope: the kernel and one end-to-end bill-payment slice against DPI simulators. The strategy blueprint, the Core PRD, the Supervisor state machine spec and the NFR spec are canonical; four of the five Priority-0 technical specifications are frozen and the fifth (Module Registry) is in draft. The next milestone is the Phase 1 Build Gate described in the project tracker.
+**Status (September 2026):** documentation complete, pre-development. Portfolio-first scope: the kernel and one end-to-end bill-payment slice against DPI simulators, then a second slice for a managed profile's medication reminders. Financial Transaction Safety, Consent Manager and the DPI runbook are frozen; Data Model v1.3 and Module Registry v1.1 await a second review before re-freezing; the Core PRD, NFR and Master Context are canonical and aligned. Module PRDs, a roadmap, an execution plan and a GTM plan are drafted. The next milestone is the Phase 1 Build Gate described in the project tracker.
 
 ## Working here
 
-Start with [AGENTS.md](AGENTS.md). It is the single set of instructions for humans and for every AI agent (Claude Code, Codex, others) and lists the reading order, the non-negotiable invariants, the technology decisions and the known gaps.
+Start with [AGENTS.md](AGENTS.md). It is the single set of instructions for humans and for every AI agent (Claude Code, Codex, Gemini, the local model) and lists the reading order, the non-negotiable invariants, the technology decisions and the known gaps. [coordination/README.md](coordination/README.md) is the working protocol: issues, labels, branches, cross-agent reviews. The four agents' roles are in both.
 
 ## Documents
 
 | Area | Path | Status |
 |---|---|---|
-| Blueprint | [docs/strategy/Master_Context.md](docs/strategy/Master_Context.md) | v2.0, canonical |
+| Blueprint | [docs/strategy/Master_Context.md](docs/strategy/Master_Context.md) | v2.1, canonical |
 | Vision white paper | [docs/strategy/Vision_Journey.md](docs/strategy/Vision_Journey.md) | Reference (Jan 2026) |
 | Master PRD | [docs/strategy/Master_PRD.md](docs/strategy/Master_PRD.md) | v2.1 reference (Jan 2026) |
-| Core PRD | [docs/strategy/PRD_FamilyLifeOS_Core.md](docs/strategy/PRD_FamilyLifeOS_Core.md) | v2.1, canonical |
+| Core PRD | [docs/strategy/PRD_FamilyLifeOS_Core.md](docs/strategy/PRD_FamilyLifeOS_Core.md) | v2.2, canonical |
+| Module PRDs | [Secure Vault](docs/strategy/PRD_Module_Secure_Vault.md) · [Finance](docs/strategy/PRD_Module_Finance.md) · [Health](docs/strategy/PRD_Module_Health.md) | Draft v0.1 |
+| Roadmap | [docs/strategy/Roadmap.md](docs/strategy/Roadmap.md) | Draft v0.1, dates to confirm |
+| Execution plan | [docs/Execution_Plan.md](docs/Execution_Plan.md) | Draft v0.1 |
+| GTM plan (portfolio mode) | [docs/strategy/GTM_Plan.md](docs/strategy/GTM_Plan.md) | Draft v0.1 |
 | Vision parking lot | [docs/strategy/Vision_Parking_Lot.md](docs/strategy/Vision_Parking_Lot.md) | v2.0 reference |
 | Supervisor state machine | [docs/specs/Tech_Spec_Supervisor_State_Machine.md](docs/specs/Tech_Spec_Supervisor_State_Machine.md) | v2.1, canonical |
-| Non-functional requirements | [docs/specs/NFR_Specs.md](docs/specs/NFR_Specs.md) | v2.1, canonical |
-| Data model | [docs/specs/Data_Model_Schema.md](docs/specs/Data_Model_Schema.md) | Frozen v1.2.1 |
-| Financial transaction safety | [docs/specs/Tech_Spec_Financial_Transaction_Safety.md](docs/specs/Tech_Spec_Financial_Transaction_Safety.md) | Frozen v1.1 |
-| Consent manager | [docs/specs/Tech_Spec_Consent_Manager.md](docs/specs/Tech_Spec_Consent_Manager.md) | Frozen v1.1 |
-| Module registry | [docs/specs/Tech_Spec_Module_Registry.md](docs/specs/Tech_Spec_Module_Registry.md) | Draft v1.0 |
-| DPI rate limits runbook | [docs/runbooks/Runbook_DPI_Rate_Limits.md](docs/runbooks/Runbook_DPI_Rate_Limits.md) | Frozen v1.1 |
+| Non-functional requirements | [docs/specs/NFR_Specs.md](docs/specs/NFR_Specs.md) | v2.2, canonical |
+| Data model | [docs/specs/Data_Model_Schema.md](docs/specs/Data_Model_Schema.md) | v1.3, review round 2 pending |
+| Financial transaction safety | [docs/specs/Tech_Spec_Financial_Transaction_Safety.md](docs/specs/Tech_Spec_Financial_Transaction_Safety.md) | Frozen v1.2 |
+| Consent manager | [docs/specs/Tech_Spec_Consent_Manager.md](docs/specs/Tech_Spec_Consent_Manager.md) | Frozen v1.2 |
+| Module registry | [docs/specs/Tech_Spec_Module_Registry.md](docs/specs/Tech_Spec_Module_Registry.md) | v1.1, review round 2 pending |
+| DPI rate limits runbook | [docs/runbooks/Runbook_DPI_Rate_Limits.md](docs/runbooks/Runbook_DPI_Rate_Limits.md) | Frozen v1.2 |
+| Local agent setup | [docs/reference/Local_Agent_Setup.md](docs/reference/Local_Agent_Setup.md) | Guide |
 | DPI integration primer | [docs/reference/DPI_Integration_Primer.md](docs/reference/DPI_Integration_Primer.md) | Reference (Jan 2026) |
 | PRD template | [docs/templates/PRD_Template.md](docs/templates/PRD_Template.md) | Template |
 | Project tracker | [docs/PROJECT_TRACKER.md](docs/PROJECT_TRACKER.md) | Living |

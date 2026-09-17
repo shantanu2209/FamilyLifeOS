@@ -38,6 +38,12 @@ Decisions that shape scope and process. Add a row whenever one is made; agents m
 | 2026-09-17 | **Requirements: NFR v2.2 rather than a separate requirements document.** Functional requirements stay in PRD Core §4; the NFR gets the missing sections (scalability targets, disaster recovery, degradation strategy, breaker-layer note). PRD Core gets a v2.2 refresh at item 11 together with module PRDs for Vault, Finance and Health. | Avoids a duplicate requirements document that would drift from the PRD. |
 | 2026-09-17 | **Multi-agent roster (direction, to be formalised at items 6–7):** Claude Code for architecture, specs and reviews; Codex for implementation against frozen specs; a Gemini Flash-class model in Google Antigravity for routine, low-judgement work; a local Ollama model for mechanical instruction-following tasks. Coordination happens through the repository (GitHub issues, PRs, labels and a `coordination/` folder), not through the founder relaying messages. One agent's output is always reviewed by a different agent before merge. | Saves Claude/Codex usage for the work that needs judgement, and doubles as a learning exercise in coordinating cloud and local agents. |
 | 2026-09-17 | **Local agent stack:** Ollama on the founder's RTX 3070 Ti (8 GB) + 64 GB RAM; everyday model `qwen3.5:9b` (6.6 GB, tools, fits the GPU); optional heavy model `qwen3.6:35b` (MoE, ~3 B active, 23 GB, runs from RAM); harness = Codex CLI with `local` / `local-heavy` profiles and `codex exec` for scripted runs; Aider as fallback harness. Gemma 4 rejected for the agent role (tool refusal and looping in hands-on reports, far behind Qwen on software-engineering benchmarks); gpt-oss:20b kept only as a smoke-test alternative. Guide: `docs/reference/Local_Agent_Setup.md`. | Tokens/s on this machine still to be measured (smoke tests §6 of the guide). Docker Desktop is not installed yet and is needed before the Build Gate infrastructure. |
+| 2026-09-17 | **Inconsistency Register items 1–3 resolved (founder ruling):** the resource lock is a dedicated `core.resource_lock` table; the session column stays `fsm_state` and gains `intent_type`, `bbps_transaction_ref_id`, `healer_poll_count`, `session_notes`; roles are renamed `spouse → member`, `child → minor`. Applied in Data Model v1.3 with consequential edits in FTS v1.2, Consent Manager v1.2, Runbook v1.2, Module Registry v1.1. | Nothing is built yet, so all three are free changes now and expensive later. |
+| 2026-09-17 | **Review process for the two open specs:** Claude Code ran review round 1 on the Module Registry (7 fixes → v1.1, log in MR §13); Codex runs round 2 on Module Registry v1.1 and Data Model v1.3 once set up; both freeze on approval. | Keeps the two-reviewer discipline the frozen specs were built with, using two different model families. |
+| 2026-09-17 | **Security_Threat_Model.md moved from late-P0 to P1**, due before any internet-facing deployment (portfolio demo included). Scope fixed in NFR v2.2 §9. | In portfolio mode there are no real DPI webhooks, so the attack surface arrives with the demo deployment, not with the first line of code. |
+| 2026-09-17 | **Technology choices (item 13):** Python 3.12 via uv, ruff, import-linter, pre-commit; PWA frontend (React + Vite + TypeScript, Vitest, Playwright) with WebAuthn passkeys standing in for biometrics; pluggable LLM gateway (deterministic stub for tests, local `qwen3.5:9b` for development, hosted model for demo — **default hosted provider still to be confirmed by the founder**); no agent framework, plain SDK calls + Pydantic; PII boundary: hosted LLMs see only the utterance and non-PII context; Docker Compose locally; hosting deferred to the demo (single container host in an India region). | Reversible choices made now so agents stop asking. The LLM provider affects cost and data residency, hence the explicit confirmation request. |
+| 2026-09-17 | **Coordination protocol adopted** (`coordination/README.md`): GitHub issues from the Agent-task template with one `agent:*` label; `agent-<name>/issue-<n>` branches; PR template; review by a different agent than the author; founder merges; Decision Log and register are not reopened by agents; weekly board sync. `GEMINI.md` added so Antigravity reads `AGENTS.md`. | Removes the founder from the relay path; the process itself becomes a portfolio artefact. |
+| 2026-09-17 | **Planning documents drafted:** `docs/strategy/Roadmap.md` (13-week portfolio roadmap from 2026-09-18, milestones M0–M5), `docs/Execution_Plan.md` (work packages WP-xx with owner/reviewer/verification and issue seeds), `docs/strategy/GTM_Plan.md` (portfolio-mode GTM). Module PRDs for Secure Vault, Finance and Health drafted at v0.1. **Dates and the module PRD scopes are proposals until the founder confirms.** | Item 5/8/9/11 of the founder's list. |
 
 ---
 
@@ -47,6 +53,7 @@ Decisions that shape scope and process. Add a row whenever one is made; agents m
 |---|---|
 | 2026-09-16 | Repository consolidated. Every `.docx`, duplicate `.md`/`.txt` export, superseded spec version and AI review note moved to `archive/originals/`. Canonical documents converted to Markdown under `docs/` (`strategy/`, `specs/`, `runbooks/`, `reference/`, `templates/`); spec content unchanged, formatting only. `AGENTS.md` (shared agent instructions), `CLAUDE.md` (pointer) and `README.md` added. This tracker carried forward from `FAMILYLIFEOS_PROJECT_TRACKER_UPDATED.md` with: Module Registry draft acknowledged, missing documents listed, Cross-Document Inconsistency Register added, repo-based maintenance steps, stale-timeline warning. |
 | 2026-09-16 | Recovered the four foundational documents (PRD Core v2.1, Supervisor State Machine v2.1, NFR v2.1, Vision Parking Lot v2.0) from the claude.ai project "FamilyLife OS" knowledge files and placed them under `docs/` (raw exports in `archive/claude-project-exports/`). Missing Documents section closed; Inconsistency Register items 5, 9 and 14 updated, item 15 added; AGENTS.md carries the project's standing instructions. Repository put under git. |
+| 2026-09-17 | Spec close-out: Data Model v1.3, Module Registry v1.1 (review round 1), FTS v1.2, Consent Manager v1.2, Runbook v1.2, Master Context v2.1, PRD Core v2.2, NFR v2.2. Module PRDs, Roadmap, Execution Plan, GTM Plan drafted. Coordination protocol, issue/PR templates, GEMINI.md, local-agent setup added. Inconsistency Register: all 15 items resolved or annotated; two follow-ups open. |
 | 2026-09-17 | Decision Log added (portfolio-first scope, public repo without archive, NFR v2.2 path, agent roster direction). Git history recreated without `archive/`; repository published on GitHub. |
 | 2026-02-21 | Previous tracker update: Runbook_DPI_Rate_Limits v1.1 frozen; 3 of 5 P0 docs done. |
 
@@ -58,26 +65,34 @@ Decisions that shape scope and process. Add a row whenever one is made; agents m
 FamilyLifeOS/
 ├── AGENTS.md                      # single set of instructions for all agents and humans
 ├── CLAUDE.md                      # points to AGENTS.md
+├── GEMINI.md                      # points to AGENTS.md (Gemini / Antigravity)
+├── .github/                       # issue template (agent task) and PR template
+├── coordination/                  # working protocol, handoff template, board
 ├── README.md                      # human overview + document map
 ├── docs/
 │   ├── PROJECT_TRACKER.md         # this document
+│   ├── Execution_Plan.md          # work packages WP-xx (draft v0.1)
 │   ├── strategy/
 │   │   ├── Master_Context.md      # v2.0 canonical blueprint
-│   │   ├── PRD_FamilyLifeOS_Core.md # v2.1 Core PRD (recovered 2026-09-16)
+│   │   ├── PRD_FamilyLifeOS_Core.md # v2.2 Core PRD
+│   │   ├── PRD_Module_Secure_Vault.md / PRD_Module_Finance.md / PRD_Module_Health.md   # draft v0.1
+│   │   ├── Roadmap.md             # draft v0.1 (portfolio-first, 13 weeks)
+│   │   ├── GTM_Plan.md            # draft v0.1 (portfolio mode)
 │   │   ├── Vision_Parking_Lot.md  # v2.0 long-term backlog (recovered 2026-09-16)
 │   │   ├── Vision_Journey.md      # Jan 2026 white paper (reference)
 │   │   └── Master_PRD.md          # Jan 2026 module-level master PRD (reference)
 │   ├── specs/
-│   │   ├── Tech_Spec_Supervisor_State_Machine.md    # v2.1 canonical (recovered 2026-09-16)
-│   │   ├── NFR_Specs.md                             # v2.1 canonical (recovered 2026-09-16)
-│   │   ├── Data_Model_Schema.md                     # FROZEN v1.2.1
-│   │   ├── Tech_Spec_Financial_Transaction_Safety.md # FROZEN v1.1
-│   │   ├── Tech_Spec_Consent_Manager.md             # FROZEN v1.1
-│   │   └── Tech_Spec_Module_Registry.md             # DRAFT v1.0
+│   │   ├── Tech_Spec_Supervisor_State_Machine.md    # v2.1 canonical
+│   │   ├── NFR_Specs.md                             # v2.2 canonical
+│   │   ├── Data_Model_Schema.md                     # v1.3 — review round 2 pending
+│   │   ├── Tech_Spec_Financial_Transaction_Safety.md # FROZEN v1.2
+│   │   ├── Tech_Spec_Consent_Manager.md             # FROZEN v1.2
+│   │   └── Tech_Spec_Module_Registry.md             # v1.1 — review round 2 pending
 │   ├── runbooks/
-│   │   └── Runbook_DPI_Rate_Limits.md               # FROZEN v1.1
+│   │   └── Runbook_DPI_Rate_Limits.md               # FROZEN v1.2
 │   ├── reference/
-│   │   └── DPI_Integration_Primer.md                # Jan 2026 DPI cheat sheet
+│   │   ├── DPI_Integration_Primer.md                # Jan 2026 DPI cheat sheet
+│   │   └── Local_Agent_Setup.md                     # Ollama + Codex CLI guide
 │   └── templates/
 │       └── PRD_Template.md
 └── archive/
@@ -113,11 +128,11 @@ The claude.ai project also holds Data Model v1.2.1, Master Context v2.0 and the 
 
 | Document | Version | Grade (Feb 2026 review) | In repository? |
 |----------|---------|------|-------|
-| Master Context | v2.0 | **A** | ✅ `docs/strategy/Master_Context.md` |
+| Master Context | v2.1 | **A** | ✅ `docs/strategy/Master_Context.md` |
 | Project Tracker (this document) | Living | **A** | ✅ `docs/PROJECT_TRACKER.md` |
-| PRD_FamilyLifeOS_Core_v2_1 | v2.1 | **A-** | ✅ `docs/strategy/PRD_FamilyLifeOS_Core.md` (recovered 2026-09-16) |
+| PRD_FamilyLifeOS_Core | v2.2 | **A-** | ✅ `docs/strategy/PRD_FamilyLifeOS_Core.md` |
 | Tech_Spec_Supervisor_State_Machine_v2_1 | v2.1 | **B+** | ✅ `docs/specs/Tech_Spec_Supervisor_State_Machine.md` (recovered 2026-09-16) |
-| FamilyLifeOS_NFR_Specs_v2_1 | v2.1 | **B** | ✅ `docs/specs/NFR_Specs.md` (recovered 2026-09-16) |
+| NFR_Specs | v2.2 | **B** (v2.1); gaps closed in v2.2 | ✅ `docs/specs/NFR_Specs.md` |
 | Vision_Parking_Lot_v2_0 | v2.0 | **B+** | ✅ `docs/strategy/Vision_Parking_Lot.md` (recovered 2026-09-16) |
 
 Also in the repository, outside the February review set: `docs/strategy/Vision_Journey.md` (Jan 2026 white paper), `docs/strategy/Master_PRD.md` (Jan 2026 module-level master PRD — not the Core PRD), `docs/reference/DPI_Integration_Primer.md`, `docs/templates/PRD_Template.md`.
@@ -274,12 +289,15 @@ Also in the repository, outside the February review set: `docs/strategy/Vision_J
 
 | Priority | Document Name | Status | Owner | Target Date | Blocker? |
 |----------|--------------|--------|-------|-------------|----------|
-| **P0** | Data_Model_Schema.md | ✅ **FROZEN v1.2.1** | Alfred | Week 1 Day 1-3 | 🔴 YES |
-| **P0** | Tech_Spec_Financial_Transaction_Safety.md | ✅ **FROZEN v1.1** | Alfred | Week 1 Day 4-5 | 🔴 YES |
-| **P0** | Tech_Spec_Consent_Manager.md | ✅ **FROZEN v1.1** | Alfred | Week 2 Day 1-2 | 🔴 YES |
-| **P0** | Tech_Spec_Module_Registry.md | 📝 **DRAFT v1.0** — two-reviewer round + freeze pending | Alfred | Week 2 Day 3-4 | 🔴 YES |
-| **P0** | Runbook_DPI_Rate_Limits.md | ✅ **FROZEN v1.1** | Alfred | Week 2 Day 5 | 🔴 YES |
-| **P0 (late)** | Security_Threat_Model.md | ❌ Not Started | TBD | Week 3 (before first external integration) | 🔴 YES |
+| **P0** | Data_Model_Schema.md | 🔄 **v1.3 revision** — Codex review round 2 pending, then re-freeze (v1.2.1 was frozen) | Alfred | 2026-09-17 | 🔴 YES |
+| **P0** | Tech_Spec_Financial_Transaction_Safety.md | ✅ **FROZEN v1.2** | Alfred | 2026-09-17 | 🔴 YES |
+| **P0** | Tech_Spec_Consent_Manager.md | ✅ **FROZEN v1.2** | Alfred | 2026-09-17 | 🔴 YES |
+| **P0** | Tech_Spec_Module_Registry.md | 🔄 **v1.1** — review round 1 applied (MR §13); Codex round 2 pending, then freeze | Alfred | 2026-09-17 | 🔴 YES |
+| **P0** | Runbook_DPI_Rate_Limits.md | ✅ **FROZEN v1.2** | Alfred | 2026-09-17 | 🔴 YES |
+| **P1** | Security_Threat_Model.md | ❌ Not Started (moved from late-P0 on 2026-09-17; scope in NFR v2.2 §9) | Claude Code | Before any internet-facing deployment (Roadmap Phase 4) | 🟠 High |
+| **P1** | PRD_Module_Secure_Vault.md / PRD_Module_Finance.md / PRD_Module_Health.md | 📝 **DRAFT v0.1** (2026-09-17) — founder review pending | Alfred (with Claude Code) | Roadmap Phase 1 | 🟠 High |
+| **P1** | Roadmap.md / Execution_Plan.md / GTM_Plan.md | 📝 **DRAFT v0.1** (2026-09-17) — dates and scopes pending founder confirmation | Alfred (with Claude Code) | 2026-09-18 | 🟠 High |
+| **P1** | Local_Agent_Setup.md (docs/reference) | ✅ Guide written 2026-09-17; smoke-test results to be recorded | Alfred | 2026-09-18 | ⚪ |
 | **P1** | UX_Error_Message_Library.md | ❌ Not Started | TBD | Week 3 | 🟠 High |
 | **P1** | Tech_Spec_Supervisor_Concurrency_Control.md | ❌ Not Started | TBD | Week 3 | 🟠 High |
 | **P1** | Tech_Spec_Simulator_Architecture.md | ❌ Not Started | TBD | Week 3 | 🟠 High |
@@ -293,31 +311,36 @@ Also in the repository, outside the February review set: `docs/strategy/Vision_J
 | **P3** | Testing_Strategy.md | ❌ Not Started | TBD | Week 4 | 🔵 Low |
 | **P3** | API_Documentation.md | ❌ Not Started | TBD | Week 6 | 🔵 Low |
 | **P4** | User_Onboarding_Flow.md | ❌ Not Started | TBD | Post-MVP | ⚪ Nice to Have |
-| **P4** | Marketing_GTM_Strategy.md | ❌ Not Started | TBD | Post-MVP | ⚪ Nice to Have |
+| **P4** | Marketing_GTM_Strategy.md | ➡️ Superseded by GTM_Plan.md (portfolio mode); commercial GTM remains Master Context §14 | — | — | ⚪ |
 
 ---
 
 ## ⚠️ Cross-Document Inconsistency Register
 
-Found during the 2026-09-16 consolidation by reading every document end to end. Nothing was resolved during consolidation: the frozen specs were converted verbatim. Each item needs an explicit decision recorded as a version bump in the owning document. Implementers must not pick silently. Abbreviations: DM = Data_Model_Schema, FTS = Tech_Spec_Financial_Transaction_Safety, CM = Tech_Spec_Consent_Manager, RB = Runbook_DPI_Rate_Limits, MR = Tech_Spec_Module_Registry, MC = Master_Context.
+Found during the 2026-09-16 consolidation by reading every document end to end; resolved or annotated on 2026-09-17 after the founder's rulings. Abbreviations: DM = Data_Model_Schema, FTS = Tech_Spec_Financial_Transaction_Safety, CM = Tech_Spec_Consent_Manager, RB = Runbook_DPI_Rate_Limits, MR = Tech_Spec_Module_Registry, MC = Master_Context. Implementers must not pick a side on any item marked open; add new conflicts as rows.
 
-| # | Topic | Where they disagree | Recommended resolution | Owner / target |
+| # | Topic | The conflict (as found) | Resolution | Status |
 |---|---|---|---|---|
-| 1 | **Resource lock storage** (blocks implementation) | DM §3.7 and Q7: the lock is `supervisor_sessions.resource_lock` (VARCHAR) with a partial unique index. FTS §2.3, §4.3, §6.3, §6.4, §9.2, §11.3 and the Build Gate assume a separate `resource_lock` table (`family_id, resource_key, session_id, acquired_by, acquired_at, released_at`, `DELETE FROM resource_lock …`). MR §7.3 cites "unique partial index per Data Model §3.7". | Decide in DM v1.3. A separate table fits FTS §9.3 stale-lock detection (locks outliving sessions) and the Build Gate target "resource_lock table"; if chosen, add DDL with `UNIQUE (family_id, resource_key) WHERE released_at IS NULL` and rewrite Q7. Otherwise rewrite FTS to the column. | Alfred / DM v1.3 |
-| 2 | **Session column names** (blocks implementation) | DM §3.7: `fsm_state`. FTS and CM: `session_status`. FTS also reads/writes `intent_type` (§5.3), `bbps_transaction_ref_id`, `healer_poll_count`, `session_notes` (§6.4) — none exist in DM. | Standardise on the DM name or migrate; add the four columns (or place them in `intent_payload` JSONB) in DM v1.3. | Alfred / DM v1.3 |
-| 3 | **Role vocabulary** (blocks implementation) | DM §3.2 and MC §6.1 store `admin, spouse, child, elder, staff, managed, passive`. MR §4.1 `allowed_roles` enum and PRD v2.1 (per this tracker) use `admin, member, minor, elder, staff, managed, passive`. CM §2.5 uses upper-case `MINOR / ADMIN / MEMBER` and says `family_relationships.role` (role lives on `users`). | DB values are frozen: keep them and define the mapping (`member`↔`spouse`, `minor`↔`child`) in MR and CM, or migrate the CHECK constraint in DM v1.3 and update Q1, Q2 and seed data. | Alfred / MR v1.1 + DM v1.3 |
-| 4 | Agent transport and deployment | MC §3.3–3.4: REST + JWT between agents, RabbitMQ, Docker + Kubernetes. MR §2 (draft): in-process modular monolith with a JSON envelope, Postgres `offline_task_queue` for async, no K8s or RabbitMQ in Phase 1. | Freeze MR, then back-annotate MC as v2.1 (MR §2.3 asks for this). The Master_Context.md header already carries a note. | Alfred / MC v2.1 |
-| 5 | Circuit-breaker thresholds | NFR §3 (confirmed): "If BBPS fails 3 times consecutively … 30 minutes". MC §3.4: "5 consecutive failures → 30 min" per module. PRD §4.6: "If a Module fails >5 times in 1 minute … trips the circuit". RB §8.2: per-DPI (AA/BBPS 3 → 30 min, ABHA 3 → 20 min, Bhashini 5 → 10 min). MR §6.5: two layers (DPI gateway vs module breaker). | Adopt MR's two-layer reading; annotate NFR §3, PRD §4.6 and MC §3.4 (the NFR_Specs.md header already carries the note). | Alfred / NFR + PRD + MC v2.1 |
-| 6 | Audit hash formula | MC §6.1 keeps a DB CHECK on `SHA256(timestamp‖user_id‖action‖previous_hash)`. DM §3.6 removed the CHECK and defines `SHA256(log_id‖user_id‖action‖canonical_details‖previous_hash)` computed in application code with canonical JSON. | DM wins (frozen, twice reviewed). MC §6 marked superseded in the Master_Context.md header; fold into MC v2.1. | Alfred / MC v2.1 |
-| 7 | Audit action codes | DM §6 (21 codes): `BILL_PAYMENT_INITIATED / SUCCESS / FAILED`, `CONSENT_GRANTED / RENEWED / REVOKED`, … FTS writes `BILL_PAYMENT_EXECUTED`, `BILL_PAYMENT_ZOMBIE_FAILED`, `BILL_PAYMENT_HEALER_FAILED_CONFIRMATION`, `BILL_PAYMENT_REFUND_INITIATED / COMPLETED`, `ADMIN_SESSION_OVERRIDE`. RB writes `VOICE_ASR_LOW_CONFIDENCE` and queries `VOICE_INTENT_PROCESSED` (§10.3, which also uses `created_at` although `audit_log` has `timestamp`). CM §4.4 adds ten codes (`CONSENT_WITHDRAWN`, `CONSENT_REVOKED_EXTERNAL`, …). MR §11 adds `MODULE_MANIFEST_DRIFT`, `MOD_CALLGRAPH_VIOLATION`, `ROLE_VIOLATION`. | DM v1.3 taxonomy = union of all; decide `BILL_PAYMENT_SUCCESS` vs `BILL_PAYMENT_EXECUTED`; typed payload model per code (already escalated in the parking lot) in Tech_Spec_Audit_Log_Implementation.md. | Alfred / DM v1.3 + Audit Log spec |
-| 8 | Healer cadence | FTS §6.1: every 5 minutes. DM §7.4 comment: "every 15 minutes (same cadence as Healer)". FSM v2.1 placeholder: 15 minutes. | 5 minutes is authoritative (FTS). Fix the DM §7.4 comment in v1.3. | Alfred / DM v1.3 |
-| 9 | Biometric threshold | NFR §2.2 (confirmed): required for any transaction > ₹2,000 or any PII export (MR §4.1 floor = 200000 paise). FTS §1.3: "every bill payment above ₹100" — the ₹100 figure comes from FSM §2, where "Pay Bill > ₹100" is the Level 1 example and "Replenish Milk (<₹100)" the Level 2 example, i.e. it marks the automation-tier boundary, not a biometric rule. FTS §2.2 gate G4: required for all BBPS payments, all amounts. | G4 (all BBPS payments) is operative for bill pay; manifests may only lower a threshold. Reconcile FTS §1.3 wording with FSM §2 and NFR §2.2 in FTS v1.2. | Alfred / FTS v1.2 |
-| 10 | `offline_task_queue.status = 'cancelled'` | CM §8.2 Step 4 sets `cancelled`; DM §3.9 CHECK allows only `pending, processing, succeeded, failed_permanent`. | Add `cancelled` to the CHECK (migration) in DM v1.3, or use `failed_permanent` with `last_error = 'CONSENT_REVOKED'`. | Alfred / DM v1.3 |
-| 11 | `fetch_count_today` semantics | DM §3.5 and §7.3: daily counter reset at midnight UTC; Q6 compares it to the hourly AA limit (`>= 3`). RB §2–3: hourly enforcement in Redis; the DB column is the persistent record used for renewal inheritance (CM §7.3). Parking lot notes the rolling-window question. | State in RB §3.1 that Redis is the enforcement source and the DB column is persistence/advisory; drop or reword the Q6 `>= 3` check. Verify the Sahamati window after the FIU licence. | Alfred / RB v1.2 + DM v1.3 |
-| 12 | Tables defined outside the Data Model | CM §4 adds `consent_records`, `consent_ui_disclosures` and the `enforce_dpi_handle` trigger. MR §5 adds `core.module_registry`, `core.intent_routes`, `core.family_module_activations` and the kernel views (`v_family_members`, `v_module_permissions`, `v_active_consents`, `v_device_surfaces`; MR OI-2). DM v1.2.1 still says "10 core tables". | Fold everything into DM v1.3 as the single DDL source (backward-compatible additions, one Alembic migration each). | Alfred / DM v1.3 |
-| 13 | Module Registry date | MR governance table says 2026-07-03; every other document says 2026-02-21; the pre-consolidation tracker listed MR as "Not Started". | Authored date left as is; tracker corrected in this update. | Done |
-| 14 | ~~Missing foundational documents~~ | PRD Core v2.1, Supervisor FSM v2.1, NFR v2.1 and Vision Parking Lot v2.0 were cited throughout but absent from the repository. | ✅ Recovered on 2026-09-16 from the claude.ai project; now under `docs/` (see "Recovered Documents"). | Done |
-| 15 | Resource-lock scope | PRD §6 (Concurrent Intents): "One active EXECUTION state per Resource … per user". FTS §9.4: the lock is scoped per *family* (Admin A paying BESCOM blocks the Spouse paying BESCOM). | FTS (frozen) is authoritative; annotate PRD §6 at its next revision. Related to item 1. | Alfred / PRD v2.2 |
+| 1 | Resource lock storage | DM §3.7 column vs FTS §9 separate table | Founder ruling: dedicated table. DM v1.3 §3.11 (`resource_lock` with released_at/release_reason, partial unique index); Q7 rewritten; FTS v1.2 §9.2 note maps `DELETE` to the release UPDATE; MR v1.1 §7.3 updated. | ✅ Resolved 2026-09-17 |
+| 2 | Session column names | DM `fsm_state` vs FTS/CM `session_status`; four columns missing | Founder ruling: keep `fsm_state`, add columns. DM v1.3 §3.7 adds intent_type, bbps_transaction_ref_id, healer_poll_count, session_notes; FTS v1.2 and CM v1.2 renamed throughout. | ✅ Resolved 2026-09-17 |
+| 3 | Role vocabulary | DM/MC spouse, child vs PRD/MR member, minor vs CM upper-case | Founder ruling: rename the DB now. DM v1.3 §3.2, §4, Q1, Q2, §8 use admin, member, minor, elder, staff, managed, passive; CM v1.2 lowercase; MC v2.1 §2.2 note. | ✅ Resolved 2026-09-17 |
+| 4 | Agent transport and deployment | MC §3.3–3.4 REST/JWT/RabbitMQ/K8s vs MR §2 monolith | MC v2.1 §3.3–3.4 annotated for the Phase 1 monolith. | ✅ Annotated 2026-09-17 |
+| 5 | Circuit-breaker thresholds | NFR 3 vs MC/PRD 5 | Two layers (DPI gateway vs module). Notes in NFR v2.2 §3, PRD v2.2 §4.6, MC v2.1 §3.4; MR §6.5 unchanged. | ✅ Annotated 2026-09-17 |
+| 6 | Audit hash formula | MC §6.1 DB CHECK vs DM §3.6 app-computed | MC v2.1 §6 defers to DM; DM v1.3 clarifies NULL previous_hash → '' and adds the write protocol (§3.18). | ✅ Resolved 2026-09-17 |
+| 7 | Audit action codes | Different sets across DM, FTS, RB, CM, MR | DM v1.3 §6 is the union (40 codes); BILL_PAYMENT_SUCCESS → BILL_PAYMENT_EXECUTED, CONSENT_REVOKED → CONSENT_WITHDRAWN; RB v1.2 §10.3 query fixed. Typed payloads still P1 (Audit Log spec). | ✅ Resolved 2026-09-17 |
+| 8 | Healer cadence | 5 min (FTS) vs 15 min (DM §7.4 comment, FSM §1.4) | DM v1.3 §7.4 runs every 5 minutes and no longer aborts EXECUTION sessions (latent bug found in the same pass); FSM §1.4 header note already marks the placeholder as superseded. | ✅ Resolved 2026-09-17 |
+| 9 | Biometric threshold | NFR ₹2,000 vs FTS ₹100 vs FTS G4 all amounts | G4 is operative for BBPS; ₹100 is the FSM tier boundary. FTS v1.2 §1.3 reworded; NFR v2.2 §2.2 layering note; MR v1.1 PAY_BILL example = 0. | ✅ Resolved 2026-09-17 |
+| 10 | `offline_task_queue.status = 'cancelled'` | CM used it; DM CHECK lacked it | DM v1.3 §3.9 adds 'cancelled'; CM v1.2 comment. | ✅ Resolved 2026-09-17 |
+| 11 | `fetch_count_today` semantics | DM daily counter/Q6 check vs RB hourly Redis enforcement | DM v1.3 §3.5, Q6, §7.3 and RB v1.2 §3.1: Redis enforces, the column is bookkeeping for renewal inheritance and audit. | ✅ Resolved 2026-09-17 |
+| 12 | Tables defined outside the Data Model | consent_records, disclosures, registry tables, views | All folded into DM v1.3 §3.12–3.17 (expiry index renamed idx_consent_records_expiry); CM v1.2 and MR v1.1 point at it as the DDL source. | ✅ Resolved 2026-09-17 |
+| 13 | Module Registry date | 2026-07-03 vs 2026-02-21 elsewhere | Authored date kept; tracker corrected. | ✅ Done 2026-09-16 |
+| 14 | Missing foundational documents | PRD Core, FSM, NFR, Vision Parking Lot absent | Recovered from the claude.ai project; now under docs/. | ✅ Done 2026-09-16 |
+| 15 | Resource-lock scope | PRD §6 per user vs FTS §9.4 per family | PRD v2.2 §6 now says per family; PRD §9 keeps a note for a possible per-user case (payer identity in the key) to decide during the Finance PRD review. | ✅ Annotated; follow-up open |
+| 16 | *(found 2026-09-17)* `requires_consent_providers` listed bbps and bhashini | No such consent handles exist; PAY_BILL could never pass the gate | MR v1.1 narrowed the enum to aa, abha, digilocker, ondc; DM v1.3 added 'ONDC' to consent_handles.provider so ONDC_ADDRESS_SHARE can be gated. | ✅ Resolved 2026-09-17 |
+| 17 | *(found 2026-09-17)* `MOD_EXECUTION_UNCONFIRMED` sent sessions to FAILED | Healer sweeps only EXECUTION; unconfirmed payments would vanish from recovery | MR v1.1 §9: session stays in EXECUTION with the lock held; Healer resolves. | ✅ Resolved 2026-09-17 |
+| 18 | *(found 2026-09-17)* `core.fn_append_audit` undefined and would have moved hashing into the DB | Contradicted DM §3.6 (app-computed, canonical JSON) | DM v1.3 §3.18 two-function protocol; MR v1.1 §7.2 grants both. | ✅ Resolved 2026-09-17 |
+
+Open follow-ups: (a) Codex review round 2 of DM v1.3 and MR v1.1, then re-freeze; (b) item 15's per-user case, decided in the Finance module PRD review.
 
 ---
 
@@ -337,7 +360,7 @@ Found during the 2026-09-16 consolidation by reading every document end to end. 
 #### ~~4. DPI Rate Limit Budget Missing~~ ✅ RESOLVED (Runbook_DPI_Rate_Limits_v1.1 — FROZEN)
 **Resolved by:** Runbook_DPI_Rate_Limits_v1.1.docx (Feb 2026). Two independent reviews. R1: 8.8/10, 4 required fixes. R2: A+, 2 refinements. Eight hardening fixes applied: AA hourly TTL corrected to seconds_until_next_hour_ist(), BBPS Redis-failure changed to fail-closed (financial execution gate), environment prefix on all Redis keys (prevents staging→prod state corruption), AA coalescing timeout now emits log.warning + dpi.aa.coalescing_timeout metric, Bhashini low-confidence ASR writes VOICE_ASR_LOW_CONFIDENCE audit event, ONDC seller blacklist progressive expiry (1h first offence → 24h on 3rd in 24h), jitter on exponential backoff, per-family Bhashini auto soft-throttle at 100 calls/day (10% of org budget). Architecture frozen.
 
-#### 5. Module Communication Protocol — 📝 DRAFTED, NOT YET FROZEN (Tech_Spec_Module_Registry v1.0)
+#### 5. Module Communication Protocol — 🔄 v1.1 AFTER REVIEW ROUND 1; ROUND 2 PENDING (Tech_Spec_Module_Registry)
 **Issue:** PRD mentions "sandboxing" but no spec for inter-module communication
 **Risk:** Cannot implement module isolation or data bridging
 **Impact:** Blocks Phase 2 (module expansion)
@@ -348,10 +371,11 @@ Found during the 2026-09-16 consolidation by reading every document end to end. 
 - [x] Choose isolation mechanism — code + DB-role + runtime layers, no containers in Phase 1 (MR §7)
 - [x] Define module data access control rules — schema-per-module, whitelisted kernel views (MR §7.2)
 - [x] Specify module registration flow — MR §8
-- [ ] Two independent reviewer rounds, apply fixes, freeze as v1.1
-- [ ] Back-annotate Master Context §3.3–3.4 (architecture deviation) and NFR (3-vs-5 breaker layers) once frozen
-- [ ] Resolve MR open issues OI-1..OI-5 (OI-2: `v_module_permissions` DDL belongs in Data Model v1.3)
-- [ ] Settle Inconsistency Register item 3 (role vocabulary in `allowed_roles`)
+- [x] Review round 1 (Claude Code, 2026-09-17): seven fixes applied → v1.1, log in MR §13
+- [ ] Review round 2 (Codex), apply fixes, freeze
+- [x] Back-annotate Master Context §3.3–3.4 and NFR §3 (done 2026-09-17: MC v2.1, NFR v2.2)
+- [x] OI-2 closed by Data Model v1.3 §3.16–3.17; OI-1, OI-3, OI-4, OI-5 remain open in MR §12
+- [x] Inconsistency Register item 3 settled (Data Model v1.3 uses the PRD/MR role names)
 **Owner:** Alfred
 **Deadline:** Before the Phase 1 Build Gate opens
 
@@ -395,7 +419,7 @@ Found during the 2026-09-16 consolidation by reading every document end to end. 
 **Owner:** TBD  
 **Deadline:** Week 4 (Tech_Spec_Audit_Log_Implementation.md)
 
-#### 8b. Security Threat Model Missing *(Escalated from P1 → late-P0)*
+#### 8b. Security Threat Model Missing *(P1 since 2026-09-17; was late-P0 — see Decision Log)*
 **Issue:** System handles DPI webhooks, health data, financial execution, and biometric auth — but no formal adversarial model exists  
 **Risk:** First external DPI integration creates attack surface that hasn't been mapped  
 **Impact:** Undiscovered privilege escalation, webhook forgery, or Redis poisoning in production  
@@ -410,7 +434,7 @@ Found during the 2026-09-16 consolidation by reading every document end to end. 
 - [ ] Document Redis poisoning scenario (corrupted session state — what's the blast radius?)
 - [ ] Map DPDP Act breach notification obligations against each threat scenario  
 **Owner:** TBD  
-**Deadline:** Week 3 — must be complete before any external DPI integration begins (Security_Threat_Model.md)
+**Deadline:** before any internet-facing deployment, demo included (Roadmap Phase 4); scope fixed in NFR v2.2 §9 (Security_Threat_Model.md)
 
 ---
 
@@ -799,13 +823,15 @@ Found during the 2026-09-16 consolidation by reading every document end to end. 
 *Defined by Reviewer 1 (CTO-mode review, Feb 2026). These are the specific crash scenarios that must pass before any new feature docs are written. This gate converts "architecturally coherent" to "actually ships."*
 
 **Pre-conditions (P0 docs that must exist first):**
-- [x] Data_Model_Schema v1.2.1 — FROZEN
-- [x] Tech_Spec_Financial_Transaction_Safety v1.1 — FROZEN
-- [x] Tech_Spec_Consent_Manager.md — FROZEN v1.1
-- [x] Runbook_DPI_Rate_Limits.md — FROZEN v1.1
-- [ ] Tech_Spec_Module_Registry.md — DRAFT v1.0 (review + freeze pending)
-- [ ] Inconsistency Register items 1–3 resolved (resource lock storage, session columns, role vocabulary) — the build targets below cannot be coded unambiguously until then
-- [x] PRD Core v2.1, Supervisor FSM v2.1 and NFR v2.1 recovered into the repository (2026-09-16)
+- [x] Data_Model_Schema v1.3 written (2026-09-17) — Codex review round 2 pending, then re-freeze
+- [x] Tech_Spec_Financial_Transaction_Safety v1.2 — FROZEN
+- [x] Tech_Spec_Consent_Manager v1.2 — FROZEN
+- [x] Runbook_DPI_Rate_Limits v1.2 — FROZEN
+- [x] Tech_Spec_Module_Registry v1.1 — review round 1 applied; Codex round 2 pending, then freeze
+- [x] Inconsistency Register items 1–3 resolved in Data Model v1.3 (2026-09-17)
+- [x] PRD Core v2.2, Supervisor FSM v2.1 and NFR v2.2 in the repository and aligned
+- [ ] Codex review round 2 complete; both documents frozen
+- [ ] Tooling installed on the founder's machine (Docker Desktop, Codex CLI, Ollama models, Antigravity)
 
 **Infrastructure to build (Docker Compose — no more, no less):**
 - [ ] PostgreSQL (with all 10 schema tables from Data Model v1.2.1)
@@ -830,7 +856,7 @@ Found during the 2026-09-16 consolidation by reading every document end to end. 
 **Playwright E2E test (1 test, must pass):**
 - [ ] "Priya pays BESCOM bill" — full flow: voice intent → RBAC → resource lock → AA balance fetch → biometric approval → CONSENT_REVERIFY → BBPS call → Phase 2 commit → push notification → lock release → audit log verified
 
-**Gate status: 🔴 BLOCKED** (Module Registry not yet frozen; Inconsistency Register items 1–3 open)
+**Gate status: 🔴 BLOCKED** (Codex review round 2 of Data Model v1.3 and Module Registry v1.1 pending; tooling installation pending). Work packages for the gate are WP-xx in `docs/Execution_Plan.md`.
 
 ### Technology Decisions (Weeks 3-5)
 - **Testing Framework Choice:** Jest vs Vitest for unit tests? (Week 4 decision)
@@ -864,7 +890,7 @@ Found during the 2026-09-16 consolidation by reading every document end to end. 
 
 ## 🗓️ Milestone Tracker
 
-> ⚠️ The week and month numbering below was set on 2026-02-21 and has not been re-baselined. As of 2026-09-16 development has not started. Treat these as a sequence, not as dates, until the timeline is re-planned.
+> ⚠️ The week and month numbering below was set on 2026-02-21 and is historical. The current plan with dates is `docs/strategy/Roadmap.md` (draft v0.1, 2026-09-17, pending the founder's confirmation); the work breakdown is `docs/Execution_Plan.md`. This section is kept for the record.
 
 ### Month 1: Documentation & Architecture
 - **Week 1:** Complete 5 Priority 0 documents (Data Model, Financial Safety, Consent Manager, Module Registry, DPI Rate Limits)
@@ -889,63 +915,28 @@ Found during the 2026-09-16 consolidation by reading every document end to end. 
 
 ## 🚀 Next Actions (Immediate)
 
-### **THIS WEEK (Week 1)**
+*(Rewritten 2026-09-17. The detailed sequence is `docs/Execution_Plan.md`, Phase 0 and Phase 1.)*
 
-#### **Day 1-3: Create Data_Model_Schema.md** 🔴 CRITICAL
-- [ ] Complete ERD (Entity-Relationship Diagram)
-- [ ] Define all 6 database tables with full DDL
-- [ ] Specify all foreign keys, constraints, indexes
-- [ ] Define graph traversal queries (find family members, check permissions)
-- [ ] Add cardinality enforcement rules
-- [ ] Include sample queries for common operations
+### Founder — 2026-09-18
+- [ ] Install Docker Desktop (WSL 2 backend), Codex CLI (`npm install -g @openai/codex`, then `codex login`), pull `qwen3.5:9b` (and optionally `qwen3.6:35b`), set the Ollama environment variables, copy `tools/codex-config.example.toml` to `~/.codex/config.toml`, set up Antigravity. Guide: `docs/reference/Local_Agent_Setup.md`.
+- [ ] Run the three local-agent smoke tests and record tokens/s in the Decision Log row for the local agent stack.
+- [ ] Confirm or adjust: Roadmap dates, the module PRD scopes, the default hosted LLM provider.
 
-**Starting point:** Master Context v2.0 Section 6.1 has PostgreSQL schema - expand into full spec with detailed comments, examples, and query patterns
+### Claude Code — after the founder's confirmation
+- [ ] Seed the Phase 0 and Phase 1 issues from `docs/Execution_Plan.md` (issue-seeding appendix), one `agent:*` label each.
+- [ ] Draft `Tech_Spec_Simulator_Architecture.md` (P1) — the Build Gate's WireMock scenarios need it before Codex starts.
 
----
+### Codex — first tasks once logged in
+- [ ] Review round 2: `docs/specs/Data_Model_Schema.md` v1.3 and `docs/specs/Tech_Spec_Module_Registry.md` v1.1 (MR §13 lists what round 2 should focus on). Open a PR per document with findings; Claude Code applies fixes; freeze.
+- [ ] Repo scaffolding WP: uv project, ruff, import-linter contract, CI workflow.
 
-#### **Day 4-5: Create Tech_Spec_Financial_Transaction_Safety.md** 🔴 CRITICAL
-- [ ] Define two-phase commit protocol (payment + audit log)
-- [ ] Specify transaction state machine (INITIATED → PENDING → CONFIRMED → SETTLED)
-- [ ] Define zombie detection algorithm (cron job every 5 minutes)
-- [ ] Specify external API polling (UPI/BBPS status check)
-- [ ] Define automatic refund trigger conditions
-- [ ] Create manual intervention escalation path
-- [ ] Add rollback/compensation pseudocode
+### Gemini (Antigravity) — first tasks
+- [ ] WireMock stub JSON for AA and BBPS from Runbook §9 and the simulator spec, once it exists.
+- [ ] Alembic V001 draft from Data Model v1.3 (reviewed by Codex).
 
-**Starting point:** PRD Section 4.7 mentions Background Reconciliation as placeholder - now make it production-ready
-
----
-
-### **NEXT WEEK (Week 2)**
-
-#### **Day 1-2: Create Tech_Spec_Consent_Manager.md** 🔴 CRITICAL
-- [ ] Define consent_handles table schema (if not already in Data Model)
-- [ ] Specify grant/renewal/revocation flows with sequence diagrams
-- [ ] Implement CONSENT_REVERIFY state logic
-- [ ] Create consent expiry watchdog cron job spec
-- [ ] Define revocation propagation (purge cached data)
-- [ ] Add AA/ABHA consent format examples
-
----
-
-#### **Day 3-4: Create Tech_Spec_Module_Registry.md** 🔴 CRITICAL
-- [ ] Define module manifest JSON schema
-- [ ] Specify communication protocol (REST/gRPC/Event Bus)
-- [ ] Choose isolation mechanism (Docker/Process/DB-level)
-- [ ] Define module data access control rules
-- [ ] Specify module registration and discovery flow
-- [ ] Add example module implementations
-
----
-
-#### **Day 5: Create Runbook_DPI_Rate_Limits.md** 🔴 CRITICAL
-- [ ] Comprehensive rate limit table for all DPIs (AA, BBPS, ABHA, ONDC, Bhashini)
-- [ ] Request coalescing system design
-- [ ] Backpressure handling strategy
-- [ ] Circuit breaker configuration (thresholds, timeouts, exponential backoff)
-- [ ] Monitoring and alerting setup (when approaching limits)
-
----
+### Local agent — first tasks
+- [ ] `tracker sync` issue: keep the Document Status Matrix in step with document headers.
+- [ ] Docstrings and lint pass on `tools/`.
 
 ## 📊 Success Metrics Dashboard (To Be Built)
 
