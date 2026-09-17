@@ -1573,6 +1573,8 @@ INSERT INTO family_relationships (family_id, from_user_id, to_user_id, relations
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', 'spouse'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000003', 'parent'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000001', 'child'),
+  ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000003', 'parent'),  -- Priya → Arjun (v1.3 change 16: v_guardians needs both parents)
+  ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000002', 'child'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000004', 'child'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000004', 'b0000000-0000-4000-8000-000000000001', 'parent'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000005', 'employer'),
@@ -1673,7 +1675,7 @@ No database has been created yet, so `V001__initial_schema` is authored directly
 | 12 | fetch_count_today is bookkeeping; Redis is the enforcement point | §3.5, Q6, §7.3 | Item 11 |
 | 13 | Seed identifiers are valid UUIDs; SYSTEM family/actor, activations and a sample consent seeded | §8 | v1.3 review |
 | 14 | All kernel objects live in schema `core`; module schemas per module | §1.1, §9.3 | MR §7.2 |
-| 16 | family_relationships gains 'guardian' / 'ward'; new kernel view v_guardians (parents and legal guardians of minors, proxies of managed profiles, with proxy rank, conflict rule and timeout) | §3.3, §3.17 | Founder ruling 2026-09-17 on Vault visibility for minors; also closes Health PRD OI-4 |
+| 16 | family_relationships gains 'guardian' / 'ward'; new kernel view v_guardians (parents and legal guardians of minors, proxies of managed profiles, with proxy rank, conflict rule and timeout); seed gains the Priya ↔ Arjun parent/child edges | §3.3, §3.17, §8 | Founder ruling 2026-09-17 on Vault visibility for minors; also closes Health PRD OI-4 |
 | 15 | consent_records.proxy_consent_user_id + idx_consent_proxy; action PROXY_CONSENT_GRANTED (taxonomy is now 41 codes) | §3.12, §6 | Founder ruling 2026-09-17 on Health PRD OI-2; CM v1.3 §2.6 |
 
 Consequential edits made the same day in other documents: FTS v1.2 (`fsm_state` naming; lock release semantics), Consent Manager v1.2 (`fsm_state`; lowercase role values; 'cancelled'; ONDC provider; DDL now lives here), Module Registry v1.1 (registry DDL, kernel views and audit functions now live here; consent-provider enum narrowed), Runbook v1.2 (fetch_count_today semantics). Review round 2 by Codex covers this document and the Module Registry together.
