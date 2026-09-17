@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** module PRDs v0.1, Roadmap §9, Execution Plan §9
 - **Expected of you:** answer
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -33,3 +33,12 @@ The same list was given in chat at the end of the 2026-09-17 session, with expla
 
 ## Reply
 
+2026-09-17, founder (given in chat, recorded by Claude Code):
+
+1. Agreed as the **default**; visibility must be customisable, how and how far to be decided when the section is detailed.
+2. Agreed as the **default**; recipients and timing adjustable, details when needed.
+3. Agreed. Done: Consent Manager v1.3 §2.6, Data Model v1.3 change 15.
+4. Yes. Milestones and the Phase 0–1 issues created.
+5–10. Agreed, adjustable where applicable: the MISSED threshold is a setting; the elder balance-check grant goes through `role_module_permissions` (MR round 2); no override of a blocked balance check stays fixed because it is a safety gate.
+
+All of it is in the tracker's Decision Log, including the general principle "recommended values are defaults, not constants; safety gates are never settings".

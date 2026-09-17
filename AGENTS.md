@@ -50,14 +50,14 @@ Everything current lives under `docs/`. Everything historical lives under `archi
 | `docs/Execution_Plan.md` | Work packages WP-xx in dependency order with owner agent, reviewer, verification and issue seeds | **DRAFT v0.2** |
 | `docs/strategy/GTM_Plan.md` | Portfolio-mode go-to-market: audience, positioning, artefacts, demo script; commercial GTM stays in Master Context §14 | **DRAFT v0.2** |
 | `docs/strategy/Vision_Parking_Lot.md` | Deferred capabilities with trigger conditions: blockchain audit log, live spatial reasoning, sub-800 ms latency, hardware presence, voting, future modules | v2.0 reference (recovered 2026-09-16) |
-| `docs/specs/Data_Model_Schema.md` | Kernel schema `core`: 16 tables, 4 views, audit write functions, 12 operational queries, 40-code audit taxonomy, lifecycle jobs, seed data, v1.3 change summary | **v1.3 — revision in review** (Codex round 2), then re-freeze. v1.2.1 was frozen |
+| `docs/specs/Data_Model_Schema.md` | Kernel schema `core`: 16 tables, 4 views, audit write functions, 12 operational queries, 41-code audit taxonomy, lifecycle jobs, seed data, v1.3 change summary | **v1.3 — revision in review** (Codex round 2), then re-freeze. v1.2.1 was frozen |
 | `docs/specs/Tech_Spec_Financial_Transaction_Safety.md` | Payment gates, two-phase commit, idempotency, the Healer, zombie recovery, refunds, FIN error codes | **FROZEN v1.2** (v1.1 protocol; names aligned with Data Model v1.3) |
-| `docs/specs/Tech_Spec_Consent_Manager.md` | DPDP-native consent framework, purpose registry, `consent_records`, CONSENT_REVERIFY, DPI adapters, expiry watchdog, revocation, webhook security | **FROZEN v1.2** (v1.1 behaviour; names aligned with Data Model v1.3) |
+| `docs/specs/Tech_Spec_Consent_Manager.md` | DPDP-native consent framework, purpose registry, `consent_records`, CONSENT_REVERIFY, DPI adapters, expiry watchdog, revocation, webhook security | **v1.3 — frozen v1.2 text plus one addition** (§2.6 proxy consent for managed profiles) awaiting Codex round 2 |
 | `docs/specs/Tech_Spec_Module_Registry.md` | Module manifest schema, Supervisor→module dispatch envelope, tiers, isolation model, registration, error taxonomy, review log | **v1.1 — review round 1 applied**; round 2 (Codex) pending; freezes on approval. Last P0 doc before the build gate |
 | `docs/specs/Tech_Spec_Supervisor_State_Machine.md` | Supervisor FSM (state diagram, state definitions, persistence, Healer placeholder), automation tiers, TTL policy, idempotency keys | **v2.1 — canonical** (recovered 2026-09-16); implementation depth lives in the frozen P0 specs |
 | `docs/specs/NFR_Specs.md` | Latency budgets, encryption, authentication, idempotency and rate-limit mandates, DPI circuit breaker, telemetry, compliance, scalability targets, disaster recovery, degradation order | **v2.2 — canonical** |
 | `docs/runbooks/Runbook_DPI_Rate_Limits.md` | Rate limits for all five DPIs, Redis budget tracker, circuit breakers, coalescing, WireMock stubs, on-call runbook | **FROZEN v1.2** (two clarifications) |
-| `docs/reference/Workstation_Setup.md` | What to install and sign in to on the founder's PC (WSL 2, Docker Desktop, Codex CLI, Python 3.12, Antigravity, optional Ollama models) | Guide (WP-01) |
+| `docs/reference/Workstation_Setup.md` | What to install and sign in to on the founder's PC (WSL 2, Docker Desktop; Codex desktop app and Antigravity pointed at the repository; optional Ollama models) | Guide (WP-01) |
 | `docs/reference/Local_Agent_Setup.md` | Local model choice and Ollama tuning for the founder's machine. Local models are sub-agents of Gemini, not a roster member; the Codex CLI harness described there is an optional manual fallback | Reference |
 | `coordination/` | Working protocol (README), `STATUS.md` (who is doing what), `inbox/` (agent-to-agent and agent-to-founder messages), handoff template, Now/Next/Later board | Living |
 | `docs/reference/DPI_Integration_Primer.md` | Early (Jan 2026) DPI cheat sheet: Beckn/ONDC flow, AA entity chain, ABHA/FHIR flow, Bhashini APIs, conflict object | Reference. Its JSON schemas and security notes are superseded by the Data Model and Master Context |
@@ -93,7 +93,7 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 9. The application database never stores raw credentials, tokens, Aadhaar numbers, UPI IDs or account numbers. Only opaque consent handles and UUIDs. Consent travels by reference inside envelopes. (DM §1.1, MC §7, MR §6.1)
 10. `CONSENT_REVERIFY` runs immediately before any external execution, always reads live from the database (never a cache), and fails safe when the DPI cannot be reached. (CM §5)
 11. Consent is granted only by a human via biometric or PIN. The Supervisor may prompt for consent; it can never grant it. (CM §1.3)
-12. Minors need `parental_consent_user_id`; no analytics or behavioural collection for minors. (CM §2.5)
+12. Minors need `parental_consent_user_id`; no analytics or behavioural collection for minors. Managed profiles need `proxy_consent_user_id`: the primary proxy grants on their behalf, the secondary only when the primary is unavailable. (CM §2.5, CM v1.3 §2.6)
 13. On account deletion: abort non-terminal sessions, revoke DPI consents at T+0, keep the 24 h soft-delete window for first-party data only. (CM §2.2)
 14. DPI webhooks are verified (JWS for Sahamati, JWT for ABDM), replay-protected (5-minute window, `txnid`/`jti` cache) and rejected with 503 when the signing keys are unavailable. (CM §9)
 
@@ -188,6 +188,7 @@ The founder, **Shantanu Chaudhary**, decides, merges, and owns credentials, acco
 - The protocol is `coordination/README.md`. Tasks are GitHub issues from the Agent-task template with exactly one `agent:*` label, plus `in-progress` once picked up; work happens on `agent-<name>/issue-<n>` branches; every PR uses the template, carries `needs-review`, and is reviewed by a **different agent** than its author; only the founder merges.
 - **Start every session** by reading your inbox (`coordination/inbox/<you>/`) and `coordination/STATUS.md`. **End every session** by updating your own STATUS section and sending any handoff or question as a message file in the recipient's inbox (template: `coordination/inbox/MESSAGE_TEMPLATE.md`). Review verdicts go on the PR; reviews of non-PR material go in the review issue. Changes that touch only `coordination/STATUS.md` and `coordination/inbox/**` may be committed straight to `main` with a `coord:` subject; everything else goes through a PR.
 - Decisions live in the tracker's Decision Log and are not reopened by agents. New inconsistencies are added to the register, not resolved in code.
+- **Defaults, not constants** (founder ruling 2026-09-17). Where a rule is a family preference (who is reminded and when, who sees which document, when a dose counts as missed), build the recommended value as an adjustable default. Safety gates are never settings: payment gates, consent rules, the public-surface block, audit logging.
 - **No dates, no capacity assumptions** (founder ruling 2026-09-17). Do not write target dates, week numbers, or expected founder hours into any document, issue or milestone. Plans are ordered by dependency and gated by exit criteria. Dates of record (when something was decided or changed) are fine.
 - After each batch of merges, Claude Code syncs `coordination/BOARD.md` from the issues and proposes the next issues from `docs/Execution_Plan.md`.
 
@@ -207,13 +208,13 @@ At the end of every working session with the founder, the agent reports **in the
 Pre-conditions (status 2026-09-17):
 - [x] Data Model v1.3 written (roles, resource lock table, session columns, folded-in tables, audit write protocol) — **Codex review round 2 pending, then re-freeze**
 - [x] Tech_Spec_Financial_Transaction_Safety v1.2 — frozen
-- [x] Tech_Spec_Consent_Manager v1.2 — frozen
+- [x] Tech_Spec_Consent_Manager v1.3 — v1.2 frozen text plus §2.6 (proxy consent), **Codex review round 2 pending**
 - [x] Runbook_DPI_Rate_Limits v1.2 — frozen
 - [x] Tech_Spec_Module_Registry v1.1 — review round 1 applied (7 fixes, §13) — **Codex review round 2 pending, then freeze**
 - [x] PRD Core v2.2, NFR v2.2, Master Context v2.1 — aligned with the specs
 - [x] Module PRDs (Vault, Finance, Health), Roadmap, Execution Plan, GTM Plan — drafted 2026-09-17, founder review pending
 - [ ] Security_Threat_Model.md — P1, before any internet-facing deployment
-- [ ] Tooling on the founder's machine: WSL 2, Docker Desktop, Codex CLI, Python 3.12, Antigravity sign-in (`docs/reference/Workstation_Setup.md`)
+- [ ] Tooling on the founder's machine: WSL 2, Docker Desktop; Codex desktop app and Antigravity opened on the repository (`docs/reference/Workstation_Setup.md`)
 
 Then, in order (details and owners in `docs/Execution_Plan.md`):
 1. Codex review round 2 of Data Model v1.3 and Module Registry v1.1; apply fixes; freeze both. Seed the Phase 0/1 issues.
@@ -230,7 +231,7 @@ There are no target dates (founder ruling 2026-09-17): `docs/strategy/Roadmap.md
 All fifteen items found at consolidation were resolved or annotated on 2026-09-17; the register in `docs/PROJECT_TRACKER.md` records where each landed. In short: Data Model v1.3 settled the resource lock (table), the session columns (`fsm_state` plus four new columns), the role vocabulary (member, minor), the `cancelled` status, the ONDC provider, the action-code taxonomy (union; `BILL_PAYMENT_EXECUTED`, `CONSENT_WITHDRAWN`), the Healer cadence in the cleanup job, and `fetch_count_today` semantics. Master Context v2.1, NFR v2.2, PRD v2.2, FTS v1.2, CM v1.2 and RB v1.2 carry the matching annotations. Module Registry v1.1 fixed its own conflicts with the frozen specs (review log in MR §13).
 
 Still open:
-1. **Re-freeze.** Data Model v1.3 and Module Registry v1.1 are awaiting Codex review round 2. Until then, treat them as the current text but expect small changes.
+1. **Re-freeze.** Data Model v1.3, Module Registry v1.1 and the Consent Manager v1.3 addition (§2.6) are awaiting Codex review round 2. Until then, treat them as the current text but expect small changes.
 2. **Per-user lock case.** PRD v2.2 §6 scopes the resource lock per family. If a genuine per-user case appears (two adults, separate accounts, same biller), the resource key must include the payer identity; decide during the Finance module PRD review (PRD §9).
 
 If you find a new conflict, add a row to the tracker's register and stop; do not pick a side in code.

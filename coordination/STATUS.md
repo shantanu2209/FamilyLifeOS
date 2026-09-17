@@ -4,9 +4,10 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Claude Code (`agent:claude`)
 
-- **Working on:** nothing in flight. Last session (2026-09-17): removed dates and hours from the planning documents, reduced the roster to three agents, added this file and the inboxes, wrote `docs/reference/Workstation_Setup.md`.
-- **Waiting for:** the founder's tooling install (WP-01) and rulings on the open questions listed in `coordination/inbox/founder/`.
-- **Next:** create the labels, milestones and Phase 0–1 issues (WP-03, WP-04) once the founder says go; draft `Tech_Spec_Simulator_Architecture.md` (WP-12) after the freezes.
+- **Working on:** nothing in flight.
+- **Last finished (2026-09-17):** founder rulings recorded (Decision Log); Consent Manager v1.3 §2.6 and Data Model change 15 (proxy consent); milestones and issues #1–#16 created (issue number = WP number); workstation guide simplified.
+- **Waiting for:** Codex's round-2 findings on #9 and #10 (then WP-11, #11).
+- **Next:** WP-12 `Tech_Spec_Simulator_Architecture.md` after the freezes; Vault PRD v0.2 with the `visibility` attribute.
 
 ## Codex (`agent:codex`)
 
@@ -22,5 +23,5 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Founder
 
-- **Doing:** workstation setup (`docs/reference/Workstation_Setup.md`).
-- **Rulings pending:** see `coordination/inbox/founder/`.
+- **Doing:** workstation setup (#1): WSL 2, Docker Desktop, first prompts to Codex and Gemini.
+- **Rulings pending:** none (2026-09-17 batch closed; see `coordination/inbox/founder/done/`).

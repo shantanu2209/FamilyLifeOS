@@ -50,6 +50,13 @@ Decisions that shape scope and process. Add a row whenever one is made; agents m
 | 2026-09-17 | **Default hosted LLM: Claude Haiku**, behind the pluggable LLM gateway (stub for tests, local Ollama for development). Confirmed by the founder. | Closes the open item in the technology-choices row. The PII boundary still applies: the hosted model sees only the utterance and non-PII context. An Anthropic API key is needed at WP-29, not before. |
 | 2026-09-17 | **Founder named in the documents: Shantanu Chaudhary.** The pen name "Alfred" is replaced across AGENTS.md, the tracker, the specs' governance tables and the strategy documents (name only; no spec version bumps). | Two names for one person confused the agents' instructions. The claude.ai project and the local archive still show the old name. |
 | 2026-09-17 | **Standing rule: rulings are presented in chat at the end of each session**, with explanation, implications and a recommendation, plus what is already decided and the defaults that apply if the founder does not object (AGENTS.md §6). A copy goes to `coordination/inbox/founder/`. | The founder should not have to dig through documents to find what is waiting on them. |
+| 2026-09-17 | **Design principle: recommended values are defaults, not constants.** Where a rule is a matter of family preference (who is reminded and when, who sees which document, when a dose counts as missed), the recommended value ships as the default and the family can adjust it; how, and how far, is designed when the section concerned is detailed. Safety gates are the exception and are not adjustable: the five payment gates, no admin override of a blocked balance check, consent rules, the public-surface block, audit logging. | Founder ruling. Keeps Phase 1 simple (defaults only) without closing the door on customisation, and states up front what will never be a setting. |
+| 2026-09-17 | **Vault document visibility (OI-6):** default by document class — family documents (RC, insurance, property) visible to admins and members; personal identity documents (PAN, passport, licence) private to the holder; per-document switch for the holder. Adjustable; degree decided when `SHOW_DOCUMENT` is detailed. | Adds a `visibility` attribute to vault document metadata in the Vault PRD v0.2. |
+| 2026-09-17 | **Vault expiry reminders (OI-1):** default recipients are the holder (if an adult) and the admins, at 30 and 7 days; for minor, managed and passive holders, the admins and the primary proxy. Adjustable. | — |
+| 2026-09-17 | **Consent for a managed profile (Health OI-2):** the primary proxy grants with their own passkey, recorded in the new `consent_records.proxy_consent_user_id`; the secondary proxy only when the primary is unavailable; audit action `PROXY_CONSENT_GRANTED`. Consent Manager v1.3 §2.6 and Data Model v1.3 (change 15) carry it; both go to Codex review round 2. | Done before the re-freeze so it costs no migration. The Consent Manager is therefore no longer fully frozen until round 2 approves the one addition. |
+| 2026-09-17 | **Defaults accepted:** dose MISSED after 2 × notify timeout (adjustable); `CHECK_BALANCE` denied for `elder` (any per-family grant goes through `role_module_permissions`, settled in MR round 2); no admin override of a blocked balance check (not adjustable); passkeys as the biometric stand-in with a dev-only PIN off in the demo build; typed intent in the first end-to-end test; branch protection without "include administrators" so `coord:` commits can reach `main`. | — |
+| 2026-09-17 | **Codex runs as the Codex desktop app, not the CLI.** The CLI was only needed as the harness for a local-model agent; local models now sit under Gemini in Antigravity. Python 3.12 is not installed by hand either: uv downloads it the first time the project is synced. Workstation setup is therefore WSL 2, Docker Desktop, and signing the two agents in. | Less to install. `tools/agent-local.ps1` and `tools/codex-config.example.toml` remain as an unused optional harness. |
+| 2026-09-17 | **Go-ahead given for GitHub milestones (no due dates) and the Phase 0–1 issues.** Created the same day from Execution Plan Appendix A. | Issues whose dependencies are open carry `blocked`. |
 ---
 
 ## 📁 Consolidation and Change Log
@@ -59,6 +66,7 @@ Decisions that shape scope and process. Add a row whenever one is made; agents m
 | 2026-09-16 | Repository consolidated. Every `.docx`, duplicate `.md`/`.txt` export, superseded spec version and AI review note moved to `archive/originals/`. Canonical documents converted to Markdown under `docs/` (`strategy/`, `specs/`, `runbooks/`, `reference/`, `templates/`); spec content unchanged, formatting only. `AGENTS.md` (shared agent instructions), `CLAUDE.md` (pointer) and `README.md` added. This tracker carried forward from `FAMILYLIFEOS_PROJECT_TRACKER_UPDATED.md` with: Module Registry draft acknowledged, missing documents listed, Cross-Document Inconsistency Register added, repo-based maintenance steps, stale-timeline warning. |
 | 2026-09-16 | Recovered the four foundational documents (PRD Core v2.1, Supervisor State Machine v2.1, NFR v2.1, Vision Parking Lot v2.0) from the claude.ai project "FamilyLife OS" knowledge files and placed them under `docs/` (raw exports in `archive/claude-project-exports/`). Missing Documents section closed; Inconsistency Register items 5, 9 and 14 updated, item 15 added; AGENTS.md carries the project's standing instructions. Repository put under git. |
 | 2026-09-17 | Spec close-out: Data Model v1.3, Module Registry v1.1 (review round 1), FTS v1.2, Consent Manager v1.2, Runbook v1.2, Master Context v2.1, PRD Core v2.2, NFR v2.2. Module PRDs, Roadmap, Execution Plan, GTM Plan drafted. Coordination protocol, issue/PR templates, GEMINI.md, local-agent setup added. Inconsistency Register: all 15 items resolved or annotated; two follow-ups open. |
+| 2026-09-17 | Founder rulings recorded (Decision Log): configurable-defaults principle, Vault OI-1 and OI-6, Health OI-2 and OI-5, Finance OI-6 and OI-7. Consent Manager v1.3 (§2.6 proxy consent) and Data Model v1.3 change 15 (`proxy_consent_user_id`, `PROXY_CONSENT_GRANTED`; taxonomy now 41 codes). Workstation setup simplified (Codex desktop app, no manual Python install). GitHub milestones and the Phase 0–1 issues created. |
 | 2026-09-17 | Founder corrections applied: dates, week numbers and founder-hour assumptions removed (Roadmap v0.2, Execution Plan v0.2, GTM Plan v0.2, BOARD); roster reduced to three agents with local models under Gemini; `coordination/STATUS.md` and `coordination/inbox/` added (protocol v0.2) with onboarding messages for Codex and Gemini and the open rulings for the founder; roster, roles and the session close-out rule added to AGENTS.md §6; `docs/reference/Workstation_Setup.md` written from a check of the machine; pen name "Alfred" replaced by Shantanu Chaudhary everywhere (name only, no version bumps); three stale open issues in the Finance PRD marked settled. |
 | 2026-09-17 | Decision Log added (portfolio-first scope, public repo without archive, NFR v2.2 path, agent roster direction). Git history recreated without `archive/`; repository published on GitHub. |
 | 2026-02-21 | Previous tracker update: Runbook_DPI_Rate_Limits v1.1 frozen; 3 of 5 P0 docs done. |
@@ -92,7 +100,7 @@ FamilyLifeOS/
 │   │   ├── NFR_Specs.md                             # v2.2 canonical
 │   │   ├── Data_Model_Schema.md                     # v1.3 — review round 2 pending
 │   │   ├── Tech_Spec_Financial_Transaction_Safety.md # FROZEN v1.2
-│   │   ├── Tech_Spec_Consent_Manager.md             # FROZEN v1.2
+│   │   ├── Tech_Spec_Consent_Manager.md             # v1.3 (frozen v1.2 + §2.6 in review)
 │   │   └── Tech_Spec_Module_Registry.md             # v1.1 — review round 2 pending
 │   ├── runbooks/
 │   │   └── Runbook_DPI_Rate_Limits.md               # FROZEN v1.2
@@ -298,7 +306,7 @@ Also in the repository, outside the February review set: `docs/strategy/Vision_J
 |----------|--------------|--------|-------|-------------|----------|
 | **P0** | Data_Model_Schema.md | 🔄 **v1.3 revision** — Codex review round 2 pending, then re-freeze (v1.2.1 was frozen) | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
 | **P0** | Tech_Spec_Financial_Transaction_Safety.md | ✅ **FROZEN v1.2** | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
-| **P0** | Tech_Spec_Consent_Manager.md | ✅ **FROZEN v1.2** | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
+| **P0** | Tech_Spec_Consent_Manager.md | ✅ **v1.3** — frozen v1.2 text plus §2.6 (proxy consent), Codex round 2 pending | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
 | **P0** | Tech_Spec_Module_Registry.md | 🔄 **v1.1** — review round 1 applied (MR §13); Codex round 2 pending, then freeze | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
 | **P0** | Runbook_DPI_Rate_Limits.md | ✅ **FROZEN v1.2** | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
 | **P1** | Security_Threat_Model.md | ❌ Not Started (moved from late-P0 on 2026-09-17; scope in NFR v2.2 §9) | Claude Code | Before any internet-facing deployment (Roadmap Phase 4) | 🟠 High |
@@ -833,13 +841,13 @@ Open follow-ups: (a) Codex review round 2 of DM v1.3 and MR v1.1, then re-freeze
 **Pre-conditions (P0 docs that must exist first):**
 - [x] Data_Model_Schema v1.3 written (2026-09-17) — Codex review round 2 pending, then re-freeze
 - [x] Tech_Spec_Financial_Transaction_Safety v1.2 — FROZEN
-- [x] Tech_Spec_Consent_Manager v1.2 — FROZEN
+- [x] Tech_Spec_Consent_Manager v1.3 — v1.2 FROZEN text plus §2.6 (proxy consent); Codex round 2 pending
 - [x] Runbook_DPI_Rate_Limits v1.2 — FROZEN
 - [x] Tech_Spec_Module_Registry v1.1 — review round 1 applied; Codex round 2 pending, then freeze
 - [x] Inconsistency Register items 1–3 resolved in Data Model v1.3 (2026-09-17)
 - [x] PRD Core v2.2, Supervisor FSM v2.1 and NFR v2.2 in the repository and aligned
 - [ ] Codex review round 2 complete; both documents frozen
-- [ ] Tooling installed on the founder's machine (Docker Desktop, Codex CLI, Ollama models, Antigravity)
+- [ ] Tooling on the founder's machine (WSL 2, Docker Desktop; Codex desktop app and Antigravity opened on the repository)
 
 **Infrastructure to build (Docker Compose — no more, no less):**
 - [ ] PostgreSQL (with all 10 schema tables from Data Model v1.2.1)
@@ -926,17 +934,15 @@ Open follow-ups: (a) Codex review round 2 of DM v1.3 and MR v1.1, then re-freeze
 *(Rewritten 2026-09-17. The detailed sequence is `docs/Execution_Plan.md`, Phase 0 and Phase 1.)*
 
 ### Founder
-- [ ] Workstation setup, `docs/reference/Workstation_Setup.md` (WP-01): WSL 2, Docker Desktop, Codex CLI + login, Python 3.12 via uv, Antigravity sign-in and first prompt. Optional: Ollama model for Gemini's sub-agent experiments.
-- [ ] Rule on the questions in `coordination/inbox/founder/` (also given in chat at the end of the 2026-09-17 session).
-- [ ] Give the go-ahead for labels, milestones and the Phase 0–1 issues (WP-03, WP-04).
+- [ ] Workstation setup, `docs/reference/Workstation_Setup.md` (WP-01): WSL 2, Docker Desktop; open the repository in the Codex desktop app and in Antigravity and give each its first prompt. Optional: an Ollama model for Gemini's sub-agent experiments.
+- [ ] Branch protection on `main` (WP-03): pull request and CI checks required, no force pushes, administrators not included. A repository setting, so it is the founder's to switch on (once CI exists, WP-06).
 
 ### Claude Code
-- [ ] On the go-ahead: create labels, milestones (no due dates) and the Phase 0–1 issues from `docs/Execution_Plan.md` Appendix A.
 - [ ] After Codex's round-2 findings: apply accepted fixes, freeze Data Model v1.3 and the Module Registry (WP-11).
 - [ ] Draft `Tech_Spec_Simulator_Architecture.md` (WP-12) — the Build Gate's WireMock scenarios need it before Codex starts.
 
 ### Codex — brief in `coordination/inbox/codex/`
-- [ ] Review round 2: `docs/specs/Tech_Spec_Module_Registry.md` v1.1 and `docs/specs/Data_Model_Schema.md` v1.3 (WP-09, WP-10). Findings only; Claude Code applies fixes; freeze.
+- [ ] Review round 2: `docs/specs/Tech_Spec_Module_Registry.md` v1.1, `docs/specs/Data_Model_Schema.md` v1.3 and the one addition in `docs/specs/Tech_Spec_Consent_Manager.md` v1.3 §2.6 (WP-09, WP-10). Findings only; Claude Code applies fixes; freeze.
 - [ ] Repo scaffolding and CI (WP-05, WP-06).
 
 ### Gemini in Antigravity — brief in `coordination/inbox/gemini/`

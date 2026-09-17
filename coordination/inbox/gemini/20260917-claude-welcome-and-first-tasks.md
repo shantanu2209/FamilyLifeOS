@@ -21,7 +21,7 @@ Read, in this order: `GEMINI.md`, `AGENTS.md` (whole file; §4 invariants, §6 r
 
 First tasks:
 
-1. **WP-02 (onboarding).** Tell the founder, in your own words, three invariants from AGENTS.md §4 and what you must never touch. Add your lines to `coordination/STATUS.md` (your section only). Then land one trivial PR: docstrings and a lint pass on `tools/docx2md.py` only. Branch `agent-gemini/issue-<n>`, PR from `.github/PULL_REQUEST_TEMPLATE.md`, labels `agent:gemini` and `needs-review`, reviewer Codex.
+1. **WP-02 (onboarding), GitHub issue #2.** Tell the founder, in your own words, three invariants from AGENTS.md §4 and what you must never touch. Add your lines to `coordination/STATUS.md` (your section only). Then land one trivial PR: docstrings and a lint pass on `tools/docx2md.py` only. Branch `agent-gemini/issue-<n>`, PR from `.github/PULL_REQUEST_TEMPLATE.md`, labels `agent:gemini` and `needs-review`, reviewer Codex.
 2. Later, once Codex has scaffolded the repository (WP-05, WP-06): **WP-08** maintenance passes and **WP-14** `docs/reference/Development_Environment_Setup.md`.
 
 When you start, move this file to `coordination/inbox/gemini/done/` with `Status: done`.

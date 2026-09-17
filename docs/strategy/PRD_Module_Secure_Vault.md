@@ -331,12 +331,12 @@ Mapping to the module envelope: VAULT_001 → `MOD_CONSENT_MISSING`, VAULT_003 �
 
 | ID | Issue | Priority | Resolution path |
 |---|---|---|---|
-| OI-1 | Who receives expiry reminders, and when? Draft: holder (if adult) and admin at 30 and 7 days; passive and managed holders → admin and primary proxy only. | MEDIUM | Founder decision at PRD review. |
+| OI-1 | ~~Who receives expiry reminders, and when?~~ **Ruled 2026-09-17:** default is the holder (if an adult) and the admins at 30 and 7 days before expiry; for minor, managed and passive holders, the admins and the primary proxy only. Recipients and lead times are **family-adjustable settings**; how far they can be adjusted is designed when this section is detailed. | CLOSED | Decision Log 2026-09-17. |
 | OI-2 | The purpose registry's data types for `DIGILOCKER_DOCUMENT` do not mention date of birth, which the milestone derivation reads once. | MEDIUM | CM v1.3 registry wording, or drop the derivation and ask the admin for the 18th-birthday date. |
 | OI-3 | The Module Registry has no scheduling contract for module-owned nightly sweeps, and the audit codes `VAULT_DOCUMENT_LINKED`, `VAULT_DOCUMENT_UNLINKED`, `VAULT_MILESTONE_DETECTED` are not in DM v1.3 §6. | MEDIUM | MR review round 2 (scheduler hook in the SDK); DM v1.3 taxonomy addition before freeze. |
 | OI-4 | No DigiLocker circuit-breaker values exist in RB §8.2; this PRD borrows the AA defaults (3 failures → 30 min). | LOW | RB v1.3 when a second DigiLocker consumer appears. |
 | OI-5 | Staff need specific documents (the RC for the driver). Needs a per-document, time-boxed sharing grant. | LOW (P2) | Separate PRD section in Phase 2; do not solve with a role exception. |
-| OI-6 | Co-owner model: any admin or member may show any family member's document. Should an adult's own documents be private from the other adult by default? | MEDIUM | Founder decision at PRD review; affects `SHOW_DOCUMENT` analysis logic only. |
+| OI-6 | ~~Co-owner model.~~ **Ruled 2026-09-17:** default visibility by document class — family documents (RC, insurance, property) are visible to admins and members; personal identity documents (PAN, passport, licence) are private to the holder. The holder can change it per document; the degree of customisation (per class, per person, admin overrides) is designed when `SHOW_DOCUMENT` is detailed. Minor, managed and passive holders' documents follow the admins and the primary proxy. | CLOSED | Decision Log 2026-09-17; affects `SHOW_DOCUMENT` analysis logic and adds a `visibility` attribute to the document metadata in PRD v0.2. |
 
 ### Q&A
 

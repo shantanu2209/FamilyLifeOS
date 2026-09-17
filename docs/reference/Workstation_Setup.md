@@ -12,17 +12,17 @@
 |---|---|---|
 | Windows 11 Home 26200, i7-12700F, 64 GB RAM, RTX 3070 Ti 8 GB | — | — |
 | Git 2.55, GitHub CLI 2.97 (signed in as `shantanu2209`) | ✅ installed | none |
-| Node.js v24.19 / npm | ✅ installed | none (needed for Codex CLI, later for `web/`) |
+| Node.js v24.19 / npm | ✅ installed | none (needed later for `web/`) |
 | uv 0.12.9 | ✅ installed | none |
-| Python | 3.10.11 only | install 3.12 through uv (step 4) |
-| Ollama 0.34.1 | ✅ installed, **no models pulled** | optional (step 6) |
-| Google Antigravity | ✅ installed at `D:\Antigravity` | sign in, open the repo (step 5) |
+| Python | 3.10.11 (the project uses 3.12) | none: uv downloads 3.12 by itself the first time the project is synced; 3.10 stays untouched |
+| Ollama 0.34.1 | ✅ installed, **no models pulled** | optional (step 5) |
+| Google Antigravity | ✅ installed at `D:\Antigravity` | sign in, open the repo (step 4) |
 | WSL 2 | ❌ **not installed** | step 1 |
 | Docker Desktop | ❌ not installed | step 2 |
-| Codex CLI | ❌ not installed | step 3 |
+| Codex desktop app | ✅ the founder has it | open the repository in it (step 3). The Codex CLI is **not** needed |
 | VS Code | not found | not needed; Antigravity is the editor |
 
-Order matters only for steps 1 → 2 (Docker Desktop needs WSL 2). Steps 3–6 are independent of each other.
+Order matters only for steps 1 → 2 (Docker Desktop needs WSL 2). Steps 3–5 are independent of each other.
 
 ---
 
@@ -60,42 +60,19 @@ docker compose version
 
 Settings worth changing: **Resources → WSL integration** → enable for Ubuntu; **General** → untick "Start Docker Desktop when you sign in" if you don't want it always running (it takes 2–4 GB of RAM while idle). Nothing in this repository needs Docker until WP-17, but CI parity problems are cheaper to find now.
 
-### Step 3 — Codex CLI (the second agent)
+### Step 3 — Codex desktop app (the second agent)
 
-Codex needs a ChatGPT plan that includes it (Plus or higher) or an OpenAI API key. Then:
+No install: the founder already uses the Codex desktop app. The Codex CLI was only needed as a harness for a local-model agent, and local models now sit under Gemini in Antigravity.
 
-```powershell
-npm install -g @openai/codex
-codex --version
-codex login
-```
+1. In the Codex app, add `D:\FamilyLifeOS` as a project (local folder). Codex reads `AGENTS.md` by itself.
+2. Keep approvals on for commands and for anything outside the folder.
+3. First prompt:
 
-`codex login` opens a browser; sign in yourself. Then point Codex at this project:
+   > Read AGENTS.md, coordination/README.md and your inbox at coordination/inbox/codex/. Tell me your role, what you must never do, three invariants from AGENTS.md section 4, and what your first task is. Do not change any files yet.
 
-```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.codex" | Out-Null
-Copy-Item D:\FamilyLifeOS\tools\codex-config.example.toml "$env:USERPROFILE\.codex\config.toml"
-```
+   If the answer is right, tell it to go ahead with the first task in its inbox (review round 2; findings only, no spec edits).
 
-The example config marks `D:\FamilyLifeOS` as trusted and also carries two optional `local` profiles for Ollama; they do nothing unless you ask for them. Codex reads `AGENTS.md` by itself. First run:
-
-```powershell
-cd D:\FamilyLifeOS
-codex "Read AGENTS.md, coordination/README.md and your inbox at coordination/inbox/codex/. Tell me your role, three invariants from AGENTS.md section 4, and what your first task is. Do not change any files yet."
-```
-
-If the answer is right, tell it to go ahead with the first task in its inbox (review round 2 of the Module Registry). Codex cloud (chatgpt.com/codex, connected to the GitHub repo) is an alternative for long implementation tasks later; it is not needed to start.
-
-### Step 4 — Python 3.12
-
-```powershell
-uv python install 3.12
-uv python list
-```
-
-Nothing else: the project's virtual environment is created by `uv sync` once Codex has scaffolded `pyproject.toml` (WP-05).
-
-### Step 5 — Antigravity (the third agent: Gemini)
+### Step 4 — Antigravity (the third agent: Gemini)
 
 1. Start Antigravity (`D:\Antigravity`), sign in with your Google account, and update it if it offers to. Since v1.20.3 (March 2026) Antigravity reads `AGENTS.md` natively as well as `GEMINI.md`; this repository has both, and `GEMINI.md` only adds Gemini's role on top.
 2. **File → Open Folder → `D:\FamilyLifeOS`.** Trust the workspace.
@@ -108,7 +85,7 @@ Nothing else: the project's virtual environment is created by `uv sync` once Cod
 
    If the answer is right, let it do the first task in its inbox (its STATUS lines, then a docstring-only PR on `tools/docx2md.py`).
 
-### Step 6 — Optional: local models for Antigravity to orchestrate
+### Step 5 — Optional: local models for Antigravity to orchestrate
 
 The roster has three agents. Local models are not one of them; Gemini may use them as sub-agents for mechanical subtasks (`coordination/README.md` §1). This step can wait until the three-agent loop works.
 
@@ -130,7 +107,7 @@ ollama ps
 
 `ollama ps` should show the model mostly or fully on the GPU. Why this model, and the optional heavier `qwen3.6:35b`: `Local_Agent_Setup.md` §2.
 
-**How Antigravity reaches it (state of play, September 2026).** Antigravity does not let you swap its core reasoning model for a local one; community proxy patches that do so break with updates and violate Google's terms, so they are not used here. The supported route is a **tool**: an Ollama MCP server added under Antigravity's MCP settings, which Gemini calls to hand a subtask (a docstring pass, a fixture file) to the local model and then checks the result itself. Which MCP server to use is left to the founder's experiment; record the choice in the tracker's Decision Log. The Codex CLI `--profile local` route in `Local_Agent_Setup.md` still works as a manual fallback and as a way to measure the model's speed.
+**How Antigravity reaches it (state of play, September 2026).** Antigravity does not let you swap its core reasoning model for a local one; community proxy patches that do so break with updates and violate Google's terms, so they are not used here. The supported route is a **tool**: an Ollama MCP server added under Antigravity's MCP settings, which Gemini calls to hand a subtask (a docstring pass, a fixture file) to the local model and then checks the result itself. Which MCP server to use is left to the founder's experiment; record the choice in the tracker's Decision Log. The Codex CLI route in `Local_Agent_Setup.md` is a manual fallback only; nothing in the protocol needs it.
 
 ### Later, not now
 
@@ -143,11 +120,10 @@ ollama ps
 ## 3. Done when
 
 - [ ] `wsl --status` shows version 2; `docker run --rm hello-world` prints its greeting; `docker compose version` answers.
-- [ ] `codex --version` answers, `codex login` done, and Codex can state its role and three invariants.
-- [ ] `uv python list` shows a 3.12 interpreter.
+- [ ] The Codex app has `D:\FamilyLifeOS` open and Codex can state its role, its limits and three invariants.
 - [ ] Antigravity opens `D:\FamilyLifeOS` and Gemini can state its role, its limits and three invariants.
 - [ ] (Optional) `ollama ps` shows `qwen3.5:9b` loaded.
 
-Then tell Claude Code; it creates the labels, milestones and Phase 0–1 issues (WP-03, WP-04) and the agents start from their inboxes.
+The labels, milestones and Phase 0–1 issues already exist on GitHub; the agents start from their inboxes and their issues.
 
 Sources for the Antigravity notes (checked 2026-09-17): [Antigravity rules documentation](https://antigravity.google/docs/rules-workflows/), [AGENTS.md support in Antigravity](https://agentpedia.codes/blog/antigravity-agents-md-guide), [local-model support in Antigravity](https://agentpedia.codes/blog/antigravity-local-models-ollama-setup).

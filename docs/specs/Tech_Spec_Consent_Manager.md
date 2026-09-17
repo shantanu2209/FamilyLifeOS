@@ -2,7 +2,7 @@
 
 _DPDP-native consent framework, purpose registry, CONSENT_REVERIFY, DPI adapters, expiry watchdog, revocation, webhook security_
 
-> **Status:** FROZEN — v1.2 (v1.1 behaviour unchanged; naming aligned with Data Model v1.3) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-17
+> **Status:** v1.3 — one addition (§2.6 proxy consent for managed profiles) awaiting Codex review round 2; everything else is the frozen v1.2 text · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-17
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `Tech_Spec_Consent_Manager_v1.1.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted. Superseded versions in the archive: `Tech_Spec_Consent_Manager_v1.0.docx`.
 > **Cited elsewhere as:** Tech_Spec_Consent_Manager v1.1, Consent_Manager v1.1, CM §n.
 
@@ -13,6 +13,7 @@ _DPDP-native consent framework, purpose registry, CONSENT_REVERIFY, DPI adapters
 | v1.0 | 2026-02-21 | Initial release. Full consent framework: DPDP-native first-party consent, purpose registry, consent_records schema, parental consent for minors, data portability, breach protocol, CONSENT_REVERIFY mechanics, AA and ABHA DPI adapters, expiry watchdog, revocation propagation, webhook HMAC security, regulation-agnostic extension points. | Shantanu Chaudhary |
 | v1.1 | 2026-02-21 | Hardening. Five fixes applied after first independent review: (1) §4.1 PostgreSQL trigger enforcing consent_handle_id NOT NULL for DPI purpose codes — prevents silent bypass of external consent gate at CONSENT_REVERIFY Check 2; (2) §2.2 deletion sequence now explicitly aborts active supervisor_sessions to prevent orphaned EXECUTION sessions after account deletion; (3) §7.3 renewal flow now inherits fetch_count_today from old handle when revoked within 1 hour — prevents RBI rate-limit evasion via renewal spam; (4) §4.6 consent_ui_disclosures table added — consent_ui_version on consent_records now references an auditable canonical record; (5) §9.3 Step 4 webhook DB writes wrapped in explicit BEGIN/COMMIT — prevents partial state on audit_log failure after consent_handles UPDATE. | Shantanu Chaudhary |
 | v1.2 | 2026-09-17 | Alignment release, no behavioural change: (1) `session_status` → `fsm_state` (Data Model v1.3 §3.7); (2) role values written lowercase as stored (`minor`, `admin`, `member`) and the minor check reads `users.role`, not `family_relationships.role` (Inconsistency Register item 3); (3) `offline_task_queue.status = 'cancelled'` is now a valid value (Data Model v1.3 §3.9; item 10); (4) `consent_handles.provider` now includes 'ONDC' so ONDC_ADDRESS_SHARE can carry a handle as the enforce_dpi_handle trigger requires; (5) the `consent_records` and `consent_ui_disclosures` DDL, the trigger, and the audit action codes of §4.4 are now also in Data Model v1.3 (§3.12–3.13, §6); the Data Model is the DDL source and this document remains the behavioural authority. Note the expiry index is named `idx_consent_records_expiry` there. | Shantanu Chaudhary (with Claude Code) |
+| v1.3 | 2026-09-17 | One addition by founder ruling (Health PRD OI-2): §2.6 Proxy Consent for Managed Profiles. New nullable column `consent_records.proxy_consent_user_id` (§4.1), its index, the insert-time rule, and the audit action `PROXY_CONSENT_GRANTED` (§4.4). No change to any existing behaviour; minors still use `parental_consent_user_id`. Goes to Codex review round 2 together with Data Model v1.3, then re-freezes. | Shantanu Chaudhary (with Claude Code) |
 
 > ✅ STATUS: HARDENED v1.1 — Architecture Frozen
 > This document is the authoritative specification for all consent infrastructure in FamilyLifeOS.
@@ -226,6 +227,34 @@ IF user.role == 'minor':
     RAISE ConsentError('This purpose is not permitted for Minor users')
 ```
 
+### 2.6 Proxy Consent for Managed Profiles (added in v1.3)
+
+A managed profile (users.role = 'managed'; Nani in the Sharma seed) is an adult who does not operate the product herself. DPDP treats a lawful guardian's consent on behalf of a person who cannot consent for themselves like parental consent; FamilyLifeOS records it separately from parental consent so the audit trail says exactly who consented for whom and in what capacity.
+
+- Any consent_record whose user_id is a managed profile must have proxy_consent_user_id set to that profile's **primary proxy** (proxy_assignments.proxy_rank = 'primary', Data Model §3.4). The proxy grants with their own biometric or PIN (§1.3 still holds: only a human grants consent).
+- The secondary proxy may grant only when the primary proxy's account is deleted or suspended; the audit details then carry `"proxy_rank":"secondary"`. Otherwise a secondary proxy's attempt is rejected.
+- When the primary proxy changes, existing consents stay valid until they expire; the expiry watchdog (§7) sends renewals to the new primary proxy. When a proxy's account is deleted, §2.2 applies to the proxy's own consents; consents they granted for the managed profile are flagged `revalidation_required` for the new primary proxy rather than revoked, so medication reminders do not stop silently.
+- A managed profile can never carry parental_consent_user_id, and a minor can never carry proxy_consent_user_id. An ordinary adult carries neither.
+- Revocation: the primary proxy or any admin can withdraw a managed profile's consent (§4.3 flow, actor recorded).
+
+```text
+-- Enforced at consent_records insert time (application layer, not DB constraint):
+
+IF user.role == 'managed':
+  IF consent_record.proxy_consent_user_id IS NULL:
+    RAISE ConsentError('Managed-profile consent requires proxy_consent_user_id')
+  pa = SELECT * FROM proxy_assignments
+       WHERE managed_user_id = user.user_id AND proxy_user_id = proxy_consent_user_id
+  IF pa IS NULL OR pa.family_id != user.family_id:
+    RAISE ConsentError('Proxy consent must come from an assigned proxy in the same family')
+  IF pa.proxy_rank == 'secondary' AND primary_proxy_is_active(user.user_id):
+    RAISE ConsentError('Secondary proxy may consent only when the primary proxy is unavailable')
+  IF consent_record.parental_consent_user_id IS NOT NULL:
+    RAISE ConsentError('parental_consent_user_id is for minors only')
+  WRITE audit_log action = 'PROXY_CONSENT_GRANTED'
+        details = {purpose_code, managed_user_id, proxy_user_id, proxy_rank, consent_record_id}
+```
+
 ## 3. Purpose Registry
 
 ### 3.1 Overview
@@ -328,6 +357,10 @@ CREATE TABLE consent_records (
   parental_consent_user_id UUID REFERENCES users(user_id),
   -- NULL for adult users. For Minor users: must be populated before status='active'
 
+  -- Proxy consent (v1.3, §2.6): required when user_id is a 'managed' profile
+  proxy_consent_user_id UUID REFERENCES users(user_id),
+  -- The assigned proxy who granted on the managed profile's behalf. NULL for everyone else.
+
   -- Link to DPI external handle (if applicable)
   consent_handle_id UUID REFERENCES consent_handles(consent_id),
   -- NULL for first-party-only consents (VOICE_INTENT_PROCESSING, DEVICE_REGISTRATION, etc.)
@@ -372,6 +405,10 @@ CREATE INDEX idx_consent_expiry ON consent_records (expires_at, status)
 -- Parental consent lookup
 CREATE INDEX idx_consent_parental ON consent_records (parental_consent_user_id)
   WHERE parental_consent_user_id IS NOT NULL;
+
+-- Proxy consent lookup (v1.3)
+CREATE INDEX idx_consent_proxy ON consent_records (proxy_consent_user_id)
+  WHERE proxy_consent_user_id IS NOT NULL;
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- FIX 1 (v1.1): DPI handle enforcement trigger

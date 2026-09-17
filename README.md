@@ -25,7 +25,7 @@ Start with [AGENTS.md](AGENTS.md). It is the single set of instructions for huma
 | Non-functional requirements | [docs/specs/NFR_Specs.md](docs/specs/NFR_Specs.md) | v2.2, canonical |
 | Data model | [docs/specs/Data_Model_Schema.md](docs/specs/Data_Model_Schema.md) | v1.3, review round 2 pending |
 | Financial transaction safety | [docs/specs/Tech_Spec_Financial_Transaction_Safety.md](docs/specs/Tech_Spec_Financial_Transaction_Safety.md) | Frozen v1.2 |
-| Consent manager | [docs/specs/Tech_Spec_Consent_Manager.md](docs/specs/Tech_Spec_Consent_Manager.md) | Frozen v1.2 |
+| Consent manager | [docs/specs/Tech_Spec_Consent_Manager.md](docs/specs/Tech_Spec_Consent_Manager.md) | v1.3 (frozen v1.2 + one addition in review) |
 | Module registry | [docs/specs/Tech_Spec_Module_Registry.md](docs/specs/Tech_Spec_Module_Registry.md) | v1.1, review round 2 pending |
 | DPI rate limits runbook | [docs/runbooks/Runbook_DPI_Rate_Limits.md](docs/runbooks/Runbook_DPI_Rate_Limits.md) | Frozen v1.2 |
 | Workstation setup | [docs/reference/Workstation_Setup.md](docs/reference/Workstation_Setup.md) | Guide |

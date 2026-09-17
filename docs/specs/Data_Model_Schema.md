@@ -779,6 +779,9 @@ CREATE TABLE consent_records (
   -- Required for minor users before status = 'active' (Consent Manager §2.5)
   parental_consent_user_id UUID         REFERENCES users(user_id),
 
+  -- Required when user_id is a managed profile: the assigned proxy who granted (Consent Manager v1.3 §2.6)
+  proxy_consent_user_id    UUID         REFERENCES users(user_id),
+
   -- Link to the external DPI handle; NULL for first-party-only purposes
   consent_handle_id        UUID         REFERENCES consent_handles(consent_id),
 
@@ -806,6 +809,10 @@ CREATE INDEX idx_consent_records_expiry ON consent_records (expires_at, status) 
 -- Parental consent lookup
 CREATE INDEX idx_consent_parental ON consent_records (parental_consent_user_id)
   WHERE parental_consent_user_id IS NOT NULL;
+
+-- Proxy consent lookup (Consent Manager v1.3 §2.6)
+CREATE INDEX idx_consent_proxy ON consent_records (proxy_consent_user_id)
+  WHERE proxy_consent_user_id IS NOT NULL;
 
 -- Consent Manager v1.1 Fix 1: a DPI purpose must never be recorded without its external handle.
 -- Without this, a crash between the consent_handles INSERT and the consent_records INSERT leaves
@@ -1414,6 +1421,7 @@ System-initiated entries: Some audit events are triggered by automated jobs (cro
 | CONSENT_REVERIFY_PASSED | Consent | system | CONSENT_REVERIFY gate passed. | CM §5 |
 | CONSENT_REVERIFY_FAILED | Consent | system | CONSENT_REVERIFY gate failed; session did not execute. | CM §5 |
 | PARENTAL_CONSENT_GRANTED | Consent | Level 0 | A parent granted consent on behalf of a minor. | CM §2.5 |
+| PROXY_CONSENT_GRANTED | Consent | Level 0 | An assigned proxy granted consent on behalf of a managed profile. | CM v1.3 §2.6 |
 | CONSENT_UI_VERSION_CHANGED | Consent | system | A material disclosure change queued re-consent. | CM §4.6 |
 | MEMBER_ADDED | Family | Level 0 | Admin added a family member (or shadow node). | DM v1.2.1 |
 | MEMBER_REMOVED | Family | Level 0 | Admin removed a family member. | DM v1.2.1 |
@@ -1645,6 +1653,7 @@ No database has been created yet, so `V001__initial_schema` is authored directly
 | 12 | fetch_count_today is bookkeeping; Redis is the enforcement point | §3.5, Q6, §7.3 | Item 11 |
 | 13 | Seed identifiers are valid UUIDs; SYSTEM family/actor, activations and a sample consent seeded | §8 | v1.3 review |
 | 14 | All kernel objects live in schema `core`; module schemas per module | §1.1, §9.3 | MR §7.2 |
+| 15 | consent_records.proxy_consent_user_id + idx_consent_proxy; action PROXY_CONSENT_GRANTED (taxonomy is now 41 codes) | §3.12, §6 | Founder ruling 2026-09-17 on Health PRD OI-2; CM v1.3 §2.6 |
 
 Consequential edits made the same day in other documents: FTS v1.2 (`fsm_state` naming; lock release semantics), Consent Manager v1.2 (`fsm_state`; lowercase role values; 'cancelled'; ONDC provider; DDL now lives here), Module Registry v1.1 (registry DDL, kernel views and audit functions now live here; consent-provider enum narrowed), Runbook v1.2 (fetch_count_today semantics). Review round 2 by Codex covers this document and the Module Registry together.
 
