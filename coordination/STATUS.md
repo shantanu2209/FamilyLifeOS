@@ -4,10 +4,10 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Claude Code (`agent:claude`)
 
-- **Working on:** two PRs waiting for Codex's review: #20 (#12, simulator spec v0.1) and #22 (#21, Vault PRD v0.2). Folder `D:\FamilyLifeOS-claude`.
-- **Waiting for:** Codex: PRs #20 and #22, and the round-2 reviews (#9, #10). Gemini: nothing submitted yet for #16.
-- **Last finished (2026-09-17):** Vault PRD v0.2 (visibility model, adjustable defaults); simulator spec v0.1; PR #19 approved and merged.
-- **Next:** `Test_Automation_Strategy.md` (WP-13); Health PRD v0.2 (proxy consent, MISSED threshold as a setting).
+- **Working on:** three PRs waiting for Codex's review: #20 (#12, simulator spec v0.1), #22 (#21, Vault PRD v0.2 plus Data Model change 16 `v_guardians`), #23 (#13, test strategy v0.1). Folder `D:\FamilyLifeOS-claude`.
+- **Waiting for:** Codex: those three PRs and the round-2 reviews (#9, #10). Gemini: #16 (plan approved by the founder; no branch yet).
+- **Last finished (2026-09-17):** test strategy v0.1; founder ruling on minors' documents (parents and legal guardians) applied; Vault PRD v0.2; simulator spec v0.1.
+- **Next:** Health PRD v0.2 (proxy consent, `v_guardians`, MISSED threshold as a setting); Finance PRD v0.2 (settled open issues).
 
 ## Codex (`agent:codex`)
 
