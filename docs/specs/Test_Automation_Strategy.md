@@ -3,7 +3,7 @@
 _What is tested at which level, how tests stay deterministic, what CI enforces, and who writes what, for the portfolio build_
 
 > **Status:** DRAFT v0.1 — for review (Codex) · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
-> **Priority:** P1. Execution Plan WP-13. Formalises the tracker's "Test Automation Strategy" section for the stack chosen in AGENTS.md §5, and replaces it; the tracker keeps a pointer.
+> **Priority:** P1. Execution Plan WP-13. Formalises the February 2026 "Test Automation Strategy" section of the tracker (now in `docs/reference/Project_Tracker_Snapshot_2026-02.md`) for the stack chosen in AGENTS.md §5, and replaces it.
 > **Depends on:** AGENTS.md §4 (invariants), §5 (stack), §6 (working rules) · FTS v1.2 §4.5 (crash scenarios), §6 (Healer) · Tech_Spec_Simulator_Architecture v0.1 (SIM) §3–§5, §8 · NFR v2.2 §1, §6 · Execution Plan §7 (Definition of Done), §7.2 (invariant coverage map) · Roadmap §5, §8.
 > **Cited elsewhere as:** Test strategy, TAS §n.
 
