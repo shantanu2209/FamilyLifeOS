@@ -1,8 +1,9 @@
 # Execution Plan: Work Packages WP-01 to WP-47
 
-> **Status:** DRAFT v0.3 — sequence-only, no dates or capacity assumptions (founder ruling 2026-09-17) · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
+> **Status:** DRAFT v0.4 — sequence-only, no dates or capacity assumptions (founder ruling 2026-09-17) · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
 > **Scope:** The roadmap (`docs/strategy/Roadmap.md`) broken into 47 numbered work packages in dependency order, grouped by phase, each with owner and reviewer agent, spec inputs, file outputs, verification, dependencies, size and GitHub labels. Applies to the portfolio build only (tracker → Decision Log, 2026-09-17). Includes the Definition of Done that every package must meet and the `gh` commands that seed the Phase 0 and Phase 1 issues.
-> **Supersedes:** For planning purposes only: tracker → "Next Actions (Immediate)" (the Week 1/Week 2 day plans, all of which are done), tracker → "Development Environment Needs" and "CI/CD Pipeline Integration" checklists (folded into WP-05, WP-06, WP-14, WP-17), and the tracker's "Test Automation Roadmap" weeks (folded into WP-13 and the Phase 2 packages). The tracker's Build Gate section itself is not superseded: Phase 2 below mirrors it line by line and the tracker remains the place where the gate is ticked.
+> **Supersedes:** the February 2026 next-actions, development-environment, CI/CD and test-roadmap lists, now in `docs/reference/Project_Tracker_Snapshot_2026-02.md`. The tracker's Phase 1 Build Gate is not superseded: Phase 2 below mirrors it line by line and the tracker remains the place where the gate is ticked.
+> **Status of each package** is not recorded here: one GitHub issue per package, on the project board (https://github.com/users/shantanu2209/projects/2). This document defines the packages; it never says how far along they are.
 
 ## 0. Document Governance
 
@@ -11,6 +12,7 @@
 | v0.1 | 2026-09-17 | First draft: 46 work packages across Phases 0–4, per-phase tables and notes, Definition of Done, critical path, issue-seeding commands for Phases 0–1. | Shantanu Chaudhary (with Claude Code) |
 | v0.2 | 2026-09-17 | Founder ruling: no target dates and no assumed founder hours. Phase date ranges, dated fallbacks, milestone due dates and time-based sizes removed; the plan is ordered by dependency only. Roster reduced to three agents: the local-model lane is folded into Gemini's (WP-02 becomes agent onboarding, WP-08 is Gemini's recurring maintenance), the `agent:local` label is replaced by `in-progress`. WP-01 now points to `docs/reference/Workstation_Setup.md`. Hosted LLM default recorded as Claude Haiku. | Shantanu Chaudhary (with Claude Code) |
 | v0.3 | 2026-09-17 | WP-47 added (local-model delegation harness for Gemini; Phase 0, off the critical path). WP-01 reduced to WSL 2, Docker Desktop and opening the two agent apps (Codex desktop app, no CLI; Python 3.12 comes from uv). | Shantanu Chaudhary (with Claude Code) |
+| v0.4 | 2026-09-17 | One home per fact (AGENTS.md §6): package status lives in the issues and on the project board, never here; retrospectives go to the tracker; WP-08's verifier is `tools/docs_index.py --check` and `tools/living_docs_check.py` instead of a status-table comparison, because the status tables are gone; WP-11 updates Status lines and regenerates the index. Appendix A marked as executed. | Shantanu Chaudhary (with Claude Code) |
 
 ---
 
@@ -63,7 +65,7 @@ Notes on specific packages:
 - **WP-06.** Jobs run on `ubuntu-latest` with the uv cache; `integration` relies on the runner's Docker for Testcontainers; the coverage report is uploaded as an artefact and stays informational until WP-32 turns it into a gate.
 - **WP-07.** The roster, the roles and the session close-out rule were added to AGENTS.md §6 on 2026-09-17; what remains is the DoD reference check and Codex's read-through.
 - **WP-47.** Deliberately not an MCP server and not a third-party package: a script the repository owns, calling Ollama's local HTTP API with the standard library only, run by Gemini from the terminal. No network access other than `localhost:11434`; no file writes outside the path given on the command line; the prompt, the input files and the output path are arguments, so every delegation is reproducible from the PR. The workflow file limits delegation to mechanical subtasks with a verifier (docstrings, fixtures from a table, format conversions) and repeats that Gemini's restrictions apply to delegated work. An MCP wrapper can come later if the script proves useful.
-- **WP-08.** The first maintenance issue also asks Codex for `tools/tracker_sync_check.py`, which compares the status tables in README and AGENTS.md §3 with the tracker's Document Status Matrix; from then on Gemini runs it as its verification.
+- **WP-08.** The verifier is the document checks that already exist: `python tools/docs_index.py --check`, `python tools/living_docs_check.py`, `python tools/xref_check.py --strict`. A maintenance pass that leaves all three green is done.
 
 ---
 
@@ -85,10 +87,10 @@ Codex runs review round 2 on the two specs the build depends on (Module Registry
 Notes on specific packages:
 
 - **WP-09 and WP-10, review rubric.** Findings are graded critical (the build would violate an AGENTS.md §4 invariant, or cannot be coded unambiguously), important (two competent readers would implement it two ways) or minor (wording, examples). Reviewers cite the section and quote the sentence. A finding that contradicts a Decision Log row is recorded as "noted, decision closed" and not argued. Round 2 is complete when every finding has a disposition in the issue.
-- **WP-11.** Freezing means all of this in one PR, so the repository never says two things: status line and governance row in the spec; AGENTS.md §3 table, §7 pre-conditions and §8 summary; README table; tracker Document Status Matrix, register items 1–3 (and any others closed) and the Build Gate pre-conditions; a dated line in the tracker change log.
+- **WP-11.** Freezing means all of this in one PR, so the repository never says two things: status line and governance row in the spec; the regenerated `docs/INDEX.md`; the tracker's Build Gate pre-conditions and §8 summary; README table; tracker Document Status Matrix, register items 1–3 (and any others closed) and the Build Gate pre-conditions; a dated line in the tracker change log.
 - **WP-12.** Covers only the four DPIs the two slices need (AA, BBPS, ABHA, DigiLocker); the Bhashini stub from RB §9.3 and any future ONDC stub are listed as parked. The scenario table is the contract Gemini generates stubs from in WP-18 and WP-34: each row names the stub file, the trigger (header or identifier), the response, and the contract test.
 - **WP-13.** Subsumes the tracker matrix's duplicate row "Testing_Strategy.md (P3)", which is removed when the matrix is next synced, and replaces the tracker's tooling table for this stack (pytest not Jest; no Supertest, Appium or Chaos Monkey).
-- **WP-15.** Acceptance criteria: every intent in the PRD maps to a manifest entry with tier ceiling, allowed roles and consent providers (MR §4.1); every external call maps to a simulator scenario in WP-12; every user-visible error maps to a FIN or MOD code. Finance is on the critical path; Vault and Health acceptance can slide into Week 6.
+- **WP-15.** Acceptance criteria: every intent in the PRD maps to a manifest entry with tier ceiling, allowed roles and consent providers (MR §4.1); every external call maps to a simulator scenario in WP-12; every user-visible error maps to a FIN or MOD code. Finance is on the critical path; Vault and Health acceptance can wait until just before Phase 3.
 
 ---
 
@@ -180,7 +182,7 @@ Phase 4 makes the build showable without pretending. The voice stand-in is label
 | WP-43 | Demo deployment in an India region (single VM or container host, TLS, synthetic data only) | Codex (scripts) + founder (account, DNS) → Claude | WP-42 checklist; MC §7.4, §10.1; RB §2.1 (`REDIS_ENV_PREFIX=demo`); WP-17, WP-41 | `ops/demo/compose.demo.yml` (app, healer, postgres, redis, four simulators, Caddy TLS), `docs/runbooks/Runbook_Demo_Deployment.md`, teardown script; "SIMULATOR" banner; invite-link or basic-auth gate; `APPROVAL_DEV_PIN` and `CRASH_AFTER` disabled | `curl -I https://<demo-host>` returns 200 over TLS; E2E suite run once against the demo host; hardening checklist ticked | WP-41, WP-42 | M | `agent:codex` |
 | WP-44 | Portfolio write-up, architecture one-pager, README as landing page | Claude → Codex (PR summary and diagram text: Gemini) | Roadmap §8 measured values; GTM_Plan §3–§4, §7 (boundary statement); MR §2, §7; FTS §4, §6 | `docs/strategy/Build_Log.md`, `docs/reference/Architecture_Overview.md` (one page, one diagram), `README.md` rewritten | Founder read-through; `tools/xref_check.py` clean; every claim maps to a test or a document | WP-43 | M | `agent:claude`, `spec` |
 | WP-45 | Demo video (4–6 minutes) | founder (script: Claude) → Codex (script accuracy) | GTM_Plan §5 demo script; WP-43 host | Published video (visibility per founder); shot list in `docs/strategy/GTM_Plan.md` appendix or the Build Log; links from README and Build Log | Video plays; captions carry the simulator boundary statement; each shown step corresponds to a passing test | WP-43 | M | `agent:claude` |
-| WP-46 | Retrospective and tracker re-baseline | Claude + founder → Codex | Roadmap §8; GitHub PR and review statistics; open issues | Retrospective note appended to `coordination/BOARD.md` → Retrospectives (the per-milestone notes accumulate there per `coordination/README.md` §7); tracker: measured metrics, slips and causes, per-agent PR and rejection counts, a Decision Log row with the commercial-or-not decision, the Milestone Tracker re-baselined; this plan's issues closed or dispositioned | Decision Log row exists; no open WP issue without a disposition | WP-44, WP-45 | S | `agent:claude`, `spec` |
+| WP-46 | Retrospective and tracker re-baseline | Claude + founder → Codex | Roadmap §8; GitHub PR and review statistics; open issues | Retrospective note appended to the tracker's "Retrospectives" (the per-milestone notes accumulate there per `coordination/README.md` §7); tracker: measured metrics, slips and causes, per-agent PR and rejection counts, a Decision Log row with the commercial-or-not decision, the Milestone Tracker re-baselined; this plan's issues closed or dispositioned | Decision Log row exists; no open WP issue without a disposition | WP-44, WP-45 | S | `agent:claude`, `spec` |
 
 Notes on specific packages:
 
@@ -200,7 +202,7 @@ A PR is mergeable only when all of the following hold. The PR template (WP-03) c
 1. **Spec reference cited.** The PR description names the WP id and the spec sections it implements (for example "WP-24: FTS §6.1.1–6.1.3, §6.4"), links the issue with `Closes #n`, and carries the handoff block from `coordination/HANDOFF_TEMPLATE.md`.
 2. **Tests.** New or changed behaviour has tests; tests that protect an AGENTS.md §4 invariant are named after it (for example `test_invariant_16_idempotency_key_persisted_before_external_call`); unit and integration suites are green in CI; for `build-gate` packages the crash suite and the E2E test are green too.
 3. **Docs updated.** README, `Development_Environment_Setup.md` or a runbook is updated when setup or behaviour changes; spec content is linked, never copied (AGENTS.md §6).
-4. **Tracker row updated.** The Document Status Matrix, the Build Gate checklist or the change log carries a dated line for the package.
+4. **Living documents updated.** A document that changed version or state has a new Status line and `docs/INDEX.md` is regenerated; the tracker's Build Gate checklist, Decision Log or change log carries a dated line where one applies; the three document checks pass.
 5. **Reviewed by a different agent** than the author, with the review recorded on the PR; the reviewer removes `needs-review`; the founder squash-merges. No self-review, no self-merge (AGENTS.md §6; `coordination/README.md` §4).
 6. **No frozen-spec edits without a version bump**, a governance-table row and updates to every dependent document (AGENTS.md §6). Gemini (and any local model it delegates to) never edits `docs/specs/`, `docs/runbooks/` or AGENTS.md.
 7. **No secrets or PII.** No `.env`, tokens, consent handles, push tokens or real personal data; test data is the DM §8 Sharma seed or synthetic.
@@ -261,7 +263,7 @@ Invariants 35–36 (design constraints) are review criteria, not tests; the chec
 
 ## Appendix A — Issue seeding for Phases 0 and 1
 
-Run from `D:\FamilyLifeOS` after `gh auth login`, once the founder has approved this plan. Label creation is idempotent (`--force`); milestone and issue creation are not, so check `gh issue list` before re-running. Bodies point back to this document rather than repeating it.
+**Executed on 2026-09-17** (issues #1–#16; milestones M0–M5 without due dates). Kept as the template for seeding the later phases; do not run it again as it stands. It was run from `D:\FamilyLifeOS` after `gh auth login`. Label creation is idempotent (`--force`); milestone and issue creation are not, so check `gh issue list` before re-running. Bodies point back to this document rather than repeating it.
 
 ```powershell
 # --- repository ---------------------------------------------------------------

@@ -1,6 +1,6 @@
 # Tech Spec: Module Registry & Agent Communication Contract
 
-**Status:** Phase 1 (v1.1 — review round 1 applied by Claude Code on 2026-09-17; review round 2 by Codex pending; freezes on approval)
+> **Status:** v1.1 — REVISION IN REVIEW (review round 1 applied by Claude Code; review round 2 by Codex pending; freezes on approval), Phase 1 · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-17
 
 **Purpose:** To define the contract that makes any FamilyLifeOS module implementable: the module manifest schema, the Supervisor→Worker dispatch envelope, the Core vs. Service tier rules, and the isolation model. This document is the last Priority 0 specification of the Phase 1 Build Gate.
 
