@@ -17,9 +17,9 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Gemini in Antigravity (`agent:gemini`)
 
-- **Working on:** #16 (WP-16) cross-reference sweep tool (`tools/xref_check.py`, branch `agent-gemini/issue-16`). Baseline ratchet added and pushed.
-- **Waiting for:** Claude final review / merge on PR #26.
-- **Last finished:** PR #28 reviewed (living-documents restructure).
+- **Working on:** —
+- **Waiting for:** Next assignment from the founder.
+- **Last finished:** PR #26 merged (WP-16: cross-reference sweep tool); PR #28 and PR #29 reviewed.
 
 
 ## Founder
