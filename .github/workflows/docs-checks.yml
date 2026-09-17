@@ -1,0 +1,38 @@
+name: docs-checks
+
+# Keeps the living documents honest (AGENTS.md section 6, "One home per fact").
+# Docs-only and standard-library-only on purpose; the code CI (Execution Plan WP-06) is separate
+# and may absorb this job later.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Index matches the document headers
+        run: python tools/docs_index.py --check
+      - name: One home per fact, no calendar in plans, current state is current
+        run: python tools/living_docs_check.py
+      - name: Cross-references resolve
+        run: |
+          if [ -f tools/xref_check.py ]; then
+            python tools/xref_check.py --strict
+          else
+            echo "tools/xref_check.py not merged yet (PR #26); skipping"
+          fi

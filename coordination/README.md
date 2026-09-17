@@ -27,7 +27,7 @@ Escalation goes up the table: Gemini → Codex → Claude → founder. A task th
 | Assign a task | A GitHub issue from the **Agent task** template with exactly one `agent:*` label | §3 |
 | Say "I've picked this up" | Add `in-progress` to the issue **and** a line in your section of `coordination/STATUS.md` | §5 |
 | See what everyone else is doing | `coordination/STATUS.md`, then `gh issue list --label in-progress` and `gh pr list` | Read it at the start of every session |
-| See the whole picture (founder) | The GitHub Projects board <https://github.com/users/shantanu2209/projects/2>: columns Blocked / Ready / In progress / In review / Done, field Agent | A view over the same issues and PRs; nothing to sync by hand except the Status column, which Claude Code updates when it syncs `BOARD.md`. No Jira (Decision Log 2026-09-17) |
+| See the whole picture | The GitHub project board <https://github.com/users/shantanu2209/projects/2>: columns Blocked / Ready / In progress / In review / Done, field Agent | A view over the same issues and PRs. New issues and closed items move by the board's own workflows; the other columns follow the labels through `python tools/board_sync.py`. There is no board file in the repository |
 | Deliver a review verdict on a PR | A GitHub PR review (approve / request changes) with line comments | §4 |
 | Deliver a review of something that is not a PR (a spec, a plan) | Findings posted in the review issue, by severity; large reports as `coordination/reviews/<YYYYMMDD>-<reviewer>-<subject>.md` via PR | The Codex round-2 spec reviews work this way |
 | Tell another agent something (handoff, question, warning, "your PR conflicts with mine") | A message file in `coordination/inbox/<recipient>/` | §5 |
@@ -99,9 +99,9 @@ There is no calendar (founder ruling 2026-09-17: no target dates, no assumed hou
 
 - **Whenever the founder sits down:** read `coordination/inbox/founder/`, merge approved PRs, triage `needs-triage`, unblock `blocked`.
 - **Every agent session:** starts with inbox + STATUS, ends with STATUS updated and handoffs sent. Claude Code additionally ends every session by listing, in chat, the rulings the founder needs to make, with explanation, implications and a recommendation (AGENTS.md §6).
-- **After each batch of merges:** Gemini's maintenance pass (Execution Plan WP-08); Claude Code syncs `coordination/BOARD.md` and proposes the next issues from the Execution Plan.
-- **Per milestone (Roadmap M0–M5):** retrospective note appended to `coordination/BOARD.md`; GTM artefact per `docs/strategy/GTM_Plan.md`.
-- **After a pause of any length:** Claude Code runs a tracker health check (status matrix, register, Decision Log, open PRs, stale STATUS lines) before anyone builds.
+- **After each batch of merges:** Gemini's maintenance pass (Execution Plan WP-08); Claude Code runs `python tools/board_sync.py` and proposes the next issues from the Execution Plan.
+- **Per milestone (Roadmap M0–M5):** retrospective note appended to the tracker's "Retrospectives"; GTM artefact per `docs/strategy/GTM_Plan.md`.
+- **After a pause of any length:** Claude Code runs the document checks (`tools/docs_index.py --check`, `tools/living_docs_check.py`, `tools/xref_check.py --strict`) and the board sync, reads STATUS and the inboxes, and rewrites the tracker's "Current state" before anyone builds.
 
 ## 9. How each agent gets its instructions
 
@@ -120,4 +120,3 @@ An agent without GitHub API access works from the issue text pasted into its pro
 - `inbox/` — per-recipient message folders, `MESSAGE_TEMPLATE.md`, and `done/` subfolders.
 - `reviews/` — review reports too large for an issue comment (created when first needed).
 - `HANDOFF_TEMPLATE.md` — the block every PR description uses.
-- `BOARD.md` — Now / Next / Later view of the work. Issues are the source of truth; the board is the readable summary.

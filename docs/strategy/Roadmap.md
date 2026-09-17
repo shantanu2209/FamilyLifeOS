@@ -1,8 +1,9 @@
 # Roadmap: FamilyLifeOS Portfolio Build
 
-> **Status:** DRAFT v0.2 — sequence-only plan, no dates or capacity assumptions (founder ruling 2026-09-17) · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
+> **Status:** DRAFT v0.3 — sequence-only plan, no dates or capacity assumptions (founder ruling 2026-09-17) · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
 > **Scope:** The order of work from tooling install to a demoable, documented kernel with two vertical slices ("Priya pays the BESCOM electricity bill" and "Nani's medication reminder via proxies") running against DPI simulators, in portfolio mode (tracker → Decision Log). Phases, gates, milestones, risks, metrics, and a short "what changes if this goes commercial" section. Work packages live in `docs/Execution_Plan.md`; audience and artefacts in `docs/strategy/GTM_Plan.md`.
-> **Supersedes:** For planning purposes only: tracker → "Milestone Tracker" (Feb-2026 week numbers), tracker → "Technology Decisions", "Team/Hiring Decisions", "Feature Prioritization" and "Operational Decisions", and the tracker's "Test Automation Roadmap" weeks. Master Context §8 (phasing with budgets and licences) stays the reference for commercial mode and is not the current plan.
+> **Supersedes:** the February 2026 milestone calendar and the week-numbered technology, hiring, feature and operational decision lists, now in `docs/reference/Project_Tracker_Snapshot_2026-02.md`. Master Context §8 (phasing with budgets and licences) stays the reference for commercial mode and is not the current plan.
+> **Live progress against this roadmap:** GitHub milestones M0–M5 and the project board (https://github.com/users/shantanu2209/projects/2). This document says what the phases and gates are; it never says how far along they are.
 
 ## 0. Document Governance
 
@@ -10,6 +11,7 @@
 |---|---|---|---|
 | v0.1 | 2026-09-17 | First draft: five phases over 13 weeks, week-by-week calendar, milestones M0–M5 with dates, effort model in founder hours, four-agent roster. | Shantanu Chaudhary (with Claude Code) |
 | v0.2 | 2026-09-17 | Founder ruling: no assumption about hours per week and no target dates. Calendar, dated decision points and the hours-based effort model removed; the plan is now an ordered sequence with gates. Roster reduced to three agents (Claude Code, Codex, Gemini in Antigravity); local models are an internal matter of the Gemini lane. Hosted LLM default set to Claude Haiku. | Shantanu Chaudhary (with Claude Code) |
+| v0.3 | 2026-09-17 | One home per fact (AGENTS.md §6): the "starting state" snapshot and the step-by-step table are removed, because the tracker's current state and the Execution Plan are their homes; retrospectives go to the tracker; the GitHub milestones and project board are the live view of progress against this roadmap. | Shantanu Chaudhary (with Claude Code) |
 
 ---
 
@@ -18,7 +20,7 @@
 - **Mode:** portfolio first (tracker → Decision Log). The output is a working kernel plus two slices against WireMock simulators, built to the quality the frozen specs demand. No licences, no real-money DPI integration, no hosting beyond one demo deployment. Commercial expansion is possible later; §7 lists what would change.
 - **No dates, no capacity assumption.** The project has paused before and may again. This roadmap therefore fixes **order and gates**, not a calendar: a phase starts when its entry condition is met and is done when its exit condition is met, however long that takes. Nothing in the repository should state a target date or an expected number of founder hours. If a date ever matters (for example an external deadline), it goes in the tracker's Decision Log as a decision, not here as an assumption.
 - **Team:** the founder and three AI agents: Claude Code (architecture, specs, reviews, planning), Codex (implementation against frozen specs, second reviewer), Gemini in Antigravity (routine generation from spec tables; it may delegate mechanical subtasks to local models it orchestrates itself, and stays accountable for the result). Coordination is through GitHub issues, labels, branches and PRs plus the repository channel under `coordination/` (protocol: `coordination/README.md`); every PR is reviewed by an agent other than its author; the founder merges.
-- **Starting state (2026-09-17):** documentation only. Data Model v1.3 and Module Registry v1.1 await Codex review round 2; FTS v1.2 and RB v1.2 are frozen; CM v1.3 is the frozen v1.2 text plus one addition (§2.6 proxy consent) that goes through the same round 2; PRD Core v2.2, NFR v2.2 and Master Context v2.1 are aligned; module PRDs for Vault, Finance and Health are at draft v0.1; `Security_Threat_Model.md` is P1, due before any internet-facing deployment. Tooling to install is listed in `docs/reference/Workstation_Setup.md`. Nothing can be built before that.
+- **Where things stand** is not recorded here: tracker → "Current state". Tooling to install is listed in `docs/reference/Workstation_Setup.md`.
 
 ### 1.1 Scope boundaries
 
@@ -62,7 +64,7 @@
 - **Goal:** prove the kernel is a kernel: a second module family (Health) and the foundational Vault run through the same registry, envelope, consent and audit paths without touching them.
 - **Deliverables:** Secure Vault module (document metadata only, DigiLocker simulator sync per CM §6.3, `SHOW_DOCUMENT` "show my licence" with the public-surface block); Health module (ABHA simulator prescription → FHIR partial-parse handling per RB §5.3 → medications → reminder schedule → proxy nudges per PRD Scenario 2); notification engine as a service module with a push stand-in; family graph admin screens in the PWA (members, roles, proxies, devices, module activation per MR §8.2); Scenario 5 age-18 trigger; the second Playwright test "Nani's medication reminder via proxies".
 - **Definition of done:** both E2E tests pass in one CI run; Health and Vault import only the SDK (import-linter green); no change to kernel payment, consent or audit code was needed to add them (if one was, it is recorded as a kernel gap, not hidden).
-- **Exit criteria:** M3 sign-off; tracker Document Status Matrix updated; Vault and Health PRDs marked accepted.
+- **Exit criteria:** M3 sign-off; Vault and Health PRDs marked accepted in their own Status lines.
 - **Main risks:** FHIR R4 parsing rabbit hole (mitigation: parse three resource types only — MedicationRequest, DiagnosticReport, Observation — per CM §6.2.2); admin screens absorbing effort (mitigation: table-driven screens, no design pass until Phase 4).
 - **Agents:** Codex builds; Claude Code reviews and writes the Health/Vault i18n key lists; Gemini generates DigiLocker and ABHA stubs and FHIR fixtures and keeps docs and tracker in sync.
 
@@ -91,23 +93,7 @@ A phase never starts with its entry condition unmet, because the order is the pl
 
 ## 3. Sequence within the phases
 
-The order of the larger steps, with the checkpoint that tells you each one is really done. Work packages and their dependencies are in `docs/Execution_Plan.md`.
-
-| Step | Focus | Key outputs | Checkpoint |
-|---|---|---|---|
-| 1 | Tooling; agent onboarding; review round 2 starts | Tools installed; labels, milestones, branch protection; uv scaffolding, pre-commit, import-linter, CI; Phase 0–1 issues created; agents' first STATUS lines | **M0:** first agent-authored PR merged with CI green |
-| 2 | Spec close-out; infrastructure drafts | DM v1.3 and MR frozen; Simulator spec; Test strategy; Dev-environment doc; Docker Compose, `.env.example` and the V001 migration drafted by Gemini | **M1:** specs frozen, Build Gate pre-conditions all ticked |
-| 3 | Kernel skeleton, resource lock, sessions | FastAPI app, settings, pools, SDK envelope; V001 merged with schema-diff test; `resource_lock` with concurrency test; `supervisor_sessions` lifecycle with boot reconciliation | Integration suite (Testcontainers) green on `main` |
-| 4 | Audit chain, Healer, registry | Audit write protocol + Q12 verifier; Healer with lock, caps, breaker, P1/P2 algorithms; registry boot and dispatch checks | Verifier passes over a seeded chain; `healer run-once` processes a queued AUDIT_LOG_WRITE |
-| 5 | DPI gateway, FinanceAgent, crash scenarios | BBPS/AA gateway with Lua budgets, IST TTLs, breakers; FinanceAgent `PAY_BILL` with five gates; crash A–D tests; LLM gateway stub | Crash scenarios A–D green in CI |
-| 6 | PWA approval + WebAuthn, Playwright E2E | Approval screen with passkeys; "Priya pays BESCOM bill" E2E; gate sign-off; tag `v0.1.0-build-gate` | **M2:** Build Gate PASSED |
-| 7 | Vault foundation; DigiLocker and ABHA stubs | `secure_vault` module, document metadata, DigiLocker sync, `SHOW_DOCUMENT`; stubs and contract tests | Vault intent runs through registry and audit unchanged |
-| 8 | Health module | ABHA prescription → medications → reminder schedule; FHIR partial parse; proxy nudge logic | Health integration tests green |
-| 9 | Notifications, admin screens, age-18 trigger | Notification engine + push stand-in; family graph admin screens; Scenario 5 job | Admin can activate a module and assign a proxy end to end |
-| 10 | Second E2E | "Nani's medication reminder via proxies" Playwright test | **M3:** two slices, one kernel |
-| 11 | Voice stand-in, observability | Web Speech stand-in with confidence gate; JSON logs, Prometheus metrics, Grafana dashboard; k6 P95 run | Dashboard shows both flows and Healer activity |
-| 12 | Threat model, demo deployment | `Security_Threat_Model.md`; host in an India region, TLS, simulators bundled, synthetic data only | **M4:** demo URL live |
-| 13 | Portfolio release; retrospective | Build log, architecture one-pager, README landing, demo video, retrospective | **M5:** portfolio release |
+The order of the work packages inside each phase, their dependencies and their verification are in `docs/Execution_Plan.md` §2–§6 and §8 (critical path), and only there. The milestones in §4 are the checkpoints.
 
 ### 3.1 Working rhythm (no calendar)
 
@@ -115,8 +101,8 @@ The protocol is `coordination/README.md`. It is event-driven, not scheduled:
 
 - **Whenever the founder sits down:** read `coordination/inbox/founder/`, merge approved PRs, triage `needs-triage`, unblock `blocked`.
 - **At the start of every agent session:** read your inbox and `coordination/STATUS.md`; at the end, update your STATUS section and send any handoff messages.
-- **At each checkpoint in the table above:** one line in the tracker's change log; at each milestone, a retrospective note in `coordination/BOARD.md`.
-- **When work resumes after a pause:** Claude Code runs a tracker health check first (status matrix, register, Decision Log, open PRs) so the plan reflects reality before anyone builds on it.
+- **At each milestone:** one line in the tracker's change log and a retrospective note in the tracker's "Retrospectives".
+- **When work resumes after a pause:** Claude Code runs the document checks and the board sync first and rewrites the tracker's "Current state" (`coordination/README.md` §8), so the plan reflects reality before anyone builds on it.
 
 ### 3.2 Decision points (tied to milestones, not dates)
 
