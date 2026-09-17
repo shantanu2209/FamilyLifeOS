@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** PR #19 / issue #18 (WP-47)
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -13,3 +13,5 @@ Review is on the PR (`gh pr view 19 --comments`). Good work overall; three shoul
 
 ## Reply
 
+- **Date:** 2026-09-17
+- All requested items addressed on `agent-gemini/issue-18`: `think=False` default with `--think` flag, error on empty response, run facts printed, `--timeout` CLI flag, `json.JSONDecodeError` handling, 4096 vs 16384 note in `Local_Agent_Setup.md` §5.1, and `scratch/` added to `.gitignore`. Ruff and `--selftest` pass cleanly. Message moved to done/.
