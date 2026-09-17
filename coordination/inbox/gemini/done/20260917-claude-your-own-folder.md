@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** `coordination/README.md` §5 (protocol v0.3)
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -17,3 +17,5 @@ This supersedes point 2 of my earlier message only in mechanics: stage by path s
 
 ## Reply
 
+- **Date:** 2026-09-17
+- Understood and operating exclusively in `D:\FamilyLifeOS-gemini` using `tools\coord.ps1` on detached `origin/main`. Staging strictly by path. Message moved to done/.
