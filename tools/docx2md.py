@@ -1,12 +1,39 @@
-import sys, zipfile, re, os
+"""Word (.docx) to Markdown converter for FamilyLifeOS documentation.
+
+Converts .docx files into clean Markdown, preserving headings (with optional
+level shifting), code blocks with language detection, callout boxes, tables,
+and formatted table of contents.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import sys
+import zipfile
 from xml.etree import ElementTree as ET
 
 W = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
-MONO_RE = re.compile(r'Courier|Consolas|Mono|Menlo|Fira|JetBrains|Source Code', re.I)
-CALLOUT_RE = re.compile(u'^\\s*(⚠|ℹ|✅|\U0001F534|\U0001F4CB|⚖|\U0001F527|✔|❗|\U0001F4A1|\U0001F7E0|\U0001F7E1)')
+MONO_RE = re.compile(
+    r'Courier|Consolas|Mono|Menlo|Fira|JetBrains|Source Code',
+    re.IGNORECASE,
+)
+CALLOUT_RE = re.compile(
+    r'^\s*(⚠|ℹ|✅|\U0001F534|\U0001F4CB|⚖|\U0001F527|✔|❗|\U0001F4A1|\U0001F7E0|\U0001F7E1)'
+)
 
 
-def para_text(p):
+def para_text(p: ET.Element) -> str:
+    """Extract plain text from an XML paragraph element.
+
+    Handles text nodes (`<w:t>`), tabs (`<w:tab>`), and line breaks (`<w:br>`).
+
+    Args:
+        p: ElementTree XML element representing a paragraph (`<w:p>`).
+
+    Returns:
+        The concatenated text content of the paragraph.
+    """
     out = []
     for node in p.iter():
         if node.tag == W + 't':
@@ -18,7 +45,16 @@ def para_text(p):
     return ''.join(out)
 
 
-def para_style(p):
+def para_style(p: ET.Element) -> tuple[str | None, int | None]:
+    """Extract paragraph style name and list indentation level.
+
+    Args:
+        p: ElementTree XML element representing a paragraph (`<w:p>`).
+
+    Returns:
+        A tuple of `(style_name, indent_level)`. If style or indentation
+        is not defined, returns None for that field.
+    """
     ppr = p.find(W + 'pPr')
     if ppr is None:
         return None, None
@@ -32,7 +68,15 @@ def para_style(p):
     return style, ilvl
 
 
-def runs_info(p):
+def runs_info(p: ET.Element) -> tuple[int, int, bool]:
+    """Inspect text runs in a paragraph for monospace fonts and bold formatting.
+
+    Args:
+        p: ElementTree XML element representing a paragraph (`<w:p>`).
+
+    Returns:
+        A tuple of `(non_empty_runs_count, monospace_runs_count, is_all_bold)`.
+    """
     n = mono = 0
     all_bold = True
     for r in p.findall(W + 'r'):
@@ -49,7 +93,19 @@ def runs_info(p):
     return n, mono, (all_bold and n > 0)
 
 
-def is_mono_para(p, mono_styles):
+def is_mono_para(p: ET.Element, mono_styles: set[str]) -> bool:
+    """Determine if a paragraph should be treated as monospace / code.
+
+    Checks if the paragraph style matches known monospace styles or if at
+    least 60% of its text runs use monospace fonts.
+
+    Args:
+        p: ElementTree XML element representing a paragraph (`<w:p>`).
+        mono_styles: Set of style identifiers recognized as monospace.
+
+    Returns:
+        True if the paragraph is monospace, False otherwise.
+    """
     style, _ = para_style(p)
     if style in mono_styles:
         return True
@@ -57,22 +113,46 @@ def is_mono_para(p, mono_styles):
     return n > 0 and mono / n >= 0.6
 
 
-def guess_lang(text):
+def guess_lang(text: str) -> str:
+    """Heuristically guess the programming or markup language of a code block.
+
+    Args:
+        text: Code block content to analyze.
+
+    Returns:
+        Language identifier ('sql', 'python', 'json', 'lua', 'yaml', or 'text').
+    """
     t = text
-    if re.search(r'\b(CREATE TABLE|SELECT |INSERT INTO|UPDATE \w+ SET|ALTER TABLE|CREATE INDEX|CREATE UNIQUE INDEX|BEGIN TRANSACTION|CREATE OR REPLACE FUNCTION)\b', t):
+    if re.search(
+        r'\b(CREATE TABLE|SELECT |INSERT INTO|UPDATE \w+ SET|ALTER TABLE|CREATE INDEX|CREATE UNIQUE INDEX|BEGIN TRANSACTION|CREATE OR REPLACE FUNCTION)\b',
+        t,
+    ):
         return 'sql'
-    if re.search(r'^\s*(def |import |from \w+ import|class \w+|async def )', t, re.M) or re.search(r'\bredis\.|\blog\.(info|warning|warn)\(', t):
+    if re.search(
+        r'^\s*(def |import |from \w+ import|class \w+|async def )',
+        t,
+        re.MULTILINE,
+    ) or re.search(r'\bredis\.|\blog\.(info|warning|warn)\(', t):
         return 'python'
     if re.search(r'^\s*[\{\[]', t) and re.search(r'"\w+"\s*:', t):
         return 'json'
-    if re.search(r'^\s*(local |if .* then|redis\.call)', t, re.M):
+    if re.search(r'^\s*(local |if .* then|redis\.call)', t, re.MULTILINE):
         return 'lua'
-    if re.search(r'^\s*\w[\w_]*:\s*(\S|$)', t, re.M) and not re.search(r'[;{}]', t):
+    if re.search(r'^\s*\w[\w_]*:\s*(\S|$)', t, re.MULTILINE) and not re.search(r'[;{}]', t):
         return 'yaml'
     return 'text'
 
 
-def flush_code(buf, out):
+def flush_code(buf: list[str], out: list[str]) -> None:
+    """Flush accumulated monospace lines in `buf` into `out` as a fenced code block.
+
+    Strips common leading indentation and chooses appropriate code fences (```
+    or ````) to avoid collision with nested backticks.
+
+    Args:
+        buf: Mutable list of code lines accumulated so far; cleared in-place.
+        out: Mutable list of output Markdown lines to append to.
+    """
     if not buf:
         return
     text = '\n'.join(buf).strip('\n')
@@ -89,7 +169,25 @@ def flush_code(buf, out):
     buf.clear()
 
 
-def render_paragraph(p, out, code_buf, mono_styles, shift):
+def render_paragraph(
+    p: ET.Element,
+    out: list[str],
+    code_buf: list[str],
+    mono_styles: set[str],
+    shift: int,
+) -> None:
+    """Render a single Word paragraph element into Markdown lines.
+
+    Handles headings (applying `shift` to level), lists, monospace code lines,
+    subtitles, bold callouts, and regular text.
+
+    Args:
+        p: Paragraph XML element (`<w:p>`).
+        out: Output list of Markdown lines.
+        code_buf: Buffer accumulating contiguous monospace code lines.
+        mono_styles: Set of style IDs identified as monospace.
+        shift: Heading level offset to apply to headings (e.g. +1 for subdocuments).
+    """
     style, ilvl = para_style(p)
     text = para_text(p).rstrip()
     m = re.match(r'Heading(\d)', style or '')
@@ -119,7 +217,7 @@ def render_paragraph(p, out, code_buf, mono_styles, shift):
         indent = ilvl if ilvl is not None else (1 if (style and style.endswith('2')) else 0)
         out.append('  ' * indent + '- ' + text.strip())
         return
-    n, mono, all_bold = runs_info(p)
+    _, _, all_bold = runs_info(p)
     if style == 'Subtitle':
         out.append('_' + text.strip() + '_')
     elif all_bold and len(text) < 140 and '\n' not in text:
@@ -128,11 +226,30 @@ def render_paragraph(p, out, code_buf, mono_styles, shift):
         out.append(text.replace('\n', '  \n'))
 
 
-def cell_paras(tc):
-    return [p for p in tc.iter(W + 'p')]
+def cell_paras(tc: ET.Element) -> list[ET.Element]:
+    """Retrieve all paragraph elements within a table cell element.
+
+    Args:
+        tc: ElementTree XML element representing a table cell (`<w:tc>`).
+
+    Returns:
+        A list of `<w:p>` elements within the cell.
+    """
+    return list(tc.iter(W + 'p'))
 
 
-def render_table(tbl, out, mono_styles):
+def render_table(tbl: ET.Element, out: list[str], mono_styles: set[str]) -> None:
+    """Render a Word table into a Markdown table or blockquote/code callout.
+
+    Single-cell tables with non-code text are rendered as blockquotes (`>`),
+    or code blocks if monospace. Multi-cell tables are rendered as standard
+    Markdown pipe tables.
+
+    Args:
+        tbl: Table XML element (`<w:tbl>`).
+        out: Output list of Markdown lines.
+        mono_styles: Set of style IDs identified as monospace.
+    """
     rows = tbl.findall(W + 'tr')
     if not rows:
         return
@@ -145,7 +262,6 @@ def render_table(tbl, out, mono_styles):
         if not nonempty:
             return
         mono_count = sum(1 for p in paras if para_text(p).strip() and is_mono_para(p, mono_styles))
-        first = nonempty[0]
         if mono_count / max(1, len(nonempty)) < 0.5:
             out.append('')
             for t in texts:
@@ -182,7 +298,20 @@ def render_table(tbl, out, mono_styles):
     out.append('')
 
 
-def convert(path, shift=0):
+def convert(path: str, shift: int = 0) -> str:
+    """Convert a .docx file into Markdown text.
+
+    Extracts XML from the docx container, scans styles for monospace fonts,
+    renders paragraphs and tables in order, cleans up the Table of Contents,
+    and normalizes excessive newlines.
+
+    Args:
+        path: Filepath to the input .docx file.
+        shift: Number of heading levels to shift down (default 0).
+
+    Returns:
+        Formatted Markdown text string.
+    """
     z = zipfile.ZipFile(path)
     root = ET.fromstring(z.read('word/document.xml'))
     body = root.find(W + 'body')
@@ -219,8 +348,18 @@ def convert(path, shift=0):
     return text
 
 
-def fix_toc(text):
-    """Turn the manual 'Table of Contents' block (bold entry + indented summary lines) into a list."""
+def fix_toc(text: str) -> str:
+    """Reformat manual 'Table of Contents' sections into Markdown list items.
+
+    Converts bold number-prefixed lines and following summary lines under
+    a `# Table of Contents` heading into clean list syntax.
+
+    Args:
+        text: Markdown text to process.
+
+    Returns:
+        Markdown text with standardized Table of Contents formatting.
+    """
     lines = text.split('\n')
     out = []
     i = 0
@@ -240,10 +379,15 @@ def fix_toc(text):
                 continue
             m = re.match(r'^\*\*\s*(\d+)\.\s*(.+?)\*\*\s*$', line)
             if m:
-                entry = '- **%s. %s**' % (m.group(1), m.group(2).strip())
+                entry = f'- **{m.group(1)}. {m.group(2).strip()}**'
                 j = i + 1
                 extras = []
-                while j < len(lines) and lines[j].strip() and not lines[j].startswith('#') and not re.match(r'^\*\*\s*\d+\.', lines[j]):
+                while (
+                    j < len(lines)
+                    and lines[j].strip()
+                    and not lines[j].startswith('#')
+                    and not re.match(r'^\*\*\s*\d+\.', lines[j])
+                ):
                     extras.append(re.sub(r'\s+', ' ', lines[j].strip()))
                     j += 1
                 if extras:
@@ -256,13 +400,34 @@ def fix_toc(text):
     return '\n'.join(out)
 
 
-if __name__ == '__main__':
-    src, dst = sys.argv[1], sys.argv[2]
-    shift = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+def main(argv: list[str] | None = None) -> int:
+    """CLI entrypoint for converting a .docx file to Markdown.
+
+    Args:
+        argv: Command-line arguments. Defaults to sys.argv[1:].
+
+    Returns:
+        Exit code (0 on success).
+    """
+    if argv is None:
+        argv = sys.argv[1:]
+    if len(argv) < 2:
+        print('Usage: python docx2md.py <input.docx> <output.md> [heading_shift]')
+        return 1
+    src, dst = argv[0], argv[1]
+    shift = int(argv[2]) if len(argv) > 2 else 0
     text = convert(src, shift)
     with open(dst, 'w', encoding='utf-8', newline='\n') as f:
         f.write(text)
-    h1 = len(re.findall(r'^# ', text, re.M))
+    h1 = len(re.findall(r'^# ', text, re.MULTILINE))
     fences = text.count('```') // 2
-    quotes = len(re.findall(r'^> ', text, re.M))
-    print('%s -> %s: %d chars, H1=%d, code_blocks=%d, quote_lines=%d' % (os.path.basename(src), os.path.basename(dst), len(text), h1, fences, quotes))
+    quotes = len(re.findall(r'^> ', text, re.MULTILINE))
+    print(
+        f'{os.path.basename(src)} -> {os.path.basename(dst)}: '
+        f'{len(text)} chars, H1={h1}, code_blocks={fences}, quote_lines={quotes}'
+    )
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
