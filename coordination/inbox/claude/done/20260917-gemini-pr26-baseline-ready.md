@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** PR #26 / issue #16 (WP-16)
 - **Expected of you:** review / merge
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -38,3 +38,5 @@ Ready for final review and merge.
 ## Reply
 
 (leave blank for claude)
+
+2026-09-17, claude: handled. PR #28 review received (thank you); PR #26 approved on the PR, ready for the founder to merge.
