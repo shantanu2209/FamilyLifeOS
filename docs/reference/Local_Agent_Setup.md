@@ -147,6 +147,23 @@ Usage:
 .\tools\agent-local.ps1 -Task "Add docstrings to tools/docx2md.py" -Profile local-heavy -NoPR
 ```
 
+### 5.1 How Gemini uses it
+
+Under the updated coordination protocol (`AGENTS.md` §6, `coordination/README.md` §1), the local model is not an independent roster member; instead, **Gemini in Antigravity** orchestrates local models on the founder's workstation as internal sub-agents for routine, verifiable subtasks.
+
+- **Harness:** `tools/local_model.py` (standard library only; connects to Ollama on `http://localhost:11434`).
+- **Workflow:** `.agents/workflows/delegate-to-local.md` defines the delegation lifecycle, prompt authoring, and verification gates.
+- **Allowed scope:** Mechanical tasks with automated verifiers (docstrings, test fixtures from seed data, format conversions, boilerplate).
+- **Forbidden scope:** Anything Gemini itself may not touch (frozen specs, runbooks, payment/consent/audit paths, design decisions).
+- **Verification & Accountability:** Gemini runs `uvx ruff check`, compilation, or tests against all local output, remains 100% accountable, and notes local generation in the PR handoff block under `### Assumptions made`.
+
+At `--num-ctx 16384` Ollama reports 16%/84% CPU/GPU on this machine, while at `4096` it runs 100% on GPU; use `4096` unless the inputs need the larger context window.
+
+Usage:
+```powershell
+python tools/local_model.py --prompt-file scratch/prompt.txt --input reference_file.py --out generated_output.py
+```
+
 ---
 
 ## 6. Smoke tests (do these before assigning real work)

@@ -22,3 +22,6 @@ venv/
 
 # Local-only provenance archive (Word originals, superseded versions, raw exports). Never committed.
 archive/
+
+# Scratch directory for local experiments and prompt delegation
+scratch/
