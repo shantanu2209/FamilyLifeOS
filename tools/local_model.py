@@ -10,8 +10,10 @@ import argparse
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
+from typing import Any
 
 OLLAMA_BASE_URL = 'http://localhost:11434'
 DEFAULT_MODEL = 'qwen3.5:9b'
@@ -36,7 +38,7 @@ def get_available_models(base_url: str = OLLAMA_BASE_URL) -> list[str]:
             data = json.loads(resp.read().decode('utf-8'))
             models = [m.get('name', '') for m in data.get('models', []) if m.get('name')]
             return models
-    except (urllib.error.URLError, TimeoutError, OSError) as err:
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as err:
         raise RuntimeError(
             f'Ollama is not running on {base_url}. Please ensure Ollama is started.\nDetail: {err}'
         ) from err
@@ -70,8 +72,9 @@ def generate_response(
     model: str = DEFAULT_MODEL,
     base_url: str = OLLAMA_BASE_URL,
     num_ctx: int = 16384,
+    think: bool = False,
     timeout: int = 300,
-) -> str:
+) -> tuple[str, dict[str, Any]]:
     """Generate completion from Ollama using the /api/generate endpoint.
 
     Args:
@@ -79,19 +82,21 @@ def generate_response(
         model: Model identifier.
         base_url: Ollama base URL.
         num_ctx: Context window size (default 16384).
+        think: Enable thinking/reasoning mode (default False).
         timeout: Request timeout in seconds.
 
     Returns:
-        Generated text response from the model.
+        A tuple of (generated_text, response_metadata_dict).
 
     Raises:
-        RuntimeError: If generation request fails.
+        RuntimeError: If generation request fails or returns an empty response.
     """
     url = f'{base_url}/api/generate'
     payload = {
         'model': model,
         'prompt': prompt,
         'stream': False,
+        'think': think,
         'options': {
             'num_ctx': num_ctx,
         },
@@ -107,22 +112,26 @@ def generate_response(
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             response_text = data.get('response', '')
-            if not response_text and data.get('thinking'):
-                # Fallback to thinking output if response is empty
-                response_text = data.get('thinking', '')
-            return response_text
-    except (urllib.error.URLError, TimeoutError, OSError) as err:
+            if not response_text.strip():
+                raise RuntimeError('Model returned an empty response.')
+            return response_text, data
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as err:
         raise RuntimeError(
             f'Failed to generate response from Ollama on {base_url}: {err}'
         ) from err
 
 
-def run_selftest(model: str = DEFAULT_MODEL, base_url: str = OLLAMA_BASE_URL) -> int:
+def run_selftest(
+    model: str = DEFAULT_MODEL,
+    base_url: str = OLLAMA_BASE_URL,
+    timeout: int = 120,
+) -> int:
     """Execute end-to-end self-test against local Ollama.
 
     Args:
         model: Model name to test.
         base_url: Ollama base URL.
+        timeout: Request timeout in seconds.
 
     Returns:
         0 on success, non-zero on failure.
@@ -138,20 +147,27 @@ def run_selftest(model: str = DEFAULT_MODEL, base_url: str = OLLAMA_BASE_URL) ->
         return 1
 
     test_prompt = 'Respond with the single word OK and nothing else.'
-    print(f"Sending test prompt: '{test_prompt}'")
+    print(f"Sending test prompt: '{test_prompt}' (think=False, num_ctx=4096)")
+    t0 = time.perf_counter()
     try:
-        reply = generate_response(
+        reply, meta = generate_response(
             test_prompt,
             model=model,
             base_url=base_url,
             num_ctx=4096,
-            timeout=120,
+            think=False,
+            timeout=timeout,
         )
+        elapsed = time.perf_counter() - t0
+        eval_count = meta.get('eval_count', 0)
+        eval_dur = meta.get('eval_duration', 0)
+        speed = (eval_count / (eval_dur / 1e9)) if eval_dur > 0 else 0.0
         clean_reply = reply.strip()
         print(f"Received reply: '{clean_reply}'")
-        if not clean_reply:
-            sys.stderr.write('Selftest FAILED: empty response from model.\n')
-            return 1
+        print(
+            f'Run facts: elapsed={elapsed:.2f}s, eval_tokens={eval_count}, '
+            f'speed={speed:.1f} tokens/s'
+        )
         print('Selftest PASSED successfully.')
         return 0
     except RuntimeError as err:
@@ -221,6 +237,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help='Ollama context window size in tokens (default: 16384)',
     )
     parser.add_argument(
+        '--think',
+        action='store_true',
+        default=False,
+        help='Enable thinking/reasoning mode (default: False)',
+    )
+    parser.add_argument(
+        '--timeout',
+        type=int,
+        default=300,
+        help='Request timeout in seconds (default: 300)',
+    )
+    parser.add_argument(
         '--selftest',
         action='store_true',
         help='Run connection and generation self-test against local Ollama',
@@ -240,7 +268,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     if args.selftest:
-        return run_selftest(model=args.model, base_url=OLLAMA_BASE_URL)
+        return run_selftest(
+            model=args.model,
+            base_url=OLLAMA_BASE_URL,
+            timeout=args.timeout,
+        )
 
     if not args.prompt_file or not args.out:
         sys.stderr.write(
@@ -267,16 +299,24 @@ def main(argv: list[str] | None = None) -> int:
 
     full_prompt = build_full_prompt(args.prompt_file, args.inputs)
 
+    t0 = time.perf_counter()
     try:
-        result = generate_response(
+        result, meta = generate_response(
             full_prompt,
             model=args.model,
             base_url=OLLAMA_BASE_URL,
             num_ctx=args.num_ctx,
+            think=args.think,
+            timeout=args.timeout,
         )
     except RuntimeError as err:
         sys.stderr.write(f'{err}\n')
         return 1
+
+    elapsed = time.perf_counter() - t0
+    eval_count = meta.get('eval_count', 0)
+    eval_dur = meta.get('eval_duration', 0)
+    speed = (eval_count / (eval_dur / 1e9)) if eval_dur > 0 else 0.0
 
     out_dir = os.path.dirname(args.out)
     if out_dir and not os.path.exists(out_dir):
@@ -285,7 +325,11 @@ def main(argv: list[str] | None = None) -> int:
     with open(args.out, 'w', encoding='utf-8') as f:
         f.write(result)
 
-    print(f'Output written to {args.out} ({len(result)} chars)')
+    print(
+        f'Output written to {args.out} ({len(result)} chars) '
+        f'[model={args.model}, num_ctx={args.num_ctx}, think={args.think}, '
+        f'elapsed={elapsed:.2f}s, eval_tokens={eval_count}, speed={speed:.1f} tokens/s]'
+    )
     return 0
 
 
