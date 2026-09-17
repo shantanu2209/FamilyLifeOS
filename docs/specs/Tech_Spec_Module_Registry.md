@@ -214,7 +214,7 @@ Every module ships a `manifest.json` at its package root. The manifest is the mo
         "core_read_views": {
           "type": "array",
           "items": { "enum": ["v_family_members", "v_module_permissions",
-                               "v_active_consents", "v_device_surfaces"] },
+                               "v_active_consents", "v_device_surfaces", "v_guardians"] },
           "description": "Whitelisted kernel views this module's DB role may SELECT (§7.2). Nothing else in core is visible."
         }
       }

@@ -16,7 +16,7 @@ Approvers: Shantanu Chaudhary, after one independent review round
 | Version | Date | Description of Change | Author |
 |---|---|---|---|
 | v0.1 | 2026-09-17 | Initial draft for the Phase 1 portfolio build. | Shantanu Chaudhary (with Claude Code) |
-| v0.2 | 2026-09-17 | Founder rulings applied. (1) Visibility model replaces the co-owner assumption: document classes, a `visibility` attribute with defaults by class and holder, new intent `SET_DOCUMENT_VISIBILITY`, error VAULT_006, no admin override of another adult's personal documents (OI-6 closed; break-glass parked as OI-7). (2) Expiry reminders: default recipients and lead times, adjustable per family and per document (OI-1 closed). (3) New §4.6 "Settings and defaults": what a family can adjust, how far, and what is never a setting (Decision Log: defaults, not constants). (4) Who links whose documents tightened: adults link their own, guardians link dependents'. (5) `UNLINK_DOCUMENT` opened to the holder. (6) DigiLocker stub names aligned with the simulator spec. | Shantanu Chaudhary (with Claude Code) |
+| v0.2 | 2026-09-17 | Founder rulings applied. (1) Visibility model replaces the co-owner assumption: document classes, a `visibility` attribute with defaults by class and holder, new intent `SET_DOCUMENT_VISIBILITY`, error VAULT_006, no admin override of another adult's personal documents (OI-6 closed; break-glass parked as OI-7). (2) Expiry reminders: default recipients and lead times, adjustable per family and per document (OI-1 closed). (3) New §4.6 "Settings and defaults": what a family can adjust, how far, and what is never a setting (Decision Log: defaults, not constants). (4) Who links whose documents tightened: adults link their own, guardians link dependents'. (5) `UNLINK_DOCUMENT` opened to the holder. (6) DigiLocker stub names aligned with the simulator spec. (7) Second founder ruling the same day: a minor's personal documents are seen by the minor's **parents and any marked legal guardian**, not by every adult and not by admins as such; this needs the new kernel view `v_guardians` and the `guardian` relationship type (Data Model v1.3 change 16, in the same PR). | Shantanu Chaudhary (with Claude Code) |
 
 ## 1. The One-Pager (Executive Summary)
 
@@ -43,8 +43,8 @@ Baseline Core PRD §2 ("Wealth/Vault data is strictly hidden" for minors) and DM
 
 | Role | Vault access | Can | Cannot | Enforcement note |
 |---|---|---|---|---|
-| admin | Full, within visibility | Link, list, show and unlink their own documents, family-class documents and every dependent's documents (minor, elder, managed, passive holders); change visibility of dependents' documents; change the family's reminder settings; answer milestone prompts; receive expiry reminders | See, list, show or unlink another adult's `holder_only` document (no override in Phase 1, OI-7); retrieve on a public surface; store a document copy; change a role from inside the Vault (kernel Level 0 action) | Vault is implicitly active for every family (MR §5.2); visibility is enforced in the module's analysis step, after the kernel's role check |
-| member | Own documents and shared ones | Link, list, show and unlink their own documents; list and show family-class documents and anything another adult has shared; link and see the documents of managed profiles they are **primary proxy** for; change visibility of their own documents | See another adult's `holder_only` document; see a dependent's `guardians` document unless they are that dependent's primary proxy; unlink a document they do not hold; answer milestone prompts; change family settings | `PROXY_ACTION` audit when `acting_as` is set |
+| admin | Full, within visibility | Link, list, show and unlink their own documents, family-class documents, and the documents of dependents they are a guardian viewer of (§4.6: elder, managed and passive holders always; a minor only as parent or legal guardian, or when the minor has neither in the family); change visibility of those dependents' documents; change the family's reminder settings; answer milestone prompts; receive expiry reminders | See, list, show or unlink another adult's `holder_only` document (no override in Phase 1, OI-7); retrieve on a public surface; store a document copy; change a role from inside the Vault (kernel Level 0 action) | Vault is implicitly active for every family (MR §5.2); visibility is enforced in the module's analysis step, after the kernel's role check |
+| member | Own documents and shared ones | Link, list, show and unlink their own documents; list and show family-class documents and anything another adult has shared; link and see the documents of minors they are a parent or legal guardian of and of managed profiles they are **primary proxy** for; change visibility of their own documents | See another adult's `holder_only` document; see a dependent's `guardians` document unless they are the minor's parent or legal guardian, or the managed profile's primary proxy; unlink a document they do not hold; answer milestone prompts; change family settings | `PROXY_ACTION` audit when `acting_as` is set |
 | minor | None | — | Any vault intent; even the metadata of documents about themselves | Documents are linked by a parent with `parental_consent_user_id` (CM §2.5); attempt → BLOCKED + `ROLE_VIOLATION` |
 | elder | None in Phase 1 | — | Any vault intent | DM Q2; an elder's documents are linked by an admin and default to `guardians` visibility; revisit in P2 |
 | staff | None | — | Any vault intent, including the vehicle RC | Per-document sharing is P2 (OI-5); attempt → BLOCKED + admin alert |
@@ -53,7 +53,7 @@ Baseline Core PRD §2 ("Wealth/Vault data is strictly hidden" for minors) and DM
 
 ## 3. User Scenarios / Use Cases
 
-Seed as in DM §8. Ravi and Priya each hold an active `DIGILOCKER_DOCUMENT` consent (simulator OAuth references in `consent_handles`); an adult's documents come from that adult's own DigiLocker account, a dependent's from a guardian's. Linked at setup: by Ravi, his driving licence (`DRIVING_LICENCE`, personal, `holder_only`, expires 2029-03-14) and Arjun's birth certificate (personal, holder is a minor, `guardians`); by Priya, the vehicle RC and the insurance policy (family class, `family_adults`) and her PAN (personal, `holder_only`).
+Seed as in DM §8. Ravi and Priya each hold an active `DIGILOCKER_DOCUMENT` consent (simulator OAuth references in `consent_handles`); an adult's documents come from that adult's own DigiLocker account, a dependent's from a guardian's. Linked at setup: by Ravi, his driving licence (`DRIVING_LICENCE`, personal, `holder_only`, expires 2029-03-14) and Arjun's birth certificate (personal, holder is a minor, `guardians`: visible to his parents Ravi and Priya through `v_guardians`); by Priya, the vehicle RC and the insurance policy (family class, `family_adults`) and her PAN (personal, `holder_only`).
 
 ### Scenario 1 — "Show my driving licence" (Master PRD Module 5 voice retrieval)
 
@@ -86,27 +86,27 @@ Priya asks for her insurance policy a year after linking. CONSENT_REVERIFY finds
 
 ### Scenario 6 — The licence is about to expire (reminder defaults)
 
-The 03:00 sweep finds Ravi's driving licence 30 days from expiry. Defaults (§4.6): the holder is reminded at 30 and 7 days; the admins get a copy. Ravi is both. Had it been Priya's `holder_only` licence, Ravi's copy would read "One of Priya's personal documents expires on 14 March" with no type and no number, because a reminder must not reveal more than the list would. Priya can mute admin copies for that one document; Ravi can change the family's lead times to 60/30/7. For Nani's (managed) insurance card the reminder goes to the admins and to Priya as primary proxy, never to Nani.
+The 03:00 sweep finds Ravi's driving licence 30 days from expiry. Defaults (§4.6): the holder is reminded at 30 and 7 days; the admins get a copy. Ravi is both. Had it been Priya's `holder_only` licence, Ravi's copy would read "One of Priya's personal documents expires on 14 March" with no type and no number, because a reminder must not reveal more than the list would. Priya can mute admin copies for that one document; Ravi can change the family's lead times to 60/30/7. For Nani's (managed) insurance card the reminder goes to the admins and to Priya as primary proxy, never to Nani. A reminder about Arjun's passport, were one linked, would go to Ravi and Priya as his parents, whoever the admins are.
 
 ## 4. Functional Requirements (The "Agentic" Loop)
 
 ### 4.1 The loop for link, show and milestone
 
 - **Trigger:** a request on a private device (`LINK_DOCUMENT`, `LIST_DOCUMENTS`, `SHOW_DOCUMENT`, `SET_DOCUMENT_VISIBILITY`, `UNLINK_DOCUMENT`); the nightly 03:00 IST sweep (expiry within 30 days, age-18 milestones) registered through the SDK scheduler (MR v1.1 has no scheduling contract, OI-3); the kernel's consent watchdog for `DIGILOCKER_DOCUMENT` renewals (CM §7).
-- **Information gathering:** actor role and `acting_as` from the envelope; holder role from `v_family_members`; DigiLocker consent reference from `v_active_consents`; device surface from `v_device_surfaces`; local `secure_vault.documents`; the DigiLocker simulator's document list/metadata endpoint (link) or document endpoint (show) through the DPI Gateway, with the OAuth token handled by the Consent Manager adapter (CM §6.3).
+- **Information gathering:** actor role and `acting_as` from the envelope; holder role from `v_family_members`; parents, legal guardians and proxies of a dependent holder from `v_guardians`; DigiLocker consent reference from `v_active_consents`; device surface from `v_device_surfaces`; local `secure_vault.documents`; the DigiLocker simulator's document list/metadata endpoint (link) or document endpoint (show) through the DPI Gateway, with the OAuth token handled by the Consent Manager adapter (CM §6.3).
 - **Analysis logic (deterministic):** the requester may see or act on a document only if the visibility rule of §4.6 names them a viewer (the kernel has already checked that they are `admin` or `member`); every list, count, reminder and error message is filtered by the same rule, so nothing reveals a document the requester cannot see; expiry badge = red ≤ 7 days, amber ≤ 30 days; `milestone_at ≤ today AND holder.role = 'minor'` → milestone; a DigiLocker response that says the document is revoked or expired overrides local metadata (DPI truth wins). No inference on document content beyond the metadata fields the simulator returns.
 - **Execution / fulfilment:** `LINK_DOCUMENT` writes one `secure_vault.documents` row inside a transaction with its idempotency ledger row and the audit write protocol of DM v1.3 §3.18 (`fn_lock_audit_tail` then `fn_append_audit`; `VAULT_DOCUMENT_LINKED`, proposed code — OI-3); `SHOW_DOCUMENT` streams bytes to the client in memory and writes only an access-log row; `SET_DOCUMENT_VISIBILITY` updates one row with the audit write protocol (`VAULT_VISIBILITY_CHANGED`, proposed — OI-3); `UNLINK_DOCUMENT` soft-deletes; the sweep sends expiry reminders (recipients and lead times from `secure_vault.family_settings`, §4.6) and milestone prompts through `notification_engine` to private devices. The Vault never changes a role and never calls Finance or Health (MR §3.2).
 
 ### 4.2 Features In (Prioritised)
 
-- **`LINK_DOCUMENT` [M]:** DigiLocker-simulator reference plus redacted metadata. An adult links their **own** documents from their own DigiLocker consent; a dependent's documents are linked by an admin, or by the primary proxy for a managed profile (parental consent path for minors, CM §2.5; proxy consent for managed profiles, CM v1.3 §2.6). Nobody links a document into another adult's name. Class and default visibility are set at link time (§4.6). Idempotent on `(family_id, digilocker_reference_id)`.
+- **`LINK_DOCUMENT` [M]:** DigiLocker-simulator reference plus redacted metadata. An adult links their **own** documents from their own DigiLocker consent; a dependent's documents are linked by one of that dependent's guardian viewers (§4.6): a parent or legal guardian for a minor (parental consent path, CM §2.5), the primary proxy or an admin for a managed profile (proxy consent, CM v1.3 §2.6), an admin for elder and passive holders. Nobody links a document into another adult's name. Class and default visibility are set at link time (§4.6). Idempotent on `(family_id, digilocker_reference_id)`.
 - **`SHOW_DOCUMENT` [M]:** Scenario 1; passkey, CONSENT_REVERIFY, in-memory rendering, access log, 60 s auto-close.
 - **`LIST_DOCUMENTS` [M]:** the document metadata the requester is a viewer of, with expiry badges; no DPI call.
 - **Visibility model [M]:** document class, `visibility` attribute, defaults and `SET_DOCUMENT_VISIBILITY` as in §4.6; Scenario 5.
 - **Access log [M]:** every SHOW / LIST / LINK / UNLINK / BLOCKED with actor, device and result (`secure_vault.document_access_log`).
 - **Age-18 milestone [M]:** derived `milestone_at` on birth certificates, nightly sweep, admin prompt; the role change stays in the kernel.
 - **Boot and activation duties [M]:** valid manifest with `deactivatable: false`, `health_check` within 2 s, implicit activation for every family (MR §5.2, §8.1).
-- **Expiry reminders:** defaults 30 and 7 days before expiry, to the adult holder and the admins; for dependent holders, to the admins and the primary proxy. Adjustable per family and per document within the bounds of §4.6; Scenario 6.
+- **Expiry reminders:** defaults 30 and 7 days before expiry, to the adult holder and the admins; for dependent holders, to the document's guardian viewers (§4.6). Adjustable per family and per document within the bounds of §4.6; Scenario 6.
 - **`UNLINK_DOCUMENT`:** soft delete with audit by the adult holder, or by an admin for any document the admin is a viewer of; the DigiLocker document itself is untouched.
 
 ### 4.3 Features Out
@@ -216,7 +216,7 @@ Valid against MR §4.1. `SHOW_DOCUMENT` is a read intent that must pass CONSENT_
   ],
   "data_scopes": {
     "owns_schema": "secure_vault",
-    "core_read_views": ["v_family_members", "v_module_permissions", "v_active_consents", "v_device_surfaces"]
+    "core_read_views": ["v_family_members", "v_module_permissions", "v_active_consents", "v_device_surfaces", "v_guardians"]
   },
   "dpi_providers": ["digilocker"],
   "service_dependencies": ["notification_engine"],
@@ -316,7 +316,9 @@ Principle (Decision Log, "defaults, not constants"): where a rule is a matter of
 |---|---|---|
 | `family_adults` | Every admin and member | `family`-class documents, whoever the holder is |
 | `holder_only` | The holder | `personal` documents whose holder is an adult with Vault access (admin, member) |
-| `guardians` | The admins, plus the primary proxy of a managed holder | `personal` documents whose holder is a dependent (minor, elder, managed, passive) |
+| `guardians` | **Minor holder:** the parents and any marked legal guardian (adults with Vault access, from `v_guardians`); if the family has neither, the admins. **Managed holder:** the admins and the primary proxy. **Elder or passive holder:** the admins. | `personal` documents whose holder is a dependent (minor, elder, managed, passive) |
+
+A **legal guardian** is marked by an admin in family management (kernel, Level 0 with passkey; relationship type `guardian`, DM v1.3 change 16). It is meant for a minor whose parents are not alive or not part of the family; the product cannot verify that and does not try, but the marking is audited. Being an admin does not by itself make someone a viewer of a child's personal documents: a grandfather who administers a joint family sees the family-class documents, not his grandson's birth certificate, unless he is marked as the legal guardian or the parents widen it.
 
 **Who may change it, and how far:**
 
@@ -324,9 +326,9 @@ Principle (Decision Log, "defaults, not constants"): where a rule is a matter of
 |---|---|---|
 | `holder_only` → `family_adults` (share) | The holder only | 1, passkey |
 | `family_adults` → `holder_only` (unshare) on a `personal` document | The holder only | 0 |
-| `guardians` → `family_adults` (let the other adults see a dependent's document) and back | An admin | 1 to widen, 0 to narrow |
+| `guardians` → `family_adults` (let the other adults see a dependent's document) and back | One of the document's guardian viewers | 1 to widen, 0 to narrow |
 | `family`-class document → `holder_only` | The holder | 0; allowed, because it is the holder's document, but the list shows the other adults nothing, so the family loses the expiry safety net: the confirmation text says so |
-| Anything that would remove the admins from a dependent's document | Nobody | Not possible: someone responsible must always be able to see a dependent's papers |
+| Anything that would leave a dependent's document with no viewer | Nobody | Not possible: someone responsible must always be able to see a dependent's papers. If a minor's last parent or guardian leaves the family, the admins become the viewers until a legal guardian is marked |
 | An admin widening another adult's `holder_only` document | Nobody | Not possible in Phase 1 (OI-7, break-glass) |
 
 When a holder's role changes, defaults are re-applied once and the holder is told: Arjun's birth certificate moves from `guardians` to `holder_only` when the kernel records `minor → member` (Scenario 2, with the CM §2.5 consent migration); a member who becomes a managed profile has their `holder_only` documents moved to `guardians`.
@@ -339,7 +341,7 @@ When a holder's role changes, defaults are re-applied once and the holder is tol
 | Admins get copies of adult holders' reminders | On | On / off | Admin | `family_settings.admins_get_copies` |
 | Admin copy for one `holder_only` document | On, with content reduced to holder name and date | On / off | The holder | `documents.admin_reminder_copy` |
 | Mute reminders for one document | Off | On / off | Any viewer who may unlink it | `documents.reminders_muted` |
-| Recipients for a dependent's document | Admins, plus the primary proxy of a managed holder | Not adjustable in Phase 1 | — | — |
+| Recipients for a dependent's document | The document's guardian viewers | Not adjustable in Phase 1 | — | — |
 
 Settings are changed in the PWA's family-settings screen (Level 0, admin) or on the document card (holder); both write an access-log row, and visibility changes also write the kernel audit row.
 
@@ -364,7 +366,8 @@ Phase 1 touches DigiLocker only, and only through the WireMock simulator. No par
 | Admin asks for another adult's `holder_only` document | VAULT_006; no override in Phase 1. The message does not confirm that the document exists. Logged as BLOCKED / `VISIBILITY`; no alert, no `ROLE_VIOLATION`. The way through is to ask the holder to share it (Scenario 5). |
 | Holder shares a document, then the two adults fall out | The holder narrows it back to `holder_only` at Level 0, no approval from anyone. What the other adult saw while it was shared is in the access log, which both can read for their own documents. |
 | Holder's role changes (minor → member; member → managed) | Defaults are re-applied once at the role change and the holder (or the new guardians) is told what changed. Nothing is ever widened silently. |
-| Admin is removed or demoted | They stop being a viewer of `guardians` documents at once; `family_adults` documents follow their new role. The last-admin rule (AGENTS.md §4 item 4) guarantees dependents' documents always have a viewer. |
+| Admin is removed or demoted | They stop being a viewer of elder, managed and passive holders' `guardians` documents at once; `family_adults` documents follow their new role. A minor's documents are unaffected unless the person was also the parent or legal guardian. The last-admin rule (AGENTS.md §4 item 4) plus the admin fallback in §4.6 guarantee every dependent's documents always have a viewer. |
+| A minor's parents separate; one parent's edge becomes inactive (DM §3.3 `is_active = FALSE`) | That parent stops being a viewer of the child's `guardians` documents, because `v_guardians` reads active edges only. This is a family-law-shaped corner case: the product follows what the admin records in the family graph and never decides custody. Flagged for the threat model alongside OI-7. |
 | Proxies disagree about Nani's documents (Priya links, Ravi unlinks) | Follows the managed profile's `conflict_resolution_rule` (DM §3.4): `hierarchy` → the primary proxy's action stands; `notify_block` → both are paused and the admin is alerted. |
 | Request arrives on a public surface | Blocked before dispatch regardless of role (DM §3.8, MR §6.2); logged as BLOCKED / `PUBLIC_SURFACE`. Metadata lists are blocked too, not only document display. |
 | DigiLocker says a linked document is revoked or expired, local metadata says valid | DigiLocker wins (DPI truth). The row is updated, the holder and admin are notified, and `SHOW_DOCUMENT` returns VAULT_005. |
@@ -433,7 +436,7 @@ Mapping to the module envelope: VAULT_001 → `MOD_CONSENT_MISSING`, VAULT_003 �
 | OI-3 | The Module Registry has no scheduling contract for module-owned nightly sweeps, and the audit codes `VAULT_DOCUMENT_LINKED`, `VAULT_DOCUMENT_UNLINKED`, `VAULT_VISIBILITY_CHANGED`, `VAULT_MILESTONE_DETECTED` are not in DM v1.3 §6. | MEDIUM | MR review round 2 (scheduler hook in the SDK); DM v1.3 taxonomy addition before freeze. |
 | OI-4 | No DigiLocker circuit-breaker values exist in RB §8.2; this PRD borrows the AA defaults (3 failures → 30 min). | LOW | RB v1.3 when a second DigiLocker consumer appears. |
 | OI-5 | Staff need specific documents (the RC for the driver). Needs a per-document, time-boxed sharing grant. | LOW (P2) | Separate PRD section in Phase 2; do not solve with a role exception. |
-| OI-6 | ~~Co-owner model.~~ **Ruled 2026-09-17:** default visibility by document class — family documents (RC, insurance, property) are visible to admins and members; personal identity documents (PAN, passport, licence) are private to the holder. The holder can change it per document; the degree of customisation (per class, per person, admin overrides) is designed when `SHOW_DOCUMENT` is detailed. Minor, managed and passive holders' documents follow the admins and the primary proxy. | CLOSED | Decision Log 2026-09-17; affects `SHOW_DOCUMENT` analysis logic and adds a `visibility` attribute to the document metadata in PRD v0.2. |
+| OI-6 | ~~Co-owner model.~~ **Ruled 2026-09-17:** default visibility by document class — family documents (RC, insurance, property) are visible to admins and members; personal identity documents (PAN, passport, licence) are private to the holder. The holder can change it per document; the degree of customisation (per class, per person, admin overrides) is designed when `SHOW_DOCUMENT` is detailed. Managed, elder and passive holders' documents follow the admins (and the primary proxy for a managed profile). **Refined the same day:** a minor's documents follow the minor's parents and any marked legal guardian, not the admins as such (admins only as a fallback when the minor has neither in the family). | CLOSED | Decision Log 2026-09-17; affects `SHOW_DOCUMENT` analysis logic and adds a `visibility` attribute to the document metadata in PRD v0.2. |
 
 | OI-7 | Break-glass: an adult is in hospital and the other needs their PAN or insurance-linked id. Phase 1 has no admin override of `holder_only`. | MEDIUM (P2) | Design with the threat model: a time-boxed, passkey-gated, loudly audited override that notifies the holder; never silent. Until then the answer is "share in advance". |
 | OI-8 | Every module will want per-family settings (this PRD adds `secure_vault.family_settings`; Health has the MISSED threshold; Finance will follow). The Module Registry has no settings contract. | LOW | MR review round 2: either bless "each module owns a `family_settings` table in its schema" as the convention, or add an SDK settings helper. This PRD assumes the former. |
