@@ -354,7 +354,7 @@ Phase 1 touches DigiLocker only, and only through the WireMock simulator. No par
 - **Identity:** none. Aadhaar is never requested, stored or displayed. DigiLocker's own login is simulated as an OAuth authorisation-code exchange (CM §6.3); FamilyLifeOS holds a token *reference* in `core.consent_handles`, never the token.
 - **Data:** purpose code `DIGILOCKER_DOCUMENT` (CM §3.2), one `consent_records` row per user who links documents, with `parental_consent_user_id` when the holder is a `minor` and `proxy_consent_user_id` when the holder is a managed profile (CM v1.3 §2.6). Data types: document type, redacted number, issue and expiry dates. The birth-certificate date of birth is read once to derive `milestone_at` and discarded (OI-2 asks for the registry's data-type list to say so).
 - **Payments / Commerce:** none.
-- **Simulator stubs:** defined in Tech_Spec_Simulator_Architecture §5.4 (rows D1–D7: authorise, token, token refused, issued-documents list with `holder_ref`, expiring document, document fetch with a synthetic PDF, DigiLocker down) and §6.4. This PRD needs two additions to that table, to be raised in its review: a **revoked-document** response for `SHOW_DOCUMENT` (VAULT_005), and issued lists for **two** DigiLocker accounts (Ravi's and Priya's), since an adult's documents come from their own account.
+- **Simulator stubs:** defined in Tech_Spec_Simulator_Architecture §5.4 (rows D1–D8: authorise with a simulator-only account parameter, token, token refused, issued-documents list per DigiLocker account with `holder_ref`, expiring document, document fetch with a synthetic PDF, DigiLocker down, revoked document for VAULT_005) and §6.4. Ravi's and Priya's accounts return different lists, since an adult's documents come from their own account.
 - **Rate limits:** DigiLocker is not one of the five budgeted DPIs (RB §1). The module self-imposes 30 document fetches per user per day as an abuse guard, tracked under `{env}:secure_vault:fetch:{user_id}:{YYYY-MM-DD}` (MR §5.3 key namespace).
 
 ## 6. Conflict Resolution Matrix
@@ -440,7 +440,7 @@ Mapping to the module envelope: VAULT_001 → `MOD_CONSENT_MISSING`, VAULT_003 �
 
 | OI-7 | Break-glass: an adult is in hospital and the other needs their PAN or insurance-linked id. Phase 1 has no admin override of `holder_only`. | MEDIUM (P2) | Design with the threat model: a time-boxed, passkey-gated, loudly audited override that notifies the holder; never silent. Until then the answer is "share in advance". |
 | OI-8 | Every module will want per-family settings (this PRD adds `secure_vault.family_settings`; Health has the MISSED threshold; Finance will follow). The Module Registry has no settings contract. | LOW | MR review round 2: either bless "each module owns a `family_settings` table in its schema" as the convention, or add an SDK settings helper. This PRD assumes the former. |
-| OI-9 | The simulator spec's DigiLocker table lacks a revoked-document response and a second account's issued list (§5). | LOW | Add rows to Tech_Spec_Simulator_Architecture §5.4 during its review (PR #20). |
+| OI-9 | ~~The simulator spec's DigiLocker table lacked a revoked-document response and a second account's issued list.~~ **Closed 2026-09-17:** added to Tech_Spec_Simulator_Architecture §5.4 (rows D4, D8) in PR #20. | CLOSED | — |
 
 ### Q&A
 
