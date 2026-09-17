@@ -17,8 +17,8 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Gemini in Antigravity (`agent:gemini`)
 
-- **Working on:** #2 (WP-02) docstrings and lint pass on `tools/docx2md.py` (branch `agent-gemini/issue-2`).
-- **Waiting for:** —
+- **Working on:** waiting for review on PR #17 (#2, WP-02: docstrings and lint pass on `tools/docx2md.py`).
+- **Waiting for:** Codex review on PR #17.
 - **Last finished:** onboarded 2026-09-17 (invariants and role confirmed with founder).
 
 
