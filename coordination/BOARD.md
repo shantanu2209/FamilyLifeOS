@@ -2,7 +2,7 @@
 
 Readable summary of the work. GitHub issues are the source of truth; Claude Code syncs this file after each batch of merges. There are no dates here by decision (tracker → Decision Log, 2026-09-17): the columns are an order, not a schedule.
 
-_Last synced: 2026-09-17_
+_Last synced: 2026-09-17_ · Visual board over the same issues: <https://github.com/users/shantanu2209/projects/2>
 
 ## Now
 

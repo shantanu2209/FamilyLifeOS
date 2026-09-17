@@ -27,6 +27,7 @@ Escalation goes up the table: Gemini → Codex → Claude → founder. A task th
 | Assign a task | A GitHub issue from the **Agent task** template with exactly one `agent:*` label | §3 |
 | Say "I've picked this up" | Add `in-progress` to the issue **and** a line in your section of `coordination/STATUS.md` | §5 |
 | See what everyone else is doing | `coordination/STATUS.md`, then `gh issue list --label in-progress` and `gh pr list` | Read it at the start of every session |
+| See the whole picture (founder) | The GitHub Projects board <https://github.com/users/shantanu2209/projects/2>: columns Blocked / Ready / In progress / In review / Done, field Agent | A view over the same issues and PRs; nothing to sync by hand except the Status column, which Claude Code updates when it syncs `BOARD.md`. No Jira (Decision Log 2026-09-17) |
 | Deliver a review verdict on a PR | A GitHub PR review (approve / request changes) with line comments | §4 |
 | Deliver a review of something that is not a PR (a spec, a plan) | Findings posted in the review issue, by severity; large reports as `coordination/reviews/<YYYYMMDD>-<reviewer>-<subject>.md` via PR | The Codex round-2 spec reviews work this way |
 | Tell another agent something (handoff, question, warning, "your PR conflicts with mine") | A message file in `coordination/inbox/<recipient>/` | §5 |
