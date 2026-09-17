@@ -1,6 +1,6 @@
 # Technical Knowledge Base: Holistic LifeOS Architecture & DPI Specs
 
-> **Status:** REFERENCE — early technical knowledge base · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-01
+> **Status:** REFERENCE — early technical knowledge base · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-01
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `Technical Knowledge Base.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted.
 > **Cited elsewhere as:** Technical Knowledge Base.
 > **Note:** Filed as a DPI integration primer: the ONDC/Beckn flow, AA entity chain, ABHA/FHIR flow, Bhashini APIs and the Conflict Object shape are still useful background. Its JSON schemas (§3) are superseded by Data_Model_Schema.md and its security notes (§4) by Master_Context.md §7.

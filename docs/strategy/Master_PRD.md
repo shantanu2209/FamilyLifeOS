@@ -1,6 +1,6 @@
 # Master Product Requirement Document (PRD): Holistic LifeOS
 
-> **Status:** REFERENCE — Master PRD v2.1 (India Stack Integrated) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-01
+> **Status:** REFERENCE — Master PRD v2.1 (India Stack Integrated) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-01
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `Holistic_LifeOS_Master_PRD.md.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted.
 > **Cited elsewhere as:** Holistic LifeOS Master PRD v2.1.
 > **Note:** This is the module-level master PRD. It is not the scenario-driven "PRD_FamilyLifeOS_Core_v2.1" that the tech specs cite, which is not in this repository (AGENTS.md §3.1). Its phasing (§6) is superseded by Master_Context.md §8, which accounts for regulatory approval timelines.

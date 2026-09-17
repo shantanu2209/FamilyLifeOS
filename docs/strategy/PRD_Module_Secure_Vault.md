@@ -1,21 +1,21 @@
 # PRD: Secure Vault (module `secure_vault`)
 
-> **Status:** DRAFT v0.1 — pending review · **Author:** Alfred (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
+> **Status:** DRAFT v0.1 — pending review · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
 > **Scope:** Phase 1, portfolio-first build against DPI simulators. Module-level PRD that Tech_Spec_Module_Registry §1.2 defers to. The Vault is the foundation module (Master Context §5.2, `deactivatable: false`) delivered with vertical slice 1 and kept deliberately minimal: document metadata and DigiLocker retrieval, never document bytes.
 > **Depends on:** MR v1.1 §3 (tiers), §4.1 (manifest; `deactivatable: false` boot rule), §5.2 (implicit activation), §6, §7, §8.1 (boot abort), §9 · CM v1.2 §2.3 (data minimisation), §2.5 (minors, age-18 migration), §3.2 (DIGILOCKER_DOCUMENT), §4.2 (grant flow), §5 (CONSENT_REVERIFY), §6.3 (DigiLocker adapter), §7 (expiry watchdog) · DM v1.3 §3.2 (roles), §3.8 (public surface), §4.2 (shadow nodes), §6 (audit taxonomy), §8 (seed), §9.3 (module table convention), plus DM v1.3 decisions (roles `minor`/`member`, `core` schema) · RB v1.2 §1 (DigiLocker is not among the five rate-limited DPIs), §9 · FSM v2.1 §2 · Core PRD v2.2 §2, §3 (Scenarios 5, 6, 9), §4.3, §6 · MC §4.4 ("sync, not duplicate"), §5.2, §7.2 · Master PRD Module 5 · PROJECT_TRACKER Decision Log and Phase 1 Build Gate.
 
 Status: In-Progress
-Author: Alfred (Lead Product Architect)
+Author: Shantanu Chaudhary (Lead Product Architect)
 Primary Agent: VaultAgent (`modules.secure_vault.agent:VaultAgent`)
-Engineering Lead: Alfred (solo founder)
-Design Lead: Alfred
-Approvers: Alfred, after one independent review round
+Engineering Lead: Shantanu Chaudhary (solo founder)
+Design Lead: Shantanu Chaudhary
+Approvers: Shantanu Chaudhary, after one independent review round
 
 ## 0. Document Governance
 
 | Version | Date | Description of Change | Author |
 |---|---|---|---|
-| v0.1 | 2026-09-17 | Initial draft for the Phase 1 portfolio build. | Alfred (with Claude Code) |
+| v0.1 | 2026-09-17 | Initial draft for the Phase 1 portfolio build. | Shantanu Chaudhary (with Claude Code) |
 
 ## 1. The One-Pager (Executive Summary)
 

@@ -1,5 +1,5 @@
 name: Agent task
-description: A unit of work for one agent (Claude Code, Codex, Gemini, local) or the founder.
+description: A unit of work for one agent (Claude Code, Codex, Gemini) or the founder.
 title: "[WP-xx] <short imperative title>"
 labels: ["needs-triage"]
 body:
@@ -23,7 +23,6 @@ body:
         - agent:claude
         - agent:codex
         - agent:gemini
-        - agent:local
         - founder
     validations:
       required: true
@@ -74,8 +73,8 @@ body:
     attributes:
       label: Size
       options:
-        - S (≤ 2 h)
-        - M (≤ 1 day)
-        - L (≤ 3 days)
+        - S (single sitting, one obvious verification)
+        - M (self-contained feature or document)
+        - L (largest unit allowed in one PR)
     validations:
       required: true

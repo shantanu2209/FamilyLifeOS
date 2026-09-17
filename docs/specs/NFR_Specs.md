@@ -1,6 +1,6 @@
 # Non-Functional Requirements (NFR) Specs: FamilyLifeOS
 
-> **Status:** CANONICAL — v2.2 (adds scalability, disaster recovery, degradation order and threat-model sections; portfolio-mode notes) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-09-17
+> **Status:** CANONICAL — v2.2 (adds scalability, disaster recovery, degradation order and threat-model sections; portfolio-mode notes) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-17
 > **Canonical copy.** Recovered on 2026-09-16 from the claude.ai project "FamilyLife OS" knowledge file `FamilyLifeOS_NFR_Specs_v2_1.md.docx` (the text claude.ai extracted from the Word file, kept verbatim in `archive/claude-project-exports/`). Content is unchanged; Markdown formatting was normalised (tables, list wrapping, escaped characters).
 > **Cited elsewhere as:** NFR v2.1, FamilyLifeOS_NFR_Specs_v2_1, NFR §n.
 > **Note:** §3 DPI circuit breaker (3 failures → 30 min) is the DPI-gateway layer; the 5-failure module breaker in Master Context §3.4 and PRD §4.6 is a separate layer (Tech_Spec_Module_Registry §6.5). §4 telemetry FSM_Exit_State must stay in sync with Data_Model_Schema §3.6.
@@ -13,11 +13,11 @@
 
 | **Version** | **Date** | **Description of Change** | **Author** |
 |---|---|---|---|
-| v0.1 | 2026-02-13 | Initial draft defining standard performance and security budgets. | Alfred |
-| v1.0 | 2026-02-13 | **Operational Hardening:** Added Idempotency requirements for financial safety. Relaxed latency targets (<2.0s) to align with India network realities. Added Data Localization (DPDP) mandates. | Alfred |
-| v2.0 | 2026-02-13 | **Execution Release:** Mandated Rate Limiting and Idempotency Persistence Timing. | Alfred |
-| v2.1 | 2026-02-13 | **Refinement Release:** Expanded Telemetry hygiene fields. | Alfred |
-| v2.2 | 2026-09-17 | **Completeness release** (closes the tracker's NFR gaps): new §6 Scalability Targets, §7 Disaster Recovery, §8 Performance Degradation Order, §9 Security Threat Model reference, §10 Compliance checklist pointer; §2.1 and §2.2 annotated for the PWA build and the biometric-gate layering; §3 circuit-breaker layering note (Inconsistency Register item 5); §4 telemetry enum sync rule with Data Model §3.6. No existing budget or mandate changed. | Alfred (with Claude Code) |
+| v0.1 | 2026-02-13 | Initial draft defining standard performance and security budgets. | Shantanu Chaudhary |
+| v1.0 | 2026-02-13 | **Operational Hardening:** Added Idempotency requirements for financial safety. Relaxed latency targets (<2.0s) to align with India network realities. Added Data Localization (DPDP) mandates. | Shantanu Chaudhary |
+| v2.0 | 2026-02-13 | **Execution Release:** Mandated Rate Limiting and Idempotency Persistence Timing. | Shantanu Chaudhary |
+| v2.1 | 2026-02-13 | **Refinement Release:** Expanded Telemetry hygiene fields. | Shantanu Chaudhary |
+| v2.2 | 2026-09-17 | **Completeness release** (closes the tracker's NFR gaps): new §6 Scalability Targets, §7 Disaster Recovery, §8 Performance Degradation Order, §9 Security Threat Model reference, §10 Compliance checklist pointer; §2.1 and §2.2 annotated for the PWA build and the biometric-gate layering; §3 circuit-breaker layering note (Inconsistency Register item 5); §4 telemetry enum sync rule with Data Model §3.6. No existing budget or mandate changed. | Shantanu Chaudhary (with Claude Code) |
 
 ## 1. Performance & Latency Budgets
 

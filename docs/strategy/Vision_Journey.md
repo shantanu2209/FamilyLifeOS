@@ -1,6 +1,6 @@
 # Holistic LifeOS: The Vision & Strategic Journey
 
-> **Status:** REFERENCE — strategic white paper · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-01
+> **Status:** REFERENCE — strategic white paper · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-01
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `Vision Journey.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted.
 > **Cited elsewhere as:** Vision Journey.
 > **Note:** Written when the product was still called "Holistic LifeOS". Kept as the North Star narrative; current decisions live in Master_Context.md.

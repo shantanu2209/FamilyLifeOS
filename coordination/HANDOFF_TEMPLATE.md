@@ -5,7 +5,7 @@ Copy into every PR description (below the template's checklist) and into any com
 ```markdown
 ## Handoff
 
-**From:** agent:<claude|codex|gemini|local>   **To:** agent:<reviewer>   **Issue:** #<n> (WP-<id>)
+**From:** agent:<claude|codex|gemini>   **To:** agent:<reviewer>   **Issue:** #<n> (WP-<id>)
 
 ### What changed
 - <file or area>: <one line>

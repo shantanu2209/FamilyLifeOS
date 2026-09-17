@@ -1,6 +1,6 @@
 # AGENTS.md — FamilyLifeOS
 
-Instructions for every AI coding agent (Claude Code, Codex, Cursor, Gemini, …) and for humans working in this repository. `CLAUDE.md` only points here. Keep this file as the single source of agent instructions; do not fork per tool.
+Instructions for every AI coding agent (the roster is Claude Code, Codex and Gemini in Antigravity; §6 says who does what) and for humans working in this repository. `CLAUDE.md` and `GEMINI.md` only point here. Keep this file as the single source of agent instructions; do not fork per tool.
 
 ---
 
@@ -8,9 +8,9 @@ Instructions for every AI coding agent (Claude Code, Codex, Cursor, Gemini, …)
 
 **FamilyLifeOS** is an India-first, agentic "family operating system": a digital Chief of Staff for a household. It governs Health, Finance, Logistics, Home Operations, Communication, Elder Care, Documents and Learning through specialised worker agents coordinated by a **Supervisor** state machine. It is built natively on India's Digital Public Infrastructure (DPI): Account Aggregator (AA), BBPS, ABHA/ABDM, DigiLocker, ONDC and Bhashini. The atomic unit is the **family** (not the individual), with hierarchical role-based access control over the family graph.
 
-**Current state (2026-09-17): documentation complete, pre-development.** There is no application code, no test suite and no CI yet; the repository was put under git on 2026-09-16. The repository holds the strategy blueprint, the Core PRD and three module PRDs, the technical specifications (Financial Transaction Safety, Consent Manager and the DPI runbook frozen; Data Model v1.3 and Module Registry v1.1 awaiting Codex review round 2; Supervisor State Machine and NFR canonical), a roadmap, an execution plan, a GTM plan, a living project tracker, the coordination protocol and reference material. The next milestone is the **Phase 1 Build Gate** (§7).
+**Current state (2026-09-17): documentation complete, pre-development; tooling install and agent onboarding under way.** There is no application code, no test suite and no CI yet; the repository was put under git on 2026-09-16. The repository holds the strategy blueprint, the Core PRD and three module PRDs, the technical specifications (Financial Transaction Safety, Consent Manager and the DPI runbook frozen; Data Model v1.3 and Module Registry v1.1 awaiting Codex review round 2; Supervisor State Machine and NFR canonical), a roadmap, an execution plan, a GTM plan, a living project tracker, the coordination protocol and reference material. The next milestone is the **Phase 1 Build Gate** (§7).
 
-The project is run by a solo founder who authors documents under the name **Alfred (Lead Product Architect)**. Specs were hardened through two independent review rounds each and then **frozen**. Treat frozen specs as contracts, not suggestions.
+The project is run by its founder and lead product architect, **Shantanu Chaudhary**. Documents written before 2026-09-17 carried the pen name "Alfred"; that was the same person, and the name has been replaced throughout (the claude.ai project and the local archive still show it). Specs were hardened through two independent review rounds each and then **frozen**. Treat frozen specs as contracts, not suggestions.
 
 **Project mode (decided 2026-09-17): portfolio first.** The goal is a working kernel and the "Priya pays BESCOM bill" vertical slice against DPI simulators, built to the quality the specs demand. No regulatory licence applications are in progress, so no real-money DPI integration is planned; commercial expansion may follow if the result warrants it. The venture-oriented material in Master Context (phasing budgets, GTM, unit economics) is context, not the current plan. See the Decision Log in `docs/PROJECT_TRACKER.md`.
 
@@ -29,6 +29,7 @@ The project is run by a solo founder who authors documents under the name **Alfr
 | 5 | `docs/specs/Data_Model_Schema.md` | Every table, column, index and query. Every other spec references it by name |
 | 6 | The spec for the area you are touching | See the map in §3 |
 | 7 | `coordination/README.md` | How work is assigned, branched, reviewed and merged across the agents |
+| 8 | `coordination/inbox/<you>/` and `coordination/STATUS.md` | Messages addressed to you, and what the other agents are doing right now. Read both at the start of every session |
 
 Read whole documents. The specs put hard rules inside callout boxes and code comments, not only in headings.
 
@@ -45,9 +46,9 @@ Everything current lives under `docs/`. Everything historical lives under `archi
 | `docs/strategy/Master_PRD.md` | "Holistic LifeOS" master PRD v2.1 (Jan 2026): module-level requirements and DPI touchpoints | Reference. **Not** the scenario-driven Core PRD below |
 | `docs/strategy/PRD_FamilyLifeOS_Core.md` | Core PRD: one-pager, 7-role RBAC matrix, 14 user scenarios, functional requirements, specification map (§4.8), shared services, conflict-resolution matrix, KPIs | **v2.2 — canonical** |
 | `docs/strategy/PRD_Module_Secure_Vault.md`, `PRD_Module_Finance.md`, `PRD_Module_Health.md` | Module PRDs for the three Phase 1 modules: scenarios, agentic loop, manifest excerpt, owned schema, DPI touchpoints via simulators, conflict matrix, error codes | **DRAFT v0.1** (2026-09-17), founder review pending |
-| `docs/strategy/Roadmap.md` | Portfolio-first roadmap: phases, week-by-week plan, milestones M0–M5, effort model, what changes if commercial | **DRAFT v0.1**, dates to be confirmed by the founder |
-| `docs/Execution_Plan.md` | Work packages WP-xx in dependency order with owner agent, reviewer, verification and issue seeds | **DRAFT v0.1** |
-| `docs/strategy/GTM_Plan.md` | Portfolio-mode go-to-market: audience, positioning, artefacts, demo script; commercial GTM stays in Master Context §14 | **DRAFT v0.1** |
+| `docs/strategy/Roadmap.md` | Portfolio-first roadmap: phases with entry and exit gates, ordered steps, milestones M0–M5, what changes if commercial. No dates and no capacity assumptions, by decision | **DRAFT v0.2** |
+| `docs/Execution_Plan.md` | Work packages WP-xx in dependency order with owner agent, reviewer, verification and issue seeds | **DRAFT v0.2** |
+| `docs/strategy/GTM_Plan.md` | Portfolio-mode go-to-market: audience, positioning, artefacts, demo script; commercial GTM stays in Master Context §14 | **DRAFT v0.2** |
 | `docs/strategy/Vision_Parking_Lot.md` | Deferred capabilities with trigger conditions: blockchain audit log, live spatial reasoning, sub-800 ms latency, hardware presence, voting, future modules | v2.0 reference (recovered 2026-09-16) |
 | `docs/specs/Data_Model_Schema.md` | Kernel schema `core`: 16 tables, 4 views, audit write functions, 12 operational queries, 40-code audit taxonomy, lifecycle jobs, seed data, v1.3 change summary | **v1.3 — revision in review** (Codex round 2), then re-freeze. v1.2.1 was frozen |
 | `docs/specs/Tech_Spec_Financial_Transaction_Safety.md` | Payment gates, two-phase commit, idempotency, the Healer, zombie recovery, refunds, FIN error codes | **FROZEN v1.2** (v1.1 protocol; names aligned with Data Model v1.3) |
@@ -56,8 +57,9 @@ Everything current lives under `docs/`. Everything historical lives under `archi
 | `docs/specs/Tech_Spec_Supervisor_State_Machine.md` | Supervisor FSM (state diagram, state definitions, persistence, Healer placeholder), automation tiers, TTL policy, idempotency keys | **v2.1 — canonical** (recovered 2026-09-16); implementation depth lives in the frozen P0 specs |
 | `docs/specs/NFR_Specs.md` | Latency budgets, encryption, authentication, idempotency and rate-limit mandates, DPI circuit breaker, telemetry, compliance, scalability targets, disaster recovery, degradation order | **v2.2 — canonical** |
 | `docs/runbooks/Runbook_DPI_Rate_Limits.md` | Rate limits for all five DPIs, Redis budget tracker, circuit breakers, coalescing, WireMock stubs, on-call runbook | **FROZEN v1.2** (two clarifications) |
-| `docs/reference/Local_Agent_Setup.md` | Ollama + Codex CLI setup for the local agent on the founder's machine, model choice, smoke tests | Guide |
-| `coordination/` | Working protocol (README), handoff template, Now/Next/Later board | Living |
+| `docs/reference/Workstation_Setup.md` | What to install and sign in to on the founder's PC (WSL 2, Docker Desktop, Codex CLI, Python 3.12, Antigravity, optional Ollama models) | Guide (WP-01) |
+| `docs/reference/Local_Agent_Setup.md` | Local model choice and Ollama tuning for the founder's machine. Local models are sub-agents of Gemini, not a roster member; the Codex CLI harness described there is an optional manual fallback | Reference |
+| `coordination/` | Working protocol (README), `STATUS.md` (who is doing what), `inbox/` (agent-to-agent and agent-to-founder messages), handoff template, Now/Next/Later board | Living |
 | `docs/reference/DPI_Integration_Primer.md` | Early (Jan 2026) DPI cheat sheet: Beckn/ONDC flow, AA entity chain, ABHA/FHIR flow, Bhashini APIs, conflict object | Reference. Its JSON schemas and security notes are superseded by the Data Model and Master Context |
 | `docs/templates/PRD_Template.md` | Deep-dive PRD template for module or feature PRDs | Template |
 | `docs/PROJECT_TRACKER.md` | Living scratchpad: status, gaps, test strategy, build gate, parking lot, inconsistency register | Living document |
@@ -142,7 +144,7 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 - **Observability:** structured JSON logs, Prometheus metrics with the names given in RB §10 and MR §11, Grafana, PagerDuty for P1 alerts.
 - **Hosting:** India regions only (DPDP data localisation). Managed services over self-hosted. (MC §7.4, §10.1)
 - **Frontend (decided 2026-09-17):** a PWA — React + Vite + TypeScript, Vitest for unit tests, Playwright for end-to-end. WebAuthn platform passkeys stand in for biometric approval. Native apps are deferred; the NFR's "local database" clause applies to them, not to the PWA.
-- **LLM (decided 2026-09-17, default provider pending founder confirmation):** the Supervisor talks to a pluggable **LLM gateway** with a deterministic stub for tests, a local Ollama model (`qwen3.5:9b`) for development, and a hosted model for demo quality. No LangChain-style framework: plain provider SDK calls behind one interface, Pydantic schemas for intents. **PII boundary:** a hosted LLM receives only the utterance and non-PII context (roles, module names, amounts); never names, phone numbers, account or consent identifiers.
+- **LLM (decided 2026-09-17):** the Supervisor talks to a pluggable **LLM gateway** with a deterministic stub for tests, a local Ollama model (`qwen3.5:9b`) for development, and a hosted model for demo quality, **Claude Haiku by default** (any provider can be swapped in behind the gateway). No LangChain-style framework: plain provider SDK calls behind one interface, Pydantic schemas for intents. **PII boundary:** a hosted LLM receives only the utterance and non-PII context (roles, module names, amounts); never names, phone numbers, account or consent identifiers.
 - **Python and packaging:** Python 3.12 managed by uv; ruff for lint/format; import-linter for the module contracts (MR §7.1); pre-commit runs both.
 - **Local development:** Docker Compose with PostgreSQL 15, Redis and WireMock; no cloud resources until the demo deployment. **Hosting** is deferred: the demo runs on a single container host in an India region; the commercial choice (AWS ap-south-1 vs others) is made only if the project goes commercial.
 - **Money:** integers in paise. **Time:** IST for user-facing windows, UTC in storage. **Languages:** `users.preferred_language` enum (en, hi, te, kn, ta, mr, gu, pa, bn, ml); user-facing strings are i18n keys rendered at runtime, never hardcoded in modules. (DM §3.2, MR §6.3)
@@ -153,7 +155,7 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 
 ### Documents
 - **Markdown only.** Never create or restore `.docx`, `.pptx` or `.txt` duplicates. One H1 per file. Use fenced code blocks for DDL, pseudo-code and JSON.
-- **Every spec keeps its Document Governance table** (version, date, change, author) at the top. Bump the version and add a row for any content change. Author is "Alfred" unless told otherwise.
+- **Every spec keeps its Document Governance table** (version, date, change, author) at the top. Bump the version and add a row for any content change. Author is "Shantanu Chaudhary" (add "with <agent>" when an agent drafted it) unless told otherwise.
 - **Frozen documents are change-controlled.** Do not edit their content in place for convenience. A change needs: a version bump, a governance-table row, and an update to every dependent doc that names the old rule. Explicitly change-controlled sections: DM §3 and §5; FTS §4 and §6; CM §3, §4 and §9; all thresholds in RB.
 - **Place new documents where the tracker's Document Status Matrix says they go:** `docs/specs/` for `Tech_Spec_*`, `docs/runbooks/` for `Runbook_*`, `docs/strategy/` for product and business documents, `docs/reference/` for background material. Use the exact file names listed in the tracker (for example `Security_Threat_Model.md`, `UX_Error_Message_Library.md`) so cross-references resolve.
 - **Cross-reference by document name and section** (for example "FTS §6.4"), not by page or by file path alone. Do not duplicate content across specs; link to the owning spec.
@@ -169,16 +171,28 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 - Never commit secrets, consent handles, push tokens or real PII. Test data is synthetic.
 - Unit-test the invariants in §4 directly: idempotency reuse, hash-chain canonicalisation, cardinality races, soft-delete filters, gate ordering, fail-closed paths.
 
-### Local agent (Ollama model run through Codex CLI)
-- Setup and rationale: `docs/reference/Local_Agent_Setup.md`. Everyday model `qwen3.5:9b`; heavier local model `qwen3.6:35b`. Launched with `tools/agent-local.ps1` on issues labelled `agent:local`.
-- **May do:** formatting, docstrings, lint fixes, boilerplate from templates, test fixtures, WireMock stubs generated from spec tables, keeping the tracker's status matrix in sync, commit messages, PR summaries. Anything with a script or test that verifies the result.
-- **Must not do:** edit anything under `docs/specs/` or `docs/runbooks/` (frozen), touch the payment, consent or audit code paths, edit `AGENTS.md`, or merge. It never resolves an inconsistency register item.
-- Every local run ends in a PR labelled `agent:local` and `needs-review`; a different agent (Claude Code or Codex cloud) reviews before merge.
+### Who does what (the roster)
+The founder, **Shantanu Chaudhary**, decides, merges, and owns credentials, accounts and anything outward-facing. Three agents do the work. The full protocol is `coordination/README.md`; this is the binding summary.
+
+| Agent | Label | Does | Never does |
+|---|---|---|---|
+| **Claude Code** | `agent:claude` | Architecture; specs and their revisions; reviews of Codex's and Gemini's work; roadmap, execution plan and tracker; cross-document consistency; threat model; write-ups; the tracker health check when work resumes after a pause | Merge; review its own work |
+| **Codex** | `agent:codex` | Implementation against frozen specs, with tests; CI and deployment scripts; second reviewer on specs and on Claude's and Gemini's PRs | Edit frozen specs without a version bump; reopen logged decisions; merge |
+| **Gemini in Antigravity** | `agent:gemini` | Routine generation with a clear source of truth: WireMock stubs from spec tables, Alembic migrations from DDL, fixtures, FHIR samples, cross-reference sweeps, PR summaries, lint and docstring passes, tracker and README sync. Orchestrates any **local models** (Ollama on the founder's machine) as its own sub-agents | Make design decisions; touch payment, consent or audit code paths; edit `docs/specs/`, `docs/runbooks/` or `AGENTS.md`; resolve an inconsistency-register item; merge |
+
+- **Local models are not a roster member.** Gemini may delegate mechanical subtasks to them inside Antigravity. The issue and PR stay `agent:gemini`; Gemini answers for every line, its restrictions apply to whatever it delegates, it verifies the output itself, and its PR handoff says which parts a local model produced. Model choice and tuning: `docs/reference/Local_Agent_Setup.md`.
+- **Review pairs:** Gemini → Codex; Codex → Claude; Claude → Codex. Never the author. The founder can review anything.
+- **Definition of Done** for every work package: `docs/Execution_Plan.md` §7.
 
 ### Coordination (how work moves between agents)
-- The protocol is `coordination/README.md`. Tasks are GitHub issues from the Agent-task template with exactly one `agent:*` label; work happens on `agent-<name>/issue-<n>` branches; every PR uses the template, carries `needs-review`, and is reviewed by a **different agent** than its author; only the founder merges.
+- The protocol is `coordination/README.md`. Tasks are GitHub issues from the Agent-task template with exactly one `agent:*` label, plus `in-progress` once picked up; work happens on `agent-<name>/issue-<n>` branches; every PR uses the template, carries `needs-review`, and is reviewed by a **different agent** than its author; only the founder merges.
+- **Start every session** by reading your inbox (`coordination/inbox/<you>/`) and `coordination/STATUS.md`. **End every session** by updating your own STATUS section and sending any handoff or question as a message file in the recipient's inbox (template: `coordination/inbox/MESSAGE_TEMPLATE.md`). Review verdicts go on the PR; reviews of non-PR material go in the review issue. Changes that touch only `coordination/STATUS.md` and `coordination/inbox/**` may be committed straight to `main` with a `coord:` subject; everything else goes through a PR.
 - Decisions live in the tracker's Decision Log and are not reopened by agents. New inconsistencies are added to the register, not resolved in code.
-- Weekly, Claude Code syncs `coordination/BOARD.md` from the issues and proposes the next issues from `docs/Execution_Plan.md`.
+- **No dates, no capacity assumptions** (founder ruling 2026-09-17). Do not write target dates, week numbers, or expected founder hours into any document, issue or milestone. Plans are ordered by dependency and gated by exit criteria. Dates of record (when something was decided or changed) are fine.
+- After each batch of merges, Claude Code syncs `coordination/BOARD.md` from the issues and proposes the next issues from `docs/Execution_Plan.md`.
+
+### Session close-out: rulings go to the founder in chat (standing rule)
+At the end of every working session with the founder, the agent reports **in the chat itself**, as part of the summary of what was done: every question that needs the founder's ruling, each with (a) a plain explanation, (b) the implications of each option where they apply, and (c) the agent's recommendation. Alongside it: what has already been decided that bears on the question, and the defaults the agent will apply if the founder does not object. Do not bury rulings in documents and point to them; documents (and `coordination/inbox/founder/`) get a copy, the chat gets the substance. Once ruled, the decision goes into the tracker's Decision Log.
 
 ### Communication
 - State assumptions explicitly. When a spec and another spec disagree, do not pick silently; record it in the tracker's inconsistency register (§8) and ask.
@@ -199,7 +213,7 @@ Pre-conditions (status 2026-09-17):
 - [x] PRD Core v2.2, NFR v2.2, Master Context v2.1 — aligned with the specs
 - [x] Module PRDs (Vault, Finance, Health), Roadmap, Execution Plan, GTM Plan — drafted 2026-09-17, founder review pending
 - [ ] Security_Threat_Model.md — P1, before any internet-facing deployment
-- [ ] Tooling on the founder's machine: Docker Desktop, Codex CLI, Ollama models, Antigravity (planned 2026-09-18)
+- [ ] Tooling on the founder's machine: WSL 2, Docker Desktop, Codex CLI, Python 3.12, Antigravity sign-in (`docs/reference/Workstation_Setup.md`)
 
 Then, in order (details and owners in `docs/Execution_Plan.md`):
 1. Codex review round 2 of Data Model v1.3 and Module Registry v1.1; apply fixes; freeze both. Seed the Phase 0/1 issues.
@@ -207,7 +221,7 @@ Then, in order (details and owners in `docs/Execution_Plan.md`):
 3. Build targets: resource lock acquire/release → `supervisor_sessions` lifecycle → audit log write with hash chain → Healer cron → FinanceAgent BBPS call with Phase 2 commit.
 4. Crash simulations A–D (FTS §4.5) and the single Playwright test "Priya pays BESCOM bill" must pass.
 
-Dates: `docs/strategy/Roadmap.md` (2026-09-18 onward, targets pending the founder's confirmation). The February 2026 week numbers still visible in the tracker's milestone section are historical.
+There are no target dates (founder ruling 2026-09-17): `docs/strategy/Roadmap.md` gives the order and the gates. The February 2026 week numbers still visible in the tracker's milestone section are historical.
 
 ---
 

@@ -1,21 +1,21 @@
 # PRD: Financial Command Center (module `finance`)
 
-> **Status:** DRAFT v0.1 — pending review · **Author:** Alfred (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
+> **Status:** DRAFT v0.1 — pending review · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
 > **Scope:** Phase 1, portfolio-first build against DPI simulators. Module-level PRD that Tech_Spec_Module_Registry §1.2 defers to. Owns vertical slice 1, "Priya pays the BESCOM electricity bill".
 > **Depends on:** FTS v1.2 §2 (gates G1–G5), §4 (two-phase commit), §5 (idempotency key lifecycle), §6–§7 (Healer, zombie classification), §9 (resource lock), §10 (FIN codes), §11 (escalation) · MR v1.1 §3 (tiers, call graph), §4 (manifest schema), §6 (envelope; §6.4 ledger), §7 (isolation), §9 (MOD codes), §10 (worked PAY_BILL) · CM v1.2 §3.2 (AA_BALANCE_FETCH), §4.2 (grant flow), §5 (CONSENT_REVERIFY), §6.1 (AA adapter) · DM v1.3 §3.4, §3.7–§3.9, §8 (Sharma seed), §9.3 (module table convention) plus the DM v1.3 decisions (lowercase Core-PRD roles, separate `resource_lock` table, kernel schema `core`) · RB v1.2 §2–§4, §8, §9 · FSM v2.1 §2 (tiers), §3.1 (TTL) · Core PRD v2.2 §2, §5, §6 · PROJECT_TRACKER Decision Log (2026-09-17) and Phase 1 Build Gate.
 
 Status: In-Progress
-Author: Alfred (Lead Product Architect)
+Author: Shantanu Chaudhary (Lead Product Architect)
 Primary Agent: FinanceAgent (`modules.finance.agent:FinanceAgent`)
-Engineering Lead: Alfred (solo founder; Codex implements against the frozen specs)
-Design Lead: Alfred
-Approvers: Alfred, after one independent review round by a different agent
+Engineering Lead: Shantanu Chaudhary (solo founder; Codex implements against the frozen specs)
+Design Lead: Shantanu Chaudhary
+Approvers: Shantanu Chaudhary, after one independent review round by a different agent
 
 ## 0. Document Governance
 
 | Version | Date | Description of Change | Author |
 |---|---|---|---|
-| v0.1 | 2026-09-17 | Initial draft for the Phase 1 portfolio build. | Alfred (with Claude Code) |
+| v0.1 | 2026-09-17 | Initial draft for the Phase 1 portfolio build. | Shantanu Chaudhary (with Claude Code) |
 
 ## 1. The One-Pager (Executive Summary)
 
@@ -368,11 +368,11 @@ States, not screens. The PWA renders one Finance "live card" whose state is driv
 
 ### Open Issues
 
-- **OI-1 — ₹50 buffer vs Level 2 recurring payments.** G3 checks `balance ≥ amount + 5000 paise` for a human-approved payment. A Level 2 recurring payment has no human in the loop, so the same buffer would let an autopay drain the account to ₹50; a larger safe-limit (per-payee cap plus a per-day cap) and a forced fetch per execution are needed before `PAY_RECURRING` exists. Owner: Alfred, FTS v1.2 / this PRD v0.2.
-- **OI-2 — Session state after `MOD_EXECUTION_UNCONFIRMED`.** FTS §4.3 keeps the session in EXECUTION (Healer detects the zombie); MR §9 and §10 step 8b move it to FAILED. Both cannot hold — a FAILED session is invisible to the FTS §6.4 zombie query. This PRD follows FTS; MR v1.1 must align. Candidate register item.
-- **OI-3 — Who writes the success audit row, and who fixes `finance.transactions`.** FTS §4.3 writes `BILL_PAYMENT_EXECUTED` and the session update in one kernel transaction; MR §6.3/§10 has the module write its own financial audit rows. This PRD follows FTS (module writes only `BILL_PAYMENT_INITIATED`); a `reconcile()` SDK hook is proposed so the Healer can settle module rows without touching the `finance` schema. Also open: `BILL_PAYMENT_SUCCESS` (DM §6) vs `BILL_PAYMENT_EXECUTED` (FTS) — register item 7.
+- **OI-1 — ₹50 buffer vs Level 2 recurring payments.** G3 checks `balance ≥ amount + 5000 paise` for a human-approved payment. A Level 2 recurring payment has no human in the loop, so the same buffer would let an autopay drain the account to ₹50; a larger safe-limit (per-payee cap plus a per-day cap) and a forced fetch per execution are needed before `PAY_RECURRING` exists. Owner: Shantanu Chaudhary, FTS v1.2 / this PRD v0.2.
+- **OI-2 — Session state after `MOD_EXECUTION_UNCONFIRMED`.** FTS §4.3 keeps the session in EXECUTION (Healer detects the zombie); MR §9 and §10 step 8b move it to FAILED. Both cannot hold — a FAILED session is invisible to the FTS §6.4 zombie query. This PRD follows FTS. **Settled 2026-09-17:** MR v1.1 §9 keeps the session in EXECUTION (review log MR §13).
+- **OI-3 — Who writes the success audit row, and who fixes `finance.transactions`.** FTS §4.3 writes `BILL_PAYMENT_EXECUTED` and the session update in one kernel transaction; MR §6.3/§10 has the module write its own financial audit rows. This PRD follows FTS (module writes only `BILL_PAYMENT_INITIATED`); a `reconcile()` SDK hook is proposed so the Healer can settle module rows without touching the `finance` schema. The code name is settled: `BILL_PAYMENT_EXECUTED` (DM v1.3 §6, register item 7).
 - **OI-4 — Where the consumer number lives.** Paying BESCOM needs a consumer id (FTS §2.3 `customer_params`). Invariant 9 forbids account numbers in the app DB; a utility consumer number is not a bank account but is personal data. Phase 1 stores only the simulator id; production storage (encrypted column, or a DigiLocker/vault reference) is for Security_Threat_Model.md.
-- **OI-5 — DM §7.4 session cleanup vs the zombie window.** DM §3.7 expires REASONING/EXECUTION sessions after 2 min and §7.4 marks expired sessions ABORTED, which would abort an EXECUTION session (money possibly moved) before the Healer's 5-minute zombie check sees it. The cleanup must skip EXECUTION, or the expiry must exceed 5 min. DM v1.3. Candidate register item.
+- **OI-5 — DM §7.4 session cleanup vs the zombie window.** DM §3.7 expires REASONING/EXECUTION sessions after 2 min and §7.4 marks expired sessions ABORTED, which would abort an EXECUTION session (money possibly moved) before the Healer's 5-minute zombie check sees it. **Settled 2026-09-17:** DM v1.3 §7.4 cleanup never aborts an EXECUTION session (AGENTS.md §4 item 19).
 - **OI-6 — `CHECK_BALANCE` for `elder`.** MR §4.2 example allows it; DM Q2 and Core PRD §2 do not. This PRD denies it; decide in MR v1.1.
 - **OI-7 — Admin override of a blocked balance check.** RB §3.3 says "Admin can override" when the AA budget is exhausted; FTS G3 is a hard block. This PRD has no override; if one is added it needs its own audit code and passkey.
 

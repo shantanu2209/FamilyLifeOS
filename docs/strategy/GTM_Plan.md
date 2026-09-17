@@ -1,6 +1,6 @@
 # GTM Plan: Portfolio Mode
 
-> **Status:** DRAFT v0.1 — proposed, founder to confirm dates · **Author:** Alfred (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
+> **Status:** DRAFT v0.2 — no dates (founder ruling 2026-09-17); artefacts follow milestones · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
 > **Scope:** How the portfolio build reaches the people it is for: hiring managers and technical leaders evaluating the founder's product and AI-engineering skills, potential collaborators, and later potential co-founders or investors. Audience, positioning, artefacts and their cadence against the Roadmap milestones M2–M5, the demo script, what is deliberately not done, and the risks to the narrative. Applies to portfolio mode only (tracker → Decision Log, 2026-09-17).
 > **Supersedes:** For the portfolio phase only: the tracker matrix row "Marketing_GTM_Strategy.md (P4, post-MVP)", which this document fulfils in portfolio form. Master Context §14 and PRD Core §8 (personas, acquisition channels, launch plan, pricing messaging) are not superseded; they remain the commercial-mode GTM and are referenced, not rewritten, in §6.
 
@@ -8,7 +8,8 @@
 
 | Version | Date | Description of Change | Author |
 |---|---|---|---|
-| v0.1 | 2026-09-17 | First draft: audiences, positioning and proof points, artefacts and milestone cadence, two-flow demo script under ten minutes, portfolio-mode non-goals, narrative risks and the boundary statement. | Alfred (with Claude Code) |
+| v0.1 | 2026-09-17 | First draft: audiences, positioning and proof points, artefacts and milestone cadence, two-flow demo script under ten minutes, portfolio-mode non-goals, narrative risks and the boundary statement. | Shantanu Chaudhary (with Claude Code) |
+| v0.2 | 2026-09-17 | Milestone dates removed (artefacts are published when a milestone is reached, whenever that is); roster is three agents; the "Alfred" pen name retired in favour of the founder's name. | Shantanu Chaudhary (with Claude Code) |
 
 ---
 
@@ -25,7 +26,7 @@ There is no market in the commercial sense: no beta families, no pricing, no acq
 | Hiring managers for product and AI-engineering roles | Can this person turn ambiguity into specs, and specs into working, safe software with AI agents? | The review-hardened spec set; the crash-scenario suite passing; the multi-agent workflow with numbers (PRs merged, rejection rate); the demo video | README, Build Log, video |
 | Technical leaders (architects, staff engineers, CTOs) | Are the architectural decisions sound and are the invariants actually enforced? | The modular monolith decision (MR §2), the three isolation layers (MR §7), the two-phase commit and Healer (FTS §4, §6), invariant-named tests, the schema-diff test | Architecture Overview, AGENTS.md §4, `tests/` |
 | Potential collaborators | Could I contribute without a week of onboarding? | The coordination protocol (roster, labels, review pairs), issues with spec references and verification commands, the Definition of Done, a dev-environment guide that works from a fresh clone | `coordination/README.md`, Execution Plan §7, GitHub issues, Development_Environment_Setup |
-| Later: co-founders or investors | Is there a venture here and a path to real DPI integration? | The portfolio result as execution proof; Master Context §8 (licences, phasing), §13 (unit economics) and §14 (GTM) as the commercial plan; Roadmap §7–§8 on what restarts the regulatory track | Master Context, Roadmap §8 |
+| Later: co-founders or investors | Is there a venture here and a path to real DPI integration? | The portfolio result as execution proof; Master Context §8 (licences, phasing), §13 (unit economics) and §14 (GTM) as the commercial plan; Roadmap §6–§7 on what restarts the regulatory track | Master Context, Roadmap §7 |
 
 ---
 
@@ -41,7 +42,7 @@ Every claim in that sentence has a proof point that a reader can open:
 | Agentic, with human sovereignty | Supervisor FSM with an approval gate; Level 3 automation structurally impossible (MR §4.1, invariant 15); the Healer reconciles but never approves | FSM tests, registry schema, Healer tests |
 | Specified to production standards | Five P0 specs, each through two independent review rounds, frozen and change-controlled; an inconsistency register that was worked down, not hidden | `docs/specs/`, tracker register, governance tables |
 | Financially safe | Two-phase commit, idempotency key reuse, resource locks, and crash scenarios A–D passing in CI (FTS §4.5) | `tests/crash_scenarios/`, CI badge, the crash-and-recover demo |
-| Built by coordinated AI agents | Issues and PRs labelled by agent; every PR reviewed by a different agent; per-agent merged-PR and rejection counts; the local 9B model's PRs next to Codex's | GitHub history, Build Log §"How the agents worked", AGENTS.md §6 |
+| Built by coordinated AI agents | Issues and PRs labelled by agent; every PR reviewed by a different agent; per-agent merged-PR and rejection counts; Gemini's PRs next to Codex's and Claude's | GitHub history, Build Log §"How the agents worked", AGENTS.md §6 |
 | Under one human architect | The Decision Log; the founder's merges; the specs' design decisions and Q&A sections written in one voice | Tracker Decision Log, spec Q&A |
 
 What to showcase, in priority order: the frozen specs and their review trail; the multi-agent workflow; the crash-scenario suite; the DPI-native design against simulators; the two demo flows. The demo flows come last on purpose: they are the least differentiated part on their own and the most convincing once the reader knows what stands behind them.
@@ -61,10 +62,10 @@ What to showcase, in priority order: the frozen specs and their review trail; th
 
 **Cadence tied to the Roadmap milestones:**
 
-- **M2 (2026-11-01) — Build Gate passed.** Post 1: "Four crash scenarios a bill-payment agent must survive" with a 30-second clip of the Healer recovering Scenario B and a link to the tests. README gains the CI badge and the gate status.
-- **M3 (2026-11-29) — Two slices, one kernel.** Post 2: "Adding a second module without touching the payment path" on the registry, envelope and isolation layers, with the import-linter contract as the punchline.
-- **M4 (2026-12-13) — Demo live.** No public post. The URL goes to a short list of people the founder wants a conversation with, together with the demo script in §5.
-- **M5 (2026-12-20) — Portfolio release.** Build Log published; video published; Architecture Overview linked; Post 3: "What one human and four AI agents shipped in thirteen weeks", with the measured Roadmap §9 metrics and the honest list of what slipped.
+- **M2 — Build Gate passed.** Post 1: "Four crash scenarios a bill-payment agent must survive" with a 30-second clip of the Healer recovering Scenario B and a link to the tests. README gains the CI badge and the gate status.
+- **M3 — Two slices, one kernel.** Post 2: "Adding a second module without touching the payment path" on the registry, envelope and isolation layers, with the import-linter contract as the punchline.
+- **M4 — Demo live.** No public post. The URL goes to a short list of people the founder wants a conversation with, together with the demo script in §5.
+- **M5 — Portfolio release.** Build Log published; video published; Architecture Overview linked; Post 3: "What one human and three AI agents shipped", with the measured Roadmap §8 metrics and the honest list of what was cut.
 
 Two posts before M5 at most. The repository has to be readable when someone clicks through, which is why the README update precedes every post.
 
@@ -106,8 +107,8 @@ Total about nine minutes. The 4–6 minute video keeps 5.1 up to the Healer reco
 
 - No paid acquisition, no pricing page, no waitlist, no beta families, no referral programme, no corporate or senior-care partnerships, no TV or content marketing. Master Context §14.2–14.3 holds all of that for commercial mode and is not rewritten here.
 - No persona-based messaging pillars ("save 12 hours a month"); the portfolio audience is not the household and the claims are unproven without users. MC §14.4 keeps the commercial messaging and trust anchors; this plan reuses only the two trust anchors that are demonstrable now (tamper-evident audit log, no raw credentials in the database).
-- No app-store presence, no WhatsApp or SMS channels, no support model, no NPS. PRD §7 and MC §9 metrics that need users are replaced by the Roadmap §9 build metrics.
-- No outreach to DPI bodies, sandbox programmes or licensing consultants. The regulatory track is parked (Roadmap §7) and the write-up says so.
+- No app-store presence, no WhatsApp or SMS channels, no support model, no NPS. PRD §7 and MC §9 metrics that need users are replaced by the Roadmap §8 build metrics.
+- No outreach to DPI bodies, sandbox programmes or licensing consultants. The regulatory track is parked (Roadmap §6) and the write-up says so.
 
 ---
 
@@ -118,9 +119,9 @@ Total about nine minutes. The 4–6 minute video keeps 5.1 up to the Healer reco
 | Simulators mistaken for real integrations | A reader who later learns the DPI calls went to WireMock feels misled, and the whole portfolio loses credibility | The boundary statement below appears in the README, the Build Log, the video captions, every post and the demo UI banner; the Simulator spec carries a "simulated vs real" table; no screenshot or clip omits the banner |
 | "The AI did all the work" | Hiring managers discount agent-built code unless the human judgement is visible | Show the Decision Log, the review trail with rejections, the invariants the founder wrote before code existed, and the per-agent statistics; say plainly which parts the agents wrote |
 | Over-claiming "production standards" | The specs are production-grade; the deployment is a demo | Say "specified to production standards"; list what is not production (no DR, no licences, no pen test, PWA stand-ins for biometrics, push and voice) in the same breath |
-| Regulatory naïveté | Anyone from Indian fintech will ask about FIU/BBPOU/HIU | Roadmap §7–§8 and the Build Log state the licences, the 6–12 month timeline (MC §8) and that they are parked by decision, not by oversight |
+| Regulatory naïveté | Anyone from Indian fintech will ask about FIU/BBPOU/HIU | Roadmap §6–§7 and the Build Log state the licences, the 6–12 month timeline (MC §8) and that they are parked by decision, not by oversight |
 | Demo fragility | A live URL that fails in a conversation is worse than no URL | The video is the primary artefact; the URL is invite-only and rehearsed with the §5 script; the k6 run and CI badge carry the reliability claim |
-| "Only two flows" | Looks thin next to the eight pillars in the vision | Frame it as a kernel plus two slices chosen to exercise payment safety and the family graph; point to the third-slice option in Roadmap §5 |
+| "Only two flows" | Looks thin next to the eight pillars in the vision | Frame it as a kernel plus two slices chosen to exercise payment safety and the family graph; point to the third-slice option in Roadmap §4.1 |
 | Privacy claims without users | "Zero-knowledge" and "no PII to hosted LLMs" are easy to say | Show the scrubber test, the no-bytes-in-database test for the Vault and the audit payload models; do not use "zero-knowledge" for anything the demo does not implement |
 
 **Boundary statement (use verbatim):**
@@ -131,7 +132,7 @@ Total about nine minutes. The 4–6 minute video keeps 5.1 up to the Healer reco
 
 ## 8. How to tell whether this worked
 
-Modest, observable signals, reviewed at the M5 retrospective (Roadmap §9 covers the build itself):
+Modest, observable signals, reviewed at the M5 retrospective (Roadmap §8 covers the build itself):
 
 - The README is readable in ten minutes by someone who has never seen the project (test it on two people before M5).
 - Each post links to one artefact that exists and works on the day of posting.
@@ -146,5 +147,5 @@ Modest, observable signals, reviewed at the M5 retrospective (Roadmap §9 covers
 2. Public artefacts are the repository, the Build Log, the video and at most three LinkedIn posts (M2, M3, M5); the demo URL is shared privately.
 3. The boundary statement in §7 is acceptable as written and will appear verbatim in every artefact.
 4. The demo uses the Sharma seed family only; no additional personas are created for the video.
-5. Video visibility (public or unlisted) and whether the founder's name and the "Alfred" persona are both used in public artefacts.
-6. Post dates follow the milestone dates M2 2026-11-01, M3 2026-11-29 and M5 2026-12-20 from the Roadmap; a milestone slip moves its post rather than publishing early.
+5. Video visibility (public or unlisted). Public artefacts carry the founder's own name; the earlier "Alfred" pen name is retired.
+6. Posts are tied to milestones, not dates: a post goes out when its milestone is reached and never before.

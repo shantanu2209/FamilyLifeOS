@@ -1,6 +1,6 @@
 # Tech Spec: Supervisor State Machine & Data Policies
 
-> **Status:** CANONICAL — v2.1 (Phase 1, Launch Ready); implementation depth added by the frozen P0 specs · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-02-13
+> **Status:** CANONICAL — v2.1 (Phase 1, Launch Ready); implementation depth added by the frozen P0 specs · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-02-13
 > **Canonical copy.** Recovered on 2026-09-16 from the claude.ai project "FamilyLife OS" knowledge file `Tech_Spec_Supervisor_State_Machine_v2_1.md.docx` (the text claude.ai extracted from the Word file, kept verbatim in `archive/claude-project-exports/`). Content is unchanged; Markdown formatting was normalised (tables, list wrapping, escaped characters).
 > **Cited elsewhere as:** FSM v2.1, Tech_Spec_Supervisor_State_Machine_v2_1, FSM spec §n.
 > **Note:** §1.4 (Healer every 15 minutes) is a placeholder superseded by Tech_Spec_Financial_Transaction_Safety v1.1 (every 5 minutes). §3 TTL policy and §4 idempotency keys are referenced verbatim by the frozen specs. The tracker lists the known gaps (error transition matrix, concurrency control, TTL enforcement mechanism, journal schema).
@@ -13,9 +13,9 @@
 
 | **Version** | **Date** | **Description of Change** | **Author** |
 |---|---|---|---|
-| v1.0 | 2026-02-13 | Initial Tech Spec definition (FSM, Tiers, TTL). | Alfred |
-| v2.0 | 2026-02-13 | Execution Release (FAILED state, Metadata). | Alfred |
-| v2.1 | 2026-02-13 | **Refinement Release:** Added Reconciliation Worker and Consent Re-verification step. | Alfred |
+| v1.0 | 2026-02-13 | Initial Tech Spec definition (FSM, Tiers, TTL). | Shantanu Chaudhary |
+| v2.0 | 2026-02-13 | Execution Release (FAILED state, Metadata). | Shantanu Chaudhary |
+| v2.1 | 2026-02-13 | **Refinement Release:** Added Reconciliation Worker and Consent Re-verification step. | Shantanu Chaudhary |
 
 ## 1. Supervisor Finite State Machine (FSM)
 

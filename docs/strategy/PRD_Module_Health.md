@@ -1,21 +1,21 @@
 # PRD: Health & Wellness (module `health`)
 
-> **Status:** DRAFT v0.1 — pending review · **Author:** Alfred (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
+> **Status:** DRAFT v0.1 — pending review · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
 > **Scope:** Phase 1, portfolio-first build against DPI simulators. Module-level PRD that Tech_Spec_Module_Registry §1.2 defers to. Owns vertical slice 2, "Nani's medication reminder via her proxies" (Core PRD Scenario 2).
 > **Depends on:** CM v1.2 §2.3 (data minimisation), §2.5 (minors), §3.2 (ABHA_PRESCRIPTION, ABHA_DIAGNOSTICS, ABHA_VITALS), §4.2 (grant flow), §5 (CONSENT_REVERIFY), §6.2 (ABHA adapter), §7 (expiry watchdog), §9.4 (ABDM webhook) · RB v1.2 §5 (ABHA limits, FHIR parse handling, degraded mode), §8.2 (ABHA breaker), §9.4 (chaos `abha_fhir_malformed`) · MR v1.1 §3, §4, §6, §7, §9 · DM v1.3 §3.4 (proxy_assignments, conflict rules), §3.8 (public surface), §3.9 (`HEALTH_FETCH` task), §8 (seed), §9.3, plus DM v1.3 decisions (roles, `core` schema) · FSM v2.1 §2, §3.1 (health records TTL 7 days) · Core PRD v2.2 §2, §3 (Scenarios 2, 3, 9, 10), §4.4 (proxy framework), §5, §6 · MC §4.3, §4.6, §4.7 · PROJECT_TRACKER Decision Log and Phase 1 Build Gate.
 
 Status: In-Progress
-Author: Alfred (Lead Product Architect)
+Author: Shantanu Chaudhary (Lead Product Architect)
 Primary Agent: HealthAgent (`modules.health.agent:HealthAgent`)
-Engineering Lead: Alfred (solo founder)
-Design Lead: Alfred
-Approvers: Alfred, after one independent review round; medical-disclaimer wording needs a legal read (OI-1)
+Engineering Lead: Shantanu Chaudhary (solo founder)
+Design Lead: Shantanu Chaudhary
+Approvers: Shantanu Chaudhary, after one independent review round; medical-disclaimer wording needs a legal read (OI-1)
 
 ## 0. Document Governance
 
 | Version | Date | Description of Change | Author |
 |---|---|---|---|
-| v0.1 | 2026-09-17 | Initial draft for the Phase 1 portfolio build. | Alfred (with Claude Code) |
+| v0.1 | 2026-09-17 | Initial draft for the Phase 1 portfolio build. | Shantanu Chaudhary (with Claude Code) |
 
 ## 1. The One-Pager (Executive Summary)
 

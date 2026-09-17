@@ -2,7 +2,7 @@
 
 _Canonical reference for all product, technical and strategic reasoning_
 
-> **Status:** CANONICAL — v2.1 (v2.0 blueprint with four back-annotations; portfolio-first mode in force) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-09-17
+> **Status:** CANONICAL — v2.1 (v2.0 blueprint with four back-annotations; portfolio-first mode in force) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-17
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `FAMILYLIFEOS_MASTER_CONTEXT_v2.0.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted. Superseded versions in the archive: `FAMILYLIFEOS_MASTER_CONTEXT_v2.0.md` and `.txt` (same text without the version table).
 > **Cited elsewhere as:** FAMILYLIFEOS_MASTER_CONTEXT_v2_0.md, Master Context v2.0, MC §n.
 > **Note:** v2.1 adds inline annotations where later specs narrowed or superseded this text: §3.3–3.4 (Phase 1 modular monolith; two breaker layers), §6 (Data Model v1.3 is the DDL authority), §8 (portfolio-first mode; current plan in docs/strategy/Roadmap.md). The v2.0 text itself is unchanged.
@@ -14,9 +14,9 @@ Document Status: Comprehensive Blueprint (Ready for Development)
 
 | Version | Date | Changes | Author |
 |---|---|---|---|
-| v1.0 | 2026-02-13 | Initial strategic sketch | Alfred |
-| v2.0 | 2026-02-21 | Comprehensive expansion: Added competitive landscape, monetization, GTM, DPI risk assessment, database schema, quantified metrics, regulatory roadmap | Alfred + Claude |
-| v2.1 | 2026-09-17 | Back-annotations only (Inconsistency Register items 4, 5, 6): §3.3–3.4 note the Phase 1 modular monolith (in-process envelope, Postgres task queue, Docker Compose) and the two circuit-breaker layers; §2.2 lists the database role codes; §6 defers to Data Model v1.3 for DDL, hash formula and role names; §8 records portfolio-first mode and points to the Roadmap. | Alfred (with Claude Code) |
+| v1.0 | 2026-02-13 | Initial strategic sketch | Shantanu Chaudhary |
+| v2.0 | 2026-02-21 | Comprehensive expansion: Added competitive landscape, monetization, GTM, DPI risk assessment, database schema, quantified metrics, regulatory roadmap | Shantanu Chaudhary + Claude |
+| v2.1 | 2026-09-17 | Back-annotations only (Inconsistency Register items 4, 5, 6): §3.3–3.4 note the Phase 1 modular monolith (in-process envelope, Postgres task queue, Docker Compose) and the two circuit-breaker layers; §2.2 lists the database role codes; §6 defers to Data Model v1.3 for DDL, hash formula and role names; §8 records portfolio-first mode and points to the Roadmap. | Shantanu Chaudhary (with Claude Code) |
 
 ## 1. Identity & Mission
 

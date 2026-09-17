@@ -1,13 +1,13 @@
 # PRD: FamilyLifeOS Core (The Micro-Kernel)
 
-> **Status:** CANONICAL — v2.2 (v2.1 plus specification map, three error scenarios and three annotations) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-09-17
+> **Status:** CANONICAL — v2.2 (v2.1 plus specification map, three error scenarios and three annotations) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-17
 > **Canonical copy.** Recovered on 2026-09-16 from the claude.ai project "FamilyLife OS" knowledge file `PRD_FamilyLifeOS_Core_v2_1.md.docx` (the text claude.ai extracted from the Word file, kept verbatim in `archive/claude-project-exports/`). Content is unchanged; Markdown formatting was normalised (tables, list wrapping, escaped characters).
 > **Cited elsewhere as:** PRD v2.1, PRD_FamilyLifeOS_Core_v2_1, Core PRD, PRD Scenario n, PRD §n.
 > **Note:** The scenario-driven Core PRD that every tech spec cites. The January module-level Master_PRD.md is a different, earlier document.
 
 **Status:** Phase 1 (Launch Ready v2.1)
 
-**Author:** Alfred (Lead Product Architect)
+**Author:** Shantanu Chaudhary (Lead Product Architect)
 
 **Primary Agent:** Supervisor Agent (The Orchestrator / Concierge)
 
@@ -21,9 +21,9 @@
 
 | **Version** | **Date** | **Description of Change** | **Author** |
 |---|---|---|---|
-| v1.0-2.0 | 2026-02-13 | Iterative refinements (Execution Pivot, Gold Master). | Alfred |
-| v2.1 | 2026-02-13 | **Refinement Release:** Added Resource-Level Locking, SOS Passive Reconciliation, and Telemetry refinements. | Alfred |
-| v2.2 | 2026-09-17 | **Spec-alignment release:** §4.8 specification map linking every requirement to the frozen specs that implement it; Scenarios 12–14 (crash mid-payment, concurrent payment, consent revoked mid-flow) close the tracker's "only happy paths" gap; §4.6 circuit-breaker layering and Consent Manager reference; §4.7 Healer cadence (5 minutes) and audit write protocol; §6 Concurrent Intents scoped per family (Inconsistency Register item 15); §8 portfolio-first note; §9 DPI rate-limit issue closed by the Runbook. Role names unchanged; Data Model v1.3 now uses them. | Alfred (with Claude Code) |
+| v1.0-2.0 | 2026-02-13 | Iterative refinements (Execution Pivot, Gold Master). | Shantanu Chaudhary |
+| v2.1 | 2026-02-13 | **Refinement Release:** Added Resource-Level Locking, SOS Passive Reconciliation, and Telemetry refinements. | Shantanu Chaudhary |
+| v2.2 | 2026-09-17 | **Spec-alignment release:** §4.8 specification map linking every requirement to the frozen specs that implement it; Scenarios 12–14 (crash mid-payment, concurrent payment, consent revoked mid-flow) close the tracker's "only happy paths" gap; §4.6 circuit-breaker layering and Consent Manager reference; §4.7 Healer cadence (5 minutes) and audit write protocol; §6 Concurrent Intents scoped per family (Inconsistency Register item 15); §8 portfolio-first note; §9 DPI rate-limit issue closed by the Runbook. Role names unchanged; Data Model v1.3 now uses them. | Shantanu Chaudhary (with Claude Code) |
 
 ## 1. The One-Pager (Executive Summary)
 

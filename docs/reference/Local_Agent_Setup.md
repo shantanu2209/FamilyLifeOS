@@ -1,7 +1,8 @@
 # Local Agent Setup (Ollama + Codex CLI on Windows)
 
-> **Status:** GUIDE — written 2026-09-17 for the founder's machine · **Owner:** Alfred
-> **Purpose:** Run a local model as the fourth agent in the roster (see `AGENTS.md` §6 and the tracker's Decision Log) so that routine, instruction-following work does not consume Claude or Codex usage. Doubles as a learning exercise in coordinating cloud and local agents.
+> **Status:** GUIDE — written 2026-09-17 for the founder's machine · **Owner:** Shantanu Chaudhary
+> **Role change (2026-09-17):** the roster is three agents (Claude Code, Codex, Gemini in Antigravity). A local model is **not** a fourth agent: Gemini orchestrates local models inside Antigravity as its own sub-agents and stays accountable for their output (`AGENTS.md` §6, `coordination/README.md` §1). What remains current here: the hardware facts (§1), the model recommendation (§2) and the Ollama settings. The Codex CLI harness, the `agent:local` label and `tools/agent-local.ps1` described below are now an optional manual fallback and a way to measure the model's speed, not part of the protocol. Install steps for the PC are in `Workstation_Setup.md`.
+> **Original purpose:** run a local model so that routine, instruction-following work does not consume Claude or Codex usage; doubles as a learning exercise in coordinating cloud and local agents.
 > **Verified against:** Ollama library pages, the ChatGPT Learn Codex configuration reference, Ollama's FAQ and Codex blog post, the Aider Ollama docs, and 2026 hands-on reports, all fetched on 2026-09-17. Speeds quoted for other people's hardware are marked as such; measure your own with the smoke tests in §6.
 
 ---

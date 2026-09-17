@@ -1,39 +1,39 @@
 # Board
 
-Readable summary of the work. GitHub issues are the source of truth; this file is synced weekly (Claude Code) or by a `tracker sync` issue (local agent). Dates are targets from `docs/strategy/Roadmap.md`.
+Readable summary of the work. GitHub issues are the source of truth; Claude Code syncs this file after each batch of merges. There are no dates here by decision (tracker → Decision Log, 2026-09-17): the columns are an order, not a schedule.
 
-_Last synced: 2026-09-17 (initial)_
+_Last synced: 2026-09-17_
 
-## Now (this week)
+## Now
 
 | Item | Owner | Status |
 |---|---|---|
-| Install Docker Desktop (WSL 2), Codex CLI, Ollama models, Antigravity | founder | planned 2026-09-18 |
-| Local agent smoke tests (`docs/reference/Local_Agent_Setup.md` §6) and record tokens/s | founder + local | after install |
-| Codex review round 2: Data Model v1.3 and Module Registry v1.1 → freeze | agent:codex | after Codex login |
-| Seed Phase 0/1 issues from `docs/Execution_Plan.md` | agent:claude | after founder approves the plan |
-| Confirm roadmap dates and the LLM-provider default | founder | open |
+| Workstation setup: WSL 2, Docker Desktop, Codex CLI, Python 3.12, Antigravity sign-in (`docs/reference/Workstation_Setup.md`) — WP-01 | founder | in progress |
+| Rulings in `coordination/inbox/founder/` | founder | open |
+| Onboard Codex and Gemini: inbox message, first STATUS line; Gemini's first trivial PR — WP-02 | founder + agents | after WP-01 |
+| Codex review round 2: Data Model v1.3 and Module Registry v1.1 → freeze — WP-09, WP-10, WP-11 | agent:codex, then agent:claude | after Codex login |
+| Labels, milestones, Phase 0–1 issues — WP-03, WP-04 | agent:claude | after the founder's go-ahead |
 
-## Next (weeks 2–3)
+## Next
 
 | Item | Owner |
 |---|---|
-| Tech_Spec_Simulator_Architecture.md (WireMock AA/BBPS/ABHA/DigiLocker, chaos mode, contract tests) | agent:claude, stubs by agent:gemini |
-| Test_Automation_Strategy.md and Development_Environment_Setup.md formalised | agent:claude |
-| Repo scaffolding: uv project, ruff, import-linter contract, CI workflow | agent:codex |
-| Docker Compose + Alembic V001 from Data Model v1.3 | agent:gemini drafts, agent:codex reviews |
+| Repo scaffolding: uv project, ruff, import-linter contract, CI workflow — WP-05, WP-06 | agent:codex |
+| Tech_Spec_Simulator_Architecture.md (WireMock AA/BBPS/ABHA/DigiLocker, chaos mode, contract tests) — WP-12 | agent:claude, stubs by agent:gemini |
+| Test_Automation_Strategy.md; Development_Environment_Setup.md — WP-13, WP-14 | agent:claude; agent:gemini |
+| Docker Compose + Alembic V001 from Data Model v1.3 — WP-17, WP-19 | agent:gemini drafts, agent:codex reviews |
 
 ## Later
 
 - Build Gate targets in order (resource lock → sessions → audit chain → Healer → FinanceAgent → crash scenarios A–D → Playwright "Priya pays BESCOM") — agent:codex
-- LLM gateway with deterministic stub; PWA approval screen with WebAuthn — agent:codex
+- LLM gateway with deterministic stub (hosted default: Claude Haiku); PWA approval screen with WebAuthn — agent:codex
 - Vault foundation, Health second slice, notification engine — agent:codex, PRDs by agent:claude
 - Security_Threat_Model.md (P1, before any internet-facing deployment) — agent:claude
 - Observability, demo deployment, portfolio write-up — mixed
 
 ## Blocked
 
-- Nothing blocked as of 2026-09-17 beyond tool installation.
+- Nothing blocked beyond tool installation.
 
 ## Retrospectives
 

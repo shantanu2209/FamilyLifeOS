@@ -1,21 +1,21 @@
 # Vision Parking Lot: Future Capabilities of FamilyLifeOS
 
-> **Status:** REFERENCE — v2.0 (Strategic Backlog, Phase 3+) · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-02-13
+> **Status:** REFERENCE — v2.0 (Strategic Backlog, Phase 3+) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-02-13
 > **Canonical copy.** Recovered on 2026-09-16 from the claude.ai project "FamilyLife OS" knowledge file `Vision_Parking_Lot_v2_0.md.docx` (the text claude.ai extracted from the Word file, kept verbatim in `archive/claude-project-exports/`). Content is unchanged; Markdown formatting was normalised (tables, list wrapping, escaped characters).
 > **Cited elsewhere as:** Vision Parking Lot v2.0, Vision_Parking_Lot_v2_0.
 > **Note:** Long-term deferred capabilities with trigger conditions. Near-term parking-lot items live in docs/PROJECT_TRACKER.md.
 
 **Status:** Strategic Backlog / Phase 3+
 
-**Maintained By:** Alfred (Lead Product Architect)
+**Maintained By:** Shantanu Chaudhary (Lead Product Architect)
 
 ## 0. Document Governance
 
 | **Version** | **Date** | **Description of Change** | **Author** |
 |---|---|---|---|
-| v0.1 | 2026-02-13 | Initial extraction of Phase 3 features from Core PRD (Blockchain, Live Video). | Alfred |
-| v1.0 | 2026-02-13 | Formalized as the "Vision Parking Lot" to preserve architectural ambition while de-risking V1. Added trigger conditions for implementation. | Alfred |
-| v2.0 | 2026-02-13 | No functional changes. Synced version number with Core release cycle. | Alfred |
+| v0.1 | 2026-02-13 | Initial extraction of Phase 3 features from Core PRD (Blockchain, Live Video). | Shantanu Chaudhary |
+| v1.0 | 2026-02-13 | Formalized as the "Vision Parking Lot" to preserve architectural ambition while de-risking V1. Added trigger conditions for implementation. | Shantanu Chaudhary |
+| v2.0 | 2026-02-13 | No functional changes. Synced version number with Core release cycle. | Shantanu Chaudhary |
 
 ## 1. Advanced Architecture
 

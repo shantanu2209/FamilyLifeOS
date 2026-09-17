@@ -1,9 +1,9 @@
 # FamilyLifeOS — Project Tracker & Living Scratchpad
 
 **Purpose:** Living document to track all pending work, identified gaps, and future considerations.  
-**Last Updated:** 2026-09-16 (Repository consolidated to Markdown and put under git — see "Consolidation and Change Log". Phase 1 Build Gate: 4 of 5 P0 docs frozen; Tech_Spec_Module_Registry.md exists as DRAFT v1.0 pending review. The four foundational documents missing at consolidation were recovered from the claude.ai project the same day. Cross-Document Inconsistency Register added.)  
+**Last Updated:** 2026-09-17 (Spec close-out done: Data Model v1.3 and Module Registry v1.1 await Codex review round 2, the other P0 specs are frozen. Planning documents are at v0.2: sequence-only, no dates or capacity assumptions. Roster is three agents with a repository-based channel under `coordination/`. Next: workstation setup and agent onboarding. See the Decision Log and the change log below.)  
 **Previous Update:** 2026-02-21 (Runbook_DPI_Rate_Limits_v1.1 — FROZEN. Two independent reviews (R1: 8.8/10, 4 critical fixes; R2: A+, 2 refinements). Eight hardening fixes: AA hourly TTL drift, BBPS Redis fail-closed, env prefix on all Redis keys, AA coalescing timeout observability, Bhashini low-confidence audit event, ONDC progressive seller blacklist, exponential backoff jitter, per-family Bhashini auto soft-throttle. Phase 1 Build Gate: 3 of 5 P0 docs done — 3 frozen, 0 draft. Next: Tech_Spec_Module_Registry.md.)  
-**Maintained By:** Alfred (Lead Product Architect)  
+**Maintained By:** Shantanu Chaudhary (Lead Product Architect)  
 **Location:** `docs/PROJECT_TRACKER.md` — agent working rules live in `AGENTS.md`  
 
 ---
@@ -36,15 +36,20 @@ Decisions that shape scope and process. Add a row whenever one is made; agents m
 | 2026-09-17 | **Project mode: portfolio first.** Build the kernel and the "Priya pays BESCOM bill" vertical slice against DPI simulators. No FIU/BBPOU/HIU licence applications for now. Commercial expansion stays possible; the venture-oriented sections of Master Context (phasing budgets, GTM, unit economics) are kept but are not the current plan. | Removes the 6–12 month regulatory lead time from the critical path. Real-money DPI integration cannot happen without licences, so Phase 1 quality is proven by simulator contract tests and the crash-scenario suite. Roadmap (item 5) and execution plan (item 8) are re-baselined on this basis. |
 | 2026-09-17 | **Repository is public on GitHub; `archive/` is excluded from git entirely.** | Public repos get unlimited free GitHub Actions minutes. The archive (Word originals, superseded versions, AI review notes, raw claude.ai exports) stays on disk only and is gitignored; nothing in the public history contains it. No secrets, real PII or consent handles may ever be committed. |
 | 2026-09-17 | **Requirements: NFR v2.2 rather than a separate requirements document.** Functional requirements stay in PRD Core §4; the NFR gets the missing sections (scalability targets, disaster recovery, degradation strategy, breaker-layer note). PRD Core gets a v2.2 refresh at item 11 together with module PRDs for Vault, Finance and Health. | Avoids a duplicate requirements document that would drift from the PRD. |
-| 2026-09-17 | **Multi-agent roster (direction, to be formalised at items 6–7):** Claude Code for architecture, specs and reviews; Codex for implementation against frozen specs; a Gemini Flash-class model in Google Antigravity for routine, low-judgement work; a local Ollama model for mechanical instruction-following tasks. Coordination happens through the repository (GitHub issues, PRs, labels and a `coordination/` folder), not through the founder relaying messages. One agent's output is always reviewed by a different agent before merge. | Saves Claude/Codex usage for the work that needs judgement, and doubles as a learning exercise in coordinating cloud and local agents. |
-| 2026-09-17 | **Local agent stack:** Ollama on the founder's RTX 3070 Ti (8 GB) + 64 GB RAM; everyday model `qwen3.5:9b` (6.6 GB, tools, fits the GPU); optional heavy model `qwen3.6:35b` (MoE, ~3 B active, 23 GB, runs from RAM); harness = Codex CLI with `local` / `local-heavy` profiles and `codex exec` for scripted runs; Aider as fallback harness. Gemma 4 rejected for the agent role (tool refusal and looping in hands-on reports, far behind Qwen on software-engineering benchmarks); gpt-oss:20b kept only as a smoke-test alternative. Guide: `docs/reference/Local_Agent_Setup.md`. | Tokens/s on this machine still to be measured (smoke tests §6 of the guide). Docker Desktop is not installed yet and is needed before the Build Gate infrastructure. |
+| 2026-09-17 | **Multi-agent roster (first direction; superseded the same day by the three-agent roster below):** Claude Code for architecture, specs and reviews; Codex for implementation against frozen specs; a Gemini Flash-class model in Google Antigravity for routine, low-judgement work; a local Ollama model for mechanical instruction-following tasks. Coordination happens through the repository (GitHub issues, PRs, labels and a `coordination/` folder), not through the founder relaying messages. One agent's output is always reviewed by a different agent before merge. | Saves Claude/Codex usage for the work that needs judgement, and doubles as a learning exercise in coordinating cloud and local agents. |
+| 2026-09-17 | **Local model recommendation (originally "local agent stack"; local models now sit under Gemini's lane, see the three-agent row below):** Ollama on the founder's RTX 3070 Ti (8 GB) + 64 GB RAM; everyday model `qwen3.5:9b` (6.6 GB, tools, fits the GPU); optional heavy model `qwen3.6:35b` (MoE, ~3 B active, 23 GB, runs from RAM); harness = Codex CLI with `local` / `local-heavy` profiles and `codex exec` for scripted runs; Aider as fallback harness. Gemma 4 rejected for the agent role (tool refusal and looping in hands-on reports, far behind Qwen on software-engineering benchmarks); gpt-oss:20b kept only as a smoke-test alternative. Guide: `docs/reference/Local_Agent_Setup.md`. | Tokens/s on this machine still to be measured (smoke tests §6 of the guide). Docker Desktop is not installed yet and is needed before the Build Gate infrastructure. |
 | 2026-09-17 | **Inconsistency Register items 1–3 resolved (founder ruling):** the resource lock is a dedicated `core.resource_lock` table; the session column stays `fsm_state` and gains `intent_type`, `bbps_transaction_ref_id`, `healer_poll_count`, `session_notes`; roles are renamed `spouse → member`, `child → minor`. Applied in Data Model v1.3 with consequential edits in FTS v1.2, Consent Manager v1.2, Runbook v1.2, Module Registry v1.1. | Nothing is built yet, so all three are free changes now and expensive later. |
 | 2026-09-17 | **Review process for the two open specs:** Claude Code ran review round 1 on the Module Registry (7 fixes → v1.1, log in MR §13); Codex runs round 2 on Module Registry v1.1 and Data Model v1.3 once set up; both freeze on approval. | Keeps the two-reviewer discipline the frozen specs were built with, using two different model families. |
 | 2026-09-17 | **Security_Threat_Model.md moved from late-P0 to P1**, due before any internet-facing deployment (portfolio demo included). Scope fixed in NFR v2.2 §9. | In portfolio mode there are no real DPI webhooks, so the attack surface arrives with the demo deployment, not with the first line of code. |
-| 2026-09-17 | **Technology choices (item 13):** Python 3.12 via uv, ruff, import-linter, pre-commit; PWA frontend (React + Vite + TypeScript, Vitest, Playwright) with WebAuthn passkeys standing in for biometrics; pluggable LLM gateway (deterministic stub for tests, local `qwen3.5:9b` for development, hosted model for demo — **default hosted provider still to be confirmed by the founder**); no agent framework, plain SDK calls + Pydantic; PII boundary: hosted LLMs see only the utterance and non-PII context; Docker Compose locally; hosting deferred to the demo (single container host in an India region). | Reversible choices made now so agents stop asking. The LLM provider affects cost and data residency, hence the explicit confirmation request. |
+| 2026-09-17 | **Technology choices (item 13):** Python 3.12 via uv, ruff, import-linter, pre-commit; PWA frontend (React + Vite + TypeScript, Vitest, Playwright) with WebAuthn passkeys standing in for biometrics; pluggable LLM gateway (deterministic stub for tests, local `qwen3.5:9b` for development, hosted model for demo — confirmed as Claude Haiku, see below); no agent framework, plain SDK calls + Pydantic; PII boundary: hosted LLMs see only the utterance and non-PII context; Docker Compose locally; hosting deferred to the demo (single container host in an India region). | Reversible choices made now so agents stop asking. The LLM provider affects cost and data residency, hence the explicit confirmation request. |
 | 2026-09-17 | **Coordination protocol adopted** (`coordination/README.md`): GitHub issues from the Agent-task template with one `agent:*` label; `agent-<name>/issue-<n>` branches; PR template; review by a different agent than the author; founder merges; Decision Log and register are not reopened by agents; weekly board sync. `GEMINI.md` added so Antigravity reads `AGENTS.md`. | Removes the founder from the relay path; the process itself becomes a portfolio artefact. |
-| 2026-09-17 | **Planning documents drafted:** `docs/strategy/Roadmap.md` (13-week portfolio roadmap from 2026-09-18, milestones M0–M5), `docs/Execution_Plan.md` (work packages WP-xx with owner/reviewer/verification and issue seeds), `docs/strategy/GTM_Plan.md` (portfolio-mode GTM). Module PRDs for Secure Vault, Finance and Health drafted at v0.1. **Dates and the module PRD scopes are proposals until the founder confirms.** | Item 5/8/9/11 of the founder's list. |
-
+| 2026-09-17 | **Planning documents drafted:** `docs/strategy/Roadmap.md` (portfolio roadmap, milestones M0–M5; the first draft's 13-week calendar was withdrawn, see the next row), `docs/Execution_Plan.md` (work packages WP-xx with owner/reviewer/verification and issue seeds), `docs/strategy/GTM_Plan.md` (portfolio-mode GTM). Module PRDs for Secure Vault, Finance and Health drafted at v0.1. **The module PRD scopes are proposals until the founder confirms.** | Item 5/8/9/11 of the founder's list. |
+| 2026-09-17 | **No dates and no capacity assumptions in any plan (founder ruling).** The project paused once before; how many hours the founder can give and when things will be done are unknown and must not be assumed. Roadmap v0.2, Execution Plan v0.2 and GTM Plan v0.2 are ordered by dependency and gated by exit criteria; GitHub milestones carry no due dates; sizes S/M/L are relative. Supersedes the "13-week" wording in the row above. | A plan that assumes a cadence turns every pause into a slipped plan. Order and gates survive a pause; dates do not. If an external deadline ever appears it is logged here as a decision. |
+| 2026-09-17 | **Roster is three agents: Claude Code, Codex, Gemini in Antigravity.** Local Ollama models are not a roster member; Gemini orchestrates them inside Antigravity as sub-agents and stays accountable for their output. The `agent:local` label is retired. Supersedes the four-agent direction and narrows the "Local agent stack" row above to a model recommendation. Roles: AGENTS.md §6 and `coordination/README.md` §1. | Three lanes are as much as one person can merge behind. The local-model experiment continues, but inside one agent's lane where it cannot add coordination load. |
+| 2026-09-17 | **Communication channel between the agents:** GitHub issues assign work; `in-progress` label plus `coordination/STATUS.md` show who is doing what; PR reviews carry review verdicts; `coordination/inbox/<recipient>/` carries agent-to-agent and agent-to-founder messages (one file per message, moved to `done/` when handled); `coord:` commits for those two paths may go straight to `main`. Protocol v0.2 in `coordination/README.md`. | Everything is in the repository, so any agent can resume from a cold start and the founder is not the relay. |
+| 2026-09-17 | **Default hosted LLM: Claude Haiku**, behind the pluggable LLM gateway (stub for tests, local Ollama for development). Confirmed by the founder. | Closes the open item in the technology-choices row. The PII boundary still applies: the hosted model sees only the utterance and non-PII context. An Anthropic API key is needed at WP-29, not before. |
+| 2026-09-17 | **Founder named in the documents: Shantanu Chaudhary.** The pen name "Alfred" is replaced across AGENTS.md, the tracker, the specs' governance tables and the strategy documents (name only; no spec version bumps). | Two names for one person confused the agents' instructions. The claude.ai project and the local archive still show the old name. |
+| 2026-09-17 | **Standing rule: rulings are presented in chat at the end of each session**, with explanation, implications and a recommendation, plus what is already decided and the defaults that apply if the founder does not object (AGENTS.md §6). A copy goes to `coordination/inbox/founder/`. | The founder should not have to dig through documents to find what is waiting on them. |
 ---
 
 ## 📁 Consolidation and Change Log
@@ -54,6 +59,7 @@ Decisions that shape scope and process. Add a row whenever one is made; agents m
 | 2026-09-16 | Repository consolidated. Every `.docx`, duplicate `.md`/`.txt` export, superseded spec version and AI review note moved to `archive/originals/`. Canonical documents converted to Markdown under `docs/` (`strategy/`, `specs/`, `runbooks/`, `reference/`, `templates/`); spec content unchanged, formatting only. `AGENTS.md` (shared agent instructions), `CLAUDE.md` (pointer) and `README.md` added. This tracker carried forward from `FAMILYLIFEOS_PROJECT_TRACKER_UPDATED.md` with: Module Registry draft acknowledged, missing documents listed, Cross-Document Inconsistency Register added, repo-based maintenance steps, stale-timeline warning. |
 | 2026-09-16 | Recovered the four foundational documents (PRD Core v2.1, Supervisor State Machine v2.1, NFR v2.1, Vision Parking Lot v2.0) from the claude.ai project "FamilyLife OS" knowledge files and placed them under `docs/` (raw exports in `archive/claude-project-exports/`). Missing Documents section closed; Inconsistency Register items 5, 9 and 14 updated, item 15 added; AGENTS.md carries the project's standing instructions. Repository put under git. |
 | 2026-09-17 | Spec close-out: Data Model v1.3, Module Registry v1.1 (review round 1), FTS v1.2, Consent Manager v1.2, Runbook v1.2, Master Context v2.1, PRD Core v2.2, NFR v2.2. Module PRDs, Roadmap, Execution Plan, GTM Plan drafted. Coordination protocol, issue/PR templates, GEMINI.md, local-agent setup added. Inconsistency Register: all 15 items resolved or annotated; two follow-ups open. |
+| 2026-09-17 | Founder corrections applied: dates, week numbers and founder-hour assumptions removed (Roadmap v0.2, Execution Plan v0.2, GTM Plan v0.2, BOARD); roster reduced to three agents with local models under Gemini; `coordination/STATUS.md` and `coordination/inbox/` added (protocol v0.2) with onboarding messages for Codex and Gemini and the open rulings for the founder; roster, roles and the session close-out rule added to AGENTS.md §6; `docs/reference/Workstation_Setup.md` written from a check of the machine; pen name "Alfred" replaced by Shantanu Chaudhary everywhere (name only, no version bumps); three stale open issues in the Finance PRD marked settled. |
 | 2026-09-17 | Decision Log added (portfolio-first scope, public repo without archive, NFR v2.2 path, agent roster direction). Git history recreated without `archive/`; repository published on GitHub. |
 | 2026-02-21 | Previous tracker update: Runbook_DPI_Rate_Limits v1.1 frozen; 3 of 5 P0 docs done. |
 
@@ -76,7 +82,7 @@ FamilyLifeOS/
 │   │   ├── Master_Context.md      # v2.0 canonical blueprint
 │   │   ├── PRD_FamilyLifeOS_Core.md # v2.2 Core PRD
 │   │   ├── PRD_Module_Secure_Vault.md / PRD_Module_Finance.md / PRD_Module_Health.md   # draft v0.1
-│   │   ├── Roadmap.md             # draft v0.1 (portfolio-first, 13 weeks)
+│   │   ├── Roadmap.md             # draft v0.2 (portfolio-first, sequence-only)
 │   │   ├── GTM_Plan.md            # draft v0.1 (portfolio mode)
 │   │   ├── Vision_Parking_Lot.md  # v2.0 long-term backlog (recovered 2026-09-16)
 │   │   ├── Vision_Journey.md      # Jan 2026 white paper (reference)
@@ -92,7 +98,8 @@ FamilyLifeOS/
 │   │   └── Runbook_DPI_Rate_Limits.md               # FROZEN v1.2
 │   ├── reference/
 │   │   ├── DPI_Integration_Primer.md                # Jan 2026 DPI cheat sheet
-│   │   └── Local_Agent_Setup.md                     # Ollama + Codex CLI guide
+│   │   ├── Workstation_Setup.md                     # what to install on the founder's PC (WP-01)
+│   │   └── Local_Agent_Setup.md                     # local model choice and Ollama tuning (Gemini's sub-agents)
 │   └── templates/
 │       └── PRD_Template.md
 └── archive/
@@ -289,15 +296,16 @@ Also in the repository, outside the February review set: `docs/strategy/Vision_J
 
 | Priority | Document Name | Status | Owner | Target Date | Blocker? |
 |----------|--------------|--------|-------|-------------|----------|
-| **P0** | Data_Model_Schema.md | 🔄 **v1.3 revision** — Codex review round 2 pending, then re-freeze (v1.2.1 was frozen) | Alfred | 2026-09-17 | 🔴 YES |
-| **P0** | Tech_Spec_Financial_Transaction_Safety.md | ✅ **FROZEN v1.2** | Alfred | 2026-09-17 | 🔴 YES |
-| **P0** | Tech_Spec_Consent_Manager.md | ✅ **FROZEN v1.2** | Alfred | 2026-09-17 | 🔴 YES |
-| **P0** | Tech_Spec_Module_Registry.md | 🔄 **v1.1** — review round 1 applied (MR §13); Codex round 2 pending, then freeze | Alfred | 2026-09-17 | 🔴 YES |
-| **P0** | Runbook_DPI_Rate_Limits.md | ✅ **FROZEN v1.2** | Alfred | 2026-09-17 | 🔴 YES |
+| **P0** | Data_Model_Schema.md | 🔄 **v1.3 revision** — Codex review round 2 pending, then re-freeze (v1.2.1 was frozen) | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
+| **P0** | Tech_Spec_Financial_Transaction_Safety.md | ✅ **FROZEN v1.2** | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
+| **P0** | Tech_Spec_Consent_Manager.md | ✅ **FROZEN v1.2** | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
+| **P0** | Tech_Spec_Module_Registry.md | 🔄 **v1.1** — review round 1 applied (MR §13); Codex round 2 pending, then freeze | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
+| **P0** | Runbook_DPI_Rate_Limits.md | ✅ **FROZEN v1.2** | Shantanu Chaudhary | 2026-09-17 | 🔴 YES |
 | **P1** | Security_Threat_Model.md | ❌ Not Started (moved from late-P0 on 2026-09-17; scope in NFR v2.2 §9) | Claude Code | Before any internet-facing deployment (Roadmap Phase 4) | 🟠 High |
-| **P1** | PRD_Module_Secure_Vault.md / PRD_Module_Finance.md / PRD_Module_Health.md | 📝 **DRAFT v0.1** (2026-09-17) — founder review pending | Alfred (with Claude Code) | Roadmap Phase 1 | 🟠 High |
-| **P1** | Roadmap.md / Execution_Plan.md / GTM_Plan.md | 📝 **DRAFT v0.1** (2026-09-17) — dates and scopes pending founder confirmation | Alfred (with Claude Code) | 2026-09-18 | 🟠 High |
-| **P1** | Local_Agent_Setup.md (docs/reference) | ✅ Guide written 2026-09-17; smoke-test results to be recorded | Alfred | 2026-09-18 | ⚪ |
+| **P1** | PRD_Module_Secure_Vault.md / PRD_Module_Finance.md / PRD_Module_Health.md | 📝 **DRAFT v0.1** (2026-09-17) — founder review pending | Shantanu Chaudhary (with Claude Code) | Roadmap Phase 1 | 🟠 High |
+| **P1** | Roadmap.md / Execution_Plan.md / GTM_Plan.md | 📝 **DRAFT v0.2** (2026-09-17) — sequence-only, no dates; module PRD scopes pending founder review | Shantanu Chaudhary (with Claude Code) | — | 🟠 High |
+| **P1** | Workstation_Setup.md (docs/reference) | ✅ Guide written 2026-09-17 (WP-01) | Shantanu Chaudhary (with Claude Code) | — | 🟠 High |
+| **P2** | Local_Agent_Setup.md (docs/reference) | ✅ Reference; local models now sit under Gemini's lane | Shantanu Chaudhary | — | ⚪ |
 | **P1** | UX_Error_Message_Library.md | ❌ Not Started | TBD | Week 3 | 🟠 High |
 | **P1** | Tech_Spec_Supervisor_Concurrency_Control.md | ❌ Not Started | TBD | Week 3 | 🟠 High |
 | **P1** | Tech_Spec_Simulator_Architecture.md | ❌ Not Started | TBD | Week 3 | 🟠 High |
@@ -376,7 +384,7 @@ Open follow-ups: (a) Codex review round 2 of DM v1.3 and MR v1.1, then re-freeze
 - [x] Back-annotate Master Context §3.3–3.4 and NFR §3 (done 2026-09-17: MC v2.1, NFR v2.2)
 - [x] OI-2 closed by Data Model v1.3 §3.16–3.17; OI-1, OI-3, OI-4, OI-5 remain open in MR §12
 - [x] Inconsistency Register item 3 settled (Data Model v1.3 uses the PRD/MR role names)
-**Owner:** Alfred
+**Owner:** Shantanu Chaudhary
 **Deadline:** Before the Phase 1 Build Gate opens
 
 ---
@@ -890,7 +898,7 @@ Open follow-ups: (a) Codex review round 2 of DM v1.3 and MR v1.1, then re-freeze
 
 ## 🗓️ Milestone Tracker
 
-> ⚠️ The week and month numbering below was set on 2026-02-21 and is historical. The current plan with dates is `docs/strategy/Roadmap.md` (draft v0.1, 2026-09-17, pending the founder's confirmation); the work breakdown is `docs/Execution_Plan.md`. This section is kept for the record.
+> ⚠️ The week and month numbering below was set on 2026-02-21 and is historical. The current plan is `docs/strategy/Roadmap.md` (draft v0.2, sequence-only: no dates by decision); the work breakdown is `docs/Execution_Plan.md`. This section is kept for the record.
 
 ### Month 1: Documentation & Architecture
 - **Week 1:** Complete 5 Priority 0 documents (Data Model, Financial Safety, Consent Manager, Module Registry, DPI Rate Limits)
@@ -917,26 +925,23 @@ Open follow-ups: (a) Codex review round 2 of DM v1.3 and MR v1.1, then re-freeze
 
 *(Rewritten 2026-09-17. The detailed sequence is `docs/Execution_Plan.md`, Phase 0 and Phase 1.)*
 
-### Founder — 2026-09-18
-- [ ] Install Docker Desktop (WSL 2 backend), Codex CLI (`npm install -g @openai/codex`, then `codex login`), pull `qwen3.5:9b` (and optionally `qwen3.6:35b`), set the Ollama environment variables, copy `tools/codex-config.example.toml` to `~/.codex/config.toml`, set up Antigravity. Guide: `docs/reference/Local_Agent_Setup.md`.
-- [ ] Run the three local-agent smoke tests and record tokens/s in the Decision Log row for the local agent stack.
-- [ ] Confirm or adjust: Roadmap dates, the module PRD scopes, the default hosted LLM provider.
+### Founder
+- [ ] Workstation setup, `docs/reference/Workstation_Setup.md` (WP-01): WSL 2, Docker Desktop, Codex CLI + login, Python 3.12 via uv, Antigravity sign-in and first prompt. Optional: Ollama model for Gemini's sub-agent experiments.
+- [ ] Rule on the questions in `coordination/inbox/founder/` (also given in chat at the end of the 2026-09-17 session).
+- [ ] Give the go-ahead for labels, milestones and the Phase 0–1 issues (WP-03, WP-04).
 
-### Claude Code — after the founder's confirmation
-- [ ] Seed the Phase 0 and Phase 1 issues from `docs/Execution_Plan.md` (issue-seeding appendix), one `agent:*` label each.
-- [ ] Draft `Tech_Spec_Simulator_Architecture.md` (P1) — the Build Gate's WireMock scenarios need it before Codex starts.
+### Claude Code
+- [ ] On the go-ahead: create labels, milestones (no due dates) and the Phase 0–1 issues from `docs/Execution_Plan.md` Appendix A.
+- [ ] After Codex's round-2 findings: apply accepted fixes, freeze Data Model v1.3 and the Module Registry (WP-11).
+- [ ] Draft `Tech_Spec_Simulator_Architecture.md` (WP-12) — the Build Gate's WireMock scenarios need it before Codex starts.
 
-### Codex — first tasks once logged in
-- [ ] Review round 2: `docs/specs/Data_Model_Schema.md` v1.3 and `docs/specs/Tech_Spec_Module_Registry.md` v1.1 (MR §13 lists what round 2 should focus on). Open a PR per document with findings; Claude Code applies fixes; freeze.
-- [ ] Repo scaffolding WP: uv project, ruff, import-linter contract, CI workflow.
+### Codex — brief in `coordination/inbox/codex/`
+- [ ] Review round 2: `docs/specs/Tech_Spec_Module_Registry.md` v1.1 and `docs/specs/Data_Model_Schema.md` v1.3 (WP-09, WP-10). Findings only; Claude Code applies fixes; freeze.
+- [ ] Repo scaffolding and CI (WP-05, WP-06).
 
-### Gemini (Antigravity) — first tasks
-- [ ] WireMock stub JSON for AA and BBPS from Runbook §9 and the simulator spec, once it exists.
-- [ ] Alembic V001 draft from Data Model v1.3 (reviewed by Codex).
-
-### Local agent — first tasks
-- [ ] `tracker sync` issue: keep the Document Status Matrix in step with document headers.
-- [ ] Docstrings and lint pass on `tools/`.
+### Gemini in Antigravity — brief in `coordination/inbox/gemini/`
+- [ ] Onboarding (WP-02): state role and limits, first STATUS lines, one docstring-only PR on `tools/docx2md.py` reviewed by Codex.
+- [ ] Later: WireMock stub JSON for AA and BBPS from Runbook §9 and the simulator spec; Alembic V001 draft from Data Model v1.3 (reviewed by Codex); maintenance passes (WP-08). Local models may be used as sub-agents; Gemini stays accountable.
 
 ## 📊 Success Metrics Dashboard (To Be Built)
 
@@ -977,7 +982,7 @@ Open follow-ups: (a) Codex review round 2 of DM v1.3 and MR v1.1, then re-freeze
 4. Announce updates in team chat (when team exists)
 
 ### Ownership
-- **Primary Maintainer:** Alfred (Lead Product Architect)
+- **Primary Maintainer:** Shantanu Chaudhary (Lead Product Architect)
 - **Contributors:** Engineering team (once hired)
 - **Reviewers:** Product lead, CTO (when roles filled)
 

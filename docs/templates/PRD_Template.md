@@ -1,6 +1,6 @@
 # PRD: [Module/Feature Name]
 
-> **Status:** TEMPLATE · **Author:** Alfred (Lead Product Architect) · **Last content change:** 2026-01
+> **Status:** TEMPLATE · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-01
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `LifeOS Deep-Dive PRD Template.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted.
 > **Cited elsewhere as:** LifeOS Deep-Dive PRD Template.
 > **Note:** Use for module or feature PRDs (the P1 module PRDs the Module Registry defers to). Copy, rename, fill in. Two images in the original (Figma sketches placeholder) were not carried over.

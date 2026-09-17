@@ -1,6 +1,6 @@
 Closes #<issue>
 
-**Author agent:** agent:<claude|codex|gemini|local> · **Requested reviewer:** agent:<different agent> · **WP:** WP-<id>
+**Author agent:** agent:<claude|codex|gemini> · **Requested reviewer:** agent:<different agent> · **WP:** WP-<id>
 
 ## Summary
 <two or three lines: what this PR does and why>
