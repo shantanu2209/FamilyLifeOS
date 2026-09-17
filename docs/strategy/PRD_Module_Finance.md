@@ -415,7 +415,7 @@ States, not screens. The PWA renders one Finance "live card" whose state is driv
 |---|---|---|
 | Engineering | Why does `PAY_BILL` require consent provider `aa` and not `bbps`? | Consent providers are data-access frameworks with handles and revocation (AA, ABHA, DigiLocker, ONDC). BBPS is a payment rail authorised per transaction by the passkey at G4; there is no standing BBPS consent to reverify. MR v1.1 narrows the enum accordingly; `bbps` stays in `dpi_providers` for gateway routing. |
 | Product | Why can't the user tap "Try again" after FIN_001? | The outcome is unknown, not failed. A retry would need a new session and a new idempotency key, which is a second payment if the first one went through. Only the Healer may re-submit, and only with the original key (FTS §6.4). |
-| Engineering | Core PRD §5.4 says the Payment Routing Engine asks the admin for biometric approval. Does `payment_routing` prompt? | No. Under MR the approval gate is the Supervisor's AWAITING_APPROVAL state; `payment_routing` is a leaf Service Module that formats and validates the BBPS payload (MR §3.1). Modules must never re-prompt (MR §6.2). Core PRD v2.2 should reword §5.4. |
+| Engineering | Core PRD §5 (item 4, Payment Routing Engine) says the engine asks the admin for biometric approval. Does `payment_routing` prompt? | No. Under MR the approval gate is the Supervisor's AWAITING_APPROVAL state; `payment_routing` is a leaf Service Module that formats and validates the BBPS payload (MR §3.1). Modules must never re-prompt (MR §6.2). Core PRD §5 item 4 should be reworded at its next revision. |
 
 ## 11. PRD Checklist
 
