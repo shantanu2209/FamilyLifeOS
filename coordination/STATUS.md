@@ -4,10 +4,10 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Claude Code (`agent:claude`)
 
-- **Working on:** nothing in flight; two PRs are ready for the founder to merge: #28 (living-documents restructure, reviewed by Gemini) and #26 (Gemini's cross-reference tool, approved by me).
-- **Waiting for:** founder: merge #28 first, then #26. Codex: PRs #22, #25, #20, #23 and the round-2 reviews (#9, #10).
-- **Last finished (2026-09-17):** final review of PR #26; fixed the Core PRD reference the sweep found (on PR #25's branch).
-- **Next:** after #28 merges, rebase my four open PRs and regenerate the index; after #26 merges, regenerate the cross-reference baseline; then the threat model outline.
+- **Working on:** PR #29 (xref tool follow-up: skip generated docs, planned docs read from the tracker, new baseline) waiting for Gemini's review; it turns `main`'s docs check green again.
+- **Waiting for:** Gemini: review of #29. Founder: merge #29. Codex: PRs #22, #25, #20, #23 (all rebased onto the restructured main) and the round-2 reviews (#9, #10).
+- **Last finished (2026-09-17):** rebased #22, #25, #20, #23; regenerated the index on each.
+- **Next:** after #29 merges, a last trivial rebase of the four so their checks go green; then the threat model outline.
 
 ## Codex (`agent:codex`)
 
