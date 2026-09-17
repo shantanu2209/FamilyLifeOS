@@ -56,6 +56,7 @@ Everything current lives under `docs/`. Everything historical lives under `archi
 | `docs/specs/Tech_Spec_Financial_Transaction_Safety.md` | Payment gates, two-phase commit, idempotency, the Healer, zombie recovery, refunds, FIN error codes |
 | `docs/specs/Tech_Spec_Consent_Manager.md` | DPDP-native consent framework, purpose registry, `consent_records`, CONSENT_REVERIFY, DPI adapters, expiry watchdog, revocation, webhook security |
 | `docs/specs/Tech_Spec_Module_Registry.md` | Module manifest schema, Supervisor→module dispatch envelope, tiers, isolation model, registration, error taxonomy, review log |
+| `docs/specs/Test_Automation_Strategy.md` | Test tiers and directories, invariant-named tests, determinism rules, scenario catalogue, CI jobs and gates, flaky-test policy, who writes what |
 | `docs/specs/Tech_Spec_Supervisor_State_Machine.md` | Supervisor FSM (state diagram, state definitions, persistence, Healer placeholder), automation tiers, TTL policy, idempotency keys |
 | `docs/specs/NFR_Specs.md` | Latency budgets, encryption, authentication, idempotency and rate-limit mandates, DPI circuit breaker, telemetry, compliance, scalability targets, disaster recovery, degradation order |
 | `docs/runbooks/Runbook_DPI_Rate_Limits.md` | Rate limits for all five DPIs, Redis budget tracker, circuit breakers, coalescing, WireMock stubs, on-call runbook |
@@ -142,7 +143,7 @@ These come from the frozen specs. Code, tests, new docs and refactors must honou
 - **Redis:** hot FSM session state, DPI rate-limit buckets, circuit-breaker state, AA coalescing keys, Healer and probe locks. PostgreSQL `supervisor_sessions` is the durable journal. (DM §3.7, RB §2, FTS §6.1.1)
 - **Async work:** PostgreSQL `offline_task_queue` processed by the Healer. No RabbitMQ or Kafka in Phase 1 (deviation from MC §3.3, recorded in MR §2.3).
 - **DPI simulators:** WireMock stubs for AA, BBPS, ABHA, ONDC and Bhashini with rate-limit, failure and chaos modes; contract tests keep stubs aligned with real schemas. (RB §9)
-- **Testing:** pytest for unit tests, Testcontainers for integration, Playwright for end-to-end, k6 for load. Pyramid 60/30/10, 80 % coverage on core logic, 100 % pass on main. (PROJECT_TRACKER, Test Automation Strategy)
+- **Testing:** pytest for unit tests, Testcontainers for integration, Playwright (driven from pytest) for end-to-end, Vitest for `web/`, k6 for load. Pyramid 60/30/10 as a guide, 80 % line coverage floor on kernel and modules, green `main`. (`docs/specs/Test_Automation_Strategy.md`)
 - **Observability:** structured JSON logs, Prometheus metrics with the names given in RB §10 and MR §11, Grafana, PagerDuty for P1 alerts.
 - **Hosting:** India regions only (DPDP data localisation). Managed services over self-hosted. (MC §7.4, §10.1)
 - **Frontend (decided 2026-09-17):** a PWA — React + Vite + TypeScript, Vitest for unit tests, Playwright for end-to-end. WebAuthn platform passkeys stand in for biometric approval. Native apps are deferred; the NFR's "local database" clause applies to them, not to the PWA.
