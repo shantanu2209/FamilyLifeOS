@@ -154,14 +154,18 @@ def _normalise_version(ver: str) -> str:
 
 
 def is_historical_document(file_path: Path) -> bool:
-    """Check if a document's Status line indicates it is HISTORICAL (not maintained)."""
+    """True when the Status line says HISTORICAL (not maintained) or GENERATED.
+
+    docs/INDEX.md is generated and repeats other documents' status text, so the
+    references in it are not its own.
+    """
     try:
         with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             for i, line in enumerate(f):
                 if i > 25:
                     break
                 if re.search(
-                    r">\s*\*{0,2}Status\*{0,2}:\*{0,2}\s+(?:[^\n]*\b)?HISTORICAL\b",
+                    r">\s*\*{0,2}Status\*{0,2}:\*{0,2}\s+(?:[^\n]*\b)?(?:HISTORICAL|GENERATED)\b",
                     line,
                     re.IGNORECASE,
                 ):
@@ -802,10 +806,31 @@ def _classify_version_mismatch(
     return "VERSION_STALE"
 
 
+def read_planned_docs(repo_root: Path) -> set[str]:
+    """Paths named in the tracker's "Documents still to be written" section.
+
+    The tracker is the one home for the list of documents that do not exist yet
+    (AGENTS.md section 6), so the tool reads it instead of keeping its own copy.
+    """
+    tracker = repo_root / "docs" / "PROJECT_TRACKER.md"
+    if not tracker.exists():
+        return set()
+    planned: set[str] = set()
+    inside = False
+    for line in tracker.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("## "):
+            inside = "documents still to be written" in line.lower()
+            continue
+        if inside:
+            planned.update(re.findall(r"`(docs/[A-Za-z0-9_./-]+\.md)`", line))
+    return planned
+
+
 def check_all_references(repo_root: Path) -> list[XRefFinding]:
     """Scan all documentation files and validate cross-references."""
     index = DocIndex(repo_root)
     findings: list[XRefFinding] = []
+    planned_docs = PLANNED_DOCS | read_planned_docs(repo_root)
     # Track (source_file, line_number, target_doc, target_section) for dedup
     seen_keys: set[tuple[str, int, str | None, str | None]] = set()
 
@@ -917,7 +942,7 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
                 full_target_file = repo_root / target_path
                 if not full_target_file.exists():
                     # Is this a planned document?
-                    if target_path in PLANNED_DOCS:
+                    if target_path in planned_docs:
                         findings.append(
                             XRefFinding(
                                 source_file=rel_src,
