@@ -1,8 +1,8 @@
 # PRD: Financial Command Center (module `finance`)
 
-> **Status:** DRAFT v0.1 — pending review · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
+> **Status:** DRAFT v0.2 — founder rulings of 2026-09-17 applied, settled open issues closed; independent review (Codex, WP-15) pending · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
 > **Scope:** Phase 1, portfolio-first build against DPI simulators. Module-level PRD that Tech_Spec_Module_Registry §1.2 defers to. Owns vertical slice 1, "Priya pays the BESCOM electricity bill".
-> **Depends on:** FTS v1.2 §2 (gates G1–G5), §4 (two-phase commit), §5 (idempotency key lifecycle), §6–§7 (Healer, zombie classification), §9 (resource lock), §10 (FIN codes), §11 (escalation) · MR v1.1 §3 (tiers, call graph), §4 (manifest schema), §6 (envelope; §6.4 ledger), §7 (isolation), §9 (MOD codes), §10 (worked PAY_BILL) · CM v1.2 §3.2 (AA_BALANCE_FETCH), §4.2 (grant flow), §5 (CONSENT_REVERIFY), §6.1 (AA adapter) · DM v1.3 §3.4, §3.7–§3.9, §8 (Sharma seed), §9.3 (module table convention) plus the DM v1.3 decisions (lowercase Core-PRD roles, separate `resource_lock` table, kernel schema `core`) · RB v1.2 §2–§4, §8, §9 · FSM v2.1 §2 (tiers), §3.1 (TTL) · Core PRD v2.2 §2, §5, §6 · PROJECT_TRACKER Decision Log (2026-09-17) and Phase 1 Build Gate.
+> **Depends on:** FTS v1.2 §2 (gates G1–G5), §4 (two-phase commit), §5 (idempotency key lifecycle), §6–§7 (Healer, zombie classification), §9 (resource lock), §10 (FIN codes), §11 (escalation) · MR v1.1 §3 (tiers, call graph), §4 (manifest schema), §6 (envelope; §6.4 ledger), §7 (isolation), §9 (MOD codes), §10 (worked PAY_BILL) · CM v1.3 §3.2 (AA_BALANCE_FETCH), §4.2 (grant flow), §5 (CONSENT_REVERIFY), §6.1 (AA adapter) · DM v1.3 §3.4, §3.7–§3.9, §8 (Sharma seed), §9.3 (module table convention) plus the DM v1.3 decisions (lowercase Core-PRD roles, separate `resource_lock` table, kernel schema `core`) · RB v1.2 §2–§4, §8, §9 · FSM v2.1 §2 (tiers), §3.1 (TTL) · Core PRD v2.2 §2, §5, §6 · Tech_Spec_Simulator_Architecture v0.1 §4, §5.1–5.2, §6.1–6.2 (BBPS and AA simulators) · PROJECT_TRACKER Decision Log (2026-09-17) and Phase 1 Build Gate.
 
 Status: In-Progress
 Author: Shantanu Chaudhary (Lead Product Architect)
@@ -16,6 +16,7 @@ Approvers: Shantanu Chaudhary, after one independent review round by a different
 | Version | Date | Description of Change | Author |
 |---|---|---|---|
 | v0.1 | 2026-09-17 | Initial draft for the Phase 1 portfolio build. | Shantanu Chaudhary (with Claude Code) |
+| v0.2 | 2026-09-17 | (1) Open issues settled by the spec close-out are closed: session stays in EXECUTION after `MOD_EXECUTION_UNCONFIRMED` (MR v1.1 §9), cleanup never aborts EXECUTION sessions (DM v1.3 §7.4), action code `BILL_PAYMENT_EXECUTED`. (2) Founder rulings: `CHECK_BALANCE` denied for `elder`; no admin override of a blocked balance check. (3) The resource lock is released by UPDATE, never DELETE (DM v1.3 §3.11). (4) New §4.6 "Settings and defaults": a family may make payment safety stricter, never looser. (5) Scenarios and stubs aligned with the simulator spec: deterministic scenario billers instead of chaos for the zombie scenario, `/bill/fetch`, `/payment/status`, transaction reference derived from the key. | Shantanu Chaudhary (with Claude Code) |
 
 ## 1. The One-Pager (Executive Summary)
 
@@ -26,7 +27,7 @@ Approvers: Shantanu Chaudhary, after one independent review round by a different
     2. Never double-pay: one idempotency key per session (FTS §5), a family-scoped resource lock per biller (FTS §9), and a module ledger that returns the stored envelope on any re-dispatch (MR §6.4).
     3. Never lose track of money: a session stuck in EXECUTION becomes a known outcome within two Healer runs (FTS §6–§7); every payment lands in the hash-chained audit log.
     4. Prove it: Crash Scenarios A–D and the "Priya pays BESCOM bill" E2E test pass against WireMock (PROJECT_TRACKER, Phase 1 Build Gate).
-- **Constraints:** Portfolio mode — no FIU/BBPOU licences, no real money, WireMock only (Decision Log 2026-09-17); UPI VPA management, biller onboarding and AML are out of FTS scope (§1.2). Solo founder — no on-call; the Healer plus admin escalation is the safety net (FTS §1.3). Level 3 is forbidden; every BBPS payment needs a passkey regardless of amount (FTS §2.2 G4). Money is integer paise. The module sees only its own schema and four kernel views (MR §7.2). No native app: PWA with WebAuthn passkeys, browser speech as the voice stand-in.
+- **Constraints:** Portfolio mode — no FIU/BBPOU licences, no real money, WireMock only (Decision Log 2026-09-17); UPI VPA management, biller onboarding and AML are out of FTS scope (§1.2). Solo founder — no on-call; the Healer plus admin escalation is the safety net (FTS §1.3). Level 3 is forbidden; every BBPS payment needs a passkey regardless of amount (FTS §2.2 G4). Money is integer paise. The module sees only its own schema and the whitelisted kernel views it declares (MR §7.2). No native app: PWA with WebAuthn passkeys, browser speech as the voice stand-in.
 
 ## 2. Personas & The Family Graph (RBAC)
 
@@ -43,9 +44,9 @@ Baseline is Core PRD §2; DM Q2 maps roles to modules; the manifest's `allowed_r
 | Role | Finance access | Can | Cannot | Enforcement note |
 |---|---|---|---|---|
 | admin | Full | All four intents; link/unlink billers (Level 0 UI); see the Financial Safety view; override a session (FTS §11.3, fresh passkey + reason); receive every default notification | Approve on a public-surface device; raise `biometric_required_above_paise` above 0; run anything at Level 2 or 3 | Q4 sends admin notifications to private devices only |
-| member | Co-owner | `PAY_BILL`, `LIST_BILLS_DUE`, `CHECK_BALANCE`, `PAYMENT_STATUS`; approve own payments with passkey | Override sessions; link billers; see the Financial Safety view | Blocked by the same family-scoped lock as admin (FTS §9.4) |
+| member | Co-owner | `PAY_BILL`, `LIST_BILLS_DUE`, `CHECK_BALANCE`, `PAYMENT_STATUS`; approve own payments with passkey | Override sessions; link billers; see the Financial Safety view; change family settings (§4.6) | Blocked by the same family-scoped lock as admin (FTS §9.4) |
 | minor | None | — | Any finance intent; any wealth figure on any device | Attempt → BLOCKED, audit `ROLE_VIOLATION`, high-severity admin alert (Core PRD §6) |
-| elder | None in Phase 1 | — | Any finance intent | MR §4.2's example grants `CHECK_BALANCE` to elder; DM Q2 does not. This PRD follows DM Q2 (open issue OI-6) |
+| elder | None in Phase 1 | — | Any finance intent | Ruled 2026-09-17: denied (DM Q2, Core PRD §2). MR §4.2's example that grants `CHECK_BALANCE` to elder is to be corrected in the round-2 review |
 | staff | None | — | Any finance intent, including "what is madam's balance" | Attempt → BLOCKED + `ROLE_VIOLATION`; P2P payroll (Core PRD Scenario 4) is out of scope |
 | managed | No login | Be the subject of a future expense tag | Trigger anything | `PAY_BILL` rejects a non-null `actor.acting_as` in Phase 1 (§6 row 6) |
 | passive | No interaction | — | Anything; is never notified | Family bills are family resources; a passive node is never a payer |
@@ -58,21 +59,21 @@ All scenarios use the Sharma family seed (DM §8): Ravi admin (`usr-ravi…0001`
 
 1. 20:41 IST, Priya Phone. Priya taps the mic (browser speech stand-in) and says *"BESCOM ka bill bhar do."* The Supervisor enters INTENT_ANALYSIS, parses `PAY_BILL {biller_id: BESCOM_KA_001, amount_paise: null}` at confidence 0.92, generates the session's UUIDv4 idempotency key and persists it to `supervisor_sessions` before anything else (FTS §5.2). `amount_paise: null` is allowed by the entities schema; fetching the due amount is the module's job (MR §10 step 2).
 2. PERMISSION_CHECK: member ∈ `allowed_roles`; finance active for the family; tier 1 ≤ ceiling 1; active AA consent handle exists. G2: `INSERT INTO resource_lock (family_id, 'BBPS_BESCOM_KA_001', session_id, priya, NOW())` succeeds (FTS §9.2).
-3. REASONING (read dispatch): FinanceAgent calls the DPI Gateway → BBPS simulator bill fetch → `{due_paise: 284700, bill_ref: 'KA-2026-09-8812', due_date: 2026-09-25}` with `cache_metadata {fetched_at, source_api: 'bbps_sim', expires_at: +24h}`. G3: a forced AA balance fetch (TTL bypassed, coalesced per RB §3.2, one of three hourly slots for handle `ch-abc-123`) returns 1825040 paise. Check: 1825040 ≥ 284700 + 5000 buffer — pass.
+3. REASONING (read dispatch): FinanceAgent calls the DPI Gateway → BBPS simulator bill fetch (`POST /bill/fetch`, SIM §5.1 B1, §6.1) → `{due_paise: 284700, bill_ref: 'KA-2026-09-8812', due_date: 2026-09-25}` with `cache_metadata {fetched_at, source_api: 'bbps_sim', expires_at: +24h}`. G3: a forced AA balance fetch (TTL bypassed, coalesced per RB §3.2, one of three hourly slots for handle `ch-abc-123`) returns 1825040 paise. Check: 1825040 ≥ 284700 + 5000 buffer — pass.
 4. APPROVAL_GATE → AWAITING_APPROVAL with `expires_at = NOW() + 5 min` (DM §3.7). Priya Phone shows the passkey prompt from §7: "BESCOM को ₹2,847.00 — बिल KA-2026-09-8812, देय 25 सितम्बर". Priya approves with her passkey (WebAuthn user verification).
 5. G5 CONSENT_REVERIFY reads `consent_records` and `consent_handles` live (never Redis): active, `revalidation_required = FALSE`, scope covers `fi_types ['DEPOSIT']`. `reverified_at` is stamped into the envelope.
 6. Phase 1 COMMIT moves the session to EXECUTION with the key (point of no return). EXECUTION dispatch: FinanceAgent, in one transaction, inserts `finance.idempotency_ledger (key, pending)`, `finance.transactions (state = 'INITIATED')` and `core.fn_append_audit('BILL_PAYMENT_INITIATED', …)`, commits, then asks `payment_routing` to format the BBPS payload and posts it through the DPI Gateway with the key (10 s timeout).
-7. BBPS simulator returns 200 with `transaction_ref_id = 'BBPS-TXN-2847001'`. The module commits `transactions → CONFIRMED` and stores the final envelope in the ledger, then returns `status: success`, `side_effects: [{provider: bbps, external_ref: 'BBPS-TXN-2847001', state: executed_confirmed, amount_paise: 284700}]`.
-8. Phase 2 (kernel, one transaction): audit row `BILL_PAYMENT_EXECUTED` (details: biller_id, amount_paise, transaction_ref_id, idempotency_key, automation_tier 1 — UUIDs and amounts only) plus session → SUCCESS_CONFIRMATION. Only after COMMIT: `DELETE FROM resource_lock …`, then `notification_engine` pushes `finance.pay_bill.success` to Priya Phone in Hindi and to Ravi Phone as the admin default notification. The Kitchen Tablet shows nothing.
+7. BBPS simulator returns 200 with a `transaction_ref_id`, written here as `'BBPS-TXN-2847001'` after FTS §2.3; the simulator derives the reference from the idempotency key (SIM §4.2), so tests assert the pattern and that payment and status agree, not a fixed value. The module commits `transactions → CONFIRMED` and stores the final envelope in the ledger, then returns `status: success`, `side_effects: [{provider: bbps, external_ref: 'BBPS-TXN-2847001', state: executed_confirmed, amount_paise: 284700}]`.
+8. Phase 2 (kernel, one transaction): audit row `BILL_PAYMENT_EXECUTED` (details: biller_id, amount_paise, transaction_ref_id, idempotency_key, automation_tier 1 — UUIDs and amounts only) plus session → SUCCESS_CONFIRMATION. Only after COMMIT is the lock released: `UPDATE core.resource_lock SET released_at = NOW(), release_reason = 'completed'` (DM v1.3 §3.11; lock rows are never deleted, and where FTS v1.2 still shows a DELETE its §9.2 note says to run this UPDATE). Then `notification_engine` pushes `finance.pay_bill.success` to Priya Phone in Hindi and to Ravi Phone as the admin default notification. The Kitchen Tablet shows nothing.
 
 ### Scenario 2 — BBPS times out, the session becomes a zombie, the Healer resolves it
 
-1. Same flow, next month. The BBPS simulator runs the `bbps_timeout` chaos scenario (RB §9.4: 12 s delay). The DPI Gateway aborts at the 10 s timeout (FTS §2.3 T+1) after Phase 1 has committed and the module's INITIATED row exists.
+1. Same flow, next month, with the biller linked as `SIM_TIMEOUT_001` in the test fixture: the simulator waits 12 s and then records the payment as made (SIM §5.1 B10; deterministic, where RB §9.4's chaos scenario `bbps_timeout` does the same thing at random). The DPI Gateway aborts at the 10 s timeout (FTS §2.3 T+1) after Phase 1 has committed and the module's INITIATED row exists.
 2. FinanceAgent cannot claim success or failure. It returns `status: failure`, `error: {code: MOD_EXECUTION_UNCONFIRMED, class: TERMINAL, message_key: finance.error.FIN_001}` and `side_effects: [{state: executed_unconfirmed, external_ref: null, amount_paise: 284700}]` (MR §9, §10 step 8b). The ledger keeps `pending`.
-3. Priya sees FIN_001: "भुगतान में सामान्य से अधिक समय लग रहा है। हम स्थिति जांच रहे हैं।" (FTS §10.2) with no retry button. The session stays in EXECUTION and the lock stays held (FTS §4.3); this PRD follows the frozen FTS, not MR §10's "Supervisor → FAILED" wording (open issue OI-2).
-4. T+5 min: the Healer (SYSTEM_ACTOR_UUID, Redis lock `healer:global_lock`) selects the zombie `FOR UPDATE` and polls the BBPS simulator's status endpoint by idempotency key (FTS §6.4). Simulator answer: `SUCCESS`, ref `BBPS-TXN-2847002` — the payment went through, the acknowledgement was lost. The Healer queues `AUDIT_LOG_WRITE` (P1).
+3. Priya sees FIN_001: "भुगतान में सामान्य से अधिक समय लग रहा है। हम स्थिति जांच रहे हैं।" (FTS §10.2) with no retry button. The session stays in EXECUTION and the lock stays held (FTS §4.3; MR v1.1 §9 now says the same, and nothing but the Healer may move an EXECUTION session, AGENTS.md §4 item 19).
+4. T+5 min: the Healer (SYSTEM_ACTOR_UUID, Redis lock `healer:global_lock`) selects the zombie `FOR UPDATE` and polls the BBPS simulator's status endpoint by idempotency key (`GET /payment/status`, SIM §5.1 B12; FTS §6.4). Simulator answer: `SUCCESS`, ref `BBPS-TXN-2847002` — the payment went through, the acknowledgement was lost. The Healer queues `AUDIT_LOG_WRITE` (P1).
 5. T+10 min: next run processes P1 first — re-polls BBPS, writes the audit row with the original BBPS timestamp, moves the session to SUCCESS_CONFIRMATION, marks the task `succeeded` in one transaction, releases the lock and pushes "✅ ₹2,847 paid. Ref: BBPS-TXN-2847002" to Priya and Ravi. The module's `finance.transactions` row is moved to CONFIRMED by the reconcile hook (§8, OI-3).
-6. Variants exercised by the same test fixture: `NOT_FOUND` → Healer re-queues `BILL_PAYMENT` (P3) with the **same** key (FTS §6.4 hard rule); `PENDING` → wait, admin alert at 30 min, FAILED at 4 h (FTS §7.2); BBPS unreachable three polls → admin alert FIN_011. Crash Scenarios A–D of the Build Gate map onto steps 1–5.
+6. Variants exercised with other scenario billers (SIM §5.1 B6, B7, B11, B16): `NOT_FOUND` → Healer re-queues `BILL_PAYMENT` (P3) with the **same** key (FTS §6.4 hard rule); `PENDING` → wait, admin alert at 30 min, FAILED at 4 h (FTS §7.2); BBPS unreachable three polls → admin alert FIN_011. Crash Scenarios A–D of the Build Gate map onto steps 1–5.
 
 ### Scenario 3 — Ravi and Priya try to pay BESCOM at the same time
 
@@ -84,7 +85,7 @@ Ramesh, on his own phone: *"Madam ka bank balance kitna hai?"* PERMISSION_CHECK 
 
 ### Scenario 5 — Bills due this week, with the AA budget exhausted
 
-Ravi, Ravi Phone, 20:55 IST: *"Is hafte koi bill due hai?"* → `LIST_BILLS_DUE {within_days: 7}`. FinanceAgent reads `finance.billers` (BESCOM, Airtel, BWSSB), refreshes any due-amount cache older than 24 h from the BBPS simulator and returns a card: BESCOM ₹2,847 due 25 Sep, Airtel ₹999 due 28 Sep. Ravi: *"Aur balance?"* → `CHECK_BALANCE`. The HDFC handle has used its three fetches this hour (two dashboard opens plus Scenario 1), so the module serves the 14-minute-old cached balance with "Balance as of 20:41. Refresh available in 5 min" (RB §3.3) and `cache_metadata` marking it stale. Ravi: *"Airtel bhi bhar do."* The forced G3 fetch is refused by the budget; the payment is hard-blocked with FIN_006 (RB §3.3 "PAY_BLOCKED_NO_BUDGET"). There is no admin override in Phase 1 (OI-7). Ravi is told when the slot reopens.
+Ravi, Ravi Phone, 20:55 IST: *"Is hafte koi bill due hai?"* → `LIST_BILLS_DUE {within_days: 7}`. FinanceAgent reads `finance.billers` (BESCOM, Airtel, BWSSB), refreshes any due-amount cache older than 24 h from the BBPS simulator and returns a card: BESCOM ₹2,847 due 25 Sep, Airtel ₹999 due 28 Sep. Ravi: *"Aur balance?"* → `CHECK_BALANCE`. The HDFC handle has used its three fetches this hour (two dashboard opens plus Scenario 1), so the module serves the 14-minute-old cached balance with "Balance as of 20:41. Refresh available in 5 min" (RB §3.3) and `cache_metadata` marking it stale. Ravi: *"Airtel bhi bhar do."* The forced G3 fetch is refused by the budget; the payment is hard-blocked with FIN_006 (RB §3.3 "PAY_BLOCKED_NO_BUDGET"). There is no admin override, by founder ruling (OI-7): this is a payment-safety gate, not a preference (§4.6). Ravi is told when the slot reopens.
 
 ## 4. Functional Requirements (The "Agentic" Loop)
 
@@ -92,7 +93,7 @@ Ravi, Ravi Phone, 20:55 IST: *"Is hafte koi bill due hai?"* → `LIST_BILLS_DUE 
 
 - **Trigger:** a text or voice-stand-in request on a private device (`PAY_BILL`, `LIST_BILLS_DUE`, `CHECK_BALANCE`, `PAYMENT_STATUS`); a UI action on the "Bills due" card (same intent, modality `ui_action`); the nightly bill-due refresh (FSM §3.1: bill dues, 24 h, nightly cron) which only produces a "due in ≤ 3 days" notification. Not triggers in Phase 1: schedules, low-balance alerts, autopay.
 - **Information gathering:** actor role from `v_family_members`; consent reference (never the handle) from `v_active_consents`; device context from `v_device_surfaces` and the envelope's `context.is_public_surface`; the family's linked billers and cached dues from `finance.billers`; BBPS bill fetch through the DPI Gateway (read phase, MR §10 step 4); the forced AA balance fetch at G3 (TTL bypass, coalescing RB §3.2, 3/hour per handle); the BBPS daily budget from Redis (50/day per user, fail-closed on Redis loss, RB §2.4).
-- **Analysis logic (deterministic; the LLM never computes money):** `amount = entities.amount_paise` if given and equal to the fetched due, else the fetched due; a mismatch returns `needs_clarification` with both figures. Gates in FTS order: RBAC → lock → balance (`balance_paise ≥ amount_paise + 5000`, else FIN_005; no fresh fetch this session, else FIN_006 hard stop) → passkey (always, `biometric_required_above_paise: 0`) → CONSENT_REVERIFY. FTS §5.3 collision check: a non-terminal session for the same biller in the last 24 h returns that session's status and creates no new key. `deadline_at` is checked before every DPI call (MR §6.2). The automation tier of `PAY_BILL` is always 1.
+- **Analysis logic (deterministic; the LLM never computes money):** `amount = entities.amount_paise` if given and equal to the fetched due, else the fetched due; a mismatch returns `needs_clarification` with both figures. Gates in FTS order: RBAC → lock → balance (`balance_paise ≥ amount_paise + buffer`, buffer 5000 paise unless the family has raised it, §4.6; else FIN_005; no fresh fetch this session, else FIN_006 hard stop) → passkey (always, `biometric_required_above_paise: 0`) → CONSENT_REVERIFY. FTS §5.3 collision check: a non-terminal session for the same biller in the last 24 h returns that session's status and creates no new key. `deadline_at` is checked before every DPI call (MR §6.2). The automation tier of `PAY_BILL` is always 1.
 - **Execution / fulfilment:** the FTS §2.3 sequence. Phase 1 COMMIT (kernel) → EXECUTION dispatch → module transaction {ledger `pending`, `transactions INITIATED`, `fn_append_audit('BILL_PAYMENT_INITIATED')`} → `payment_routing` formats the payload → DPI Gateway POST with the idempotency key (10 s timeout; BBPS dedups the key for 24 h, so FIN_004 is a success path) → module transaction {`transactions CONFIRMED` or `FAILED`, ledger `final`} → response with exhaustive `side_effects` → Phase 2 (kernel, one transaction: audit row + session) → lock release → `notification_engine` push to payer and admin, private devices only, via `display_key`. A timeout or crash yields `MOD_EXECUTION_UNCONFIRMED` with `executed_unconfirmed`, and the Healer owns the outcome. The module never re-prompts, never retries a mutating call on its own, and never generates a second key.
 
 ### 4.2 Features In (Prioritised)
@@ -105,7 +106,7 @@ Ravi, Ravi Phone, 20:55 IST: *"Is hafte koi bill due hai?"* → `LIST_BILLS_DUE 
 - **`LIST_BILLS_DUE`:** due amounts per linked biller from the BBPS simulator, 24 h cache with `cache_metadata`, nightly refresh, "due in 3 days" nudge.
 - **`CHECK_BALANCE`:** AA balance with the 15-minute TTL and the RB §3.3 staleness messages.
 - **`PAYMENT_STATUS`:** answers "did we pay BESCOM this month?" from `finance.transactions` without a DPI call (Core PRD Scenario 6 minus OCR).
-- **Daily family amount limit (FIN_013):** admin-set, Level 0; default is no family limit beyond BBPS's 50 transactions/day (assumption, see report).
+- **Daily family amount limit (FIN_013):** admin-set; default is no family limit beyond BBPS's 50 transactions/day. One of the "stricter only" settings of §4.6.
 
 ### 4.3 Features Out
 
@@ -205,12 +206,13 @@ Valid against MR §4.1. `requires_consent_providers` uses the MR v1.1 narrowing 
 
 ### 4.5 Owned schema (`finance`)
 
-Conventions per DM §9.3 (family_id, user_id, created_at, updated_at, deleted_at, index on `(family_id, created_at DESC)`), role `role_module_finance` per MR §7.2. The foreign keys to `core.families`/`core.users` are created by the Alembic migration role, which holds REFERENCES on the kernel tables; the runtime module role never needs it. No FK to `core.supervisor_sessions` because the kernel hard-deletes terminal sessions after 24 h (DM §7.4). Three tables:
+Conventions per DM §9.3 (family_id, user_id, created_at, updated_at, deleted_at, index on `(family_id, created_at DESC)`), role `role_module_finance` per MR §7.2. The foreign keys to `core.families`/`core.users` are created by the Alembic migration role, which holds REFERENCES on the kernel tables; the runtime module role never needs it. No FK to `core.supervisor_sessions` because the kernel hard-deletes terminal sessions after 24 h (DM §7.4). Four tables:
 
 | Table | Purpose | Notes |
 |---|---|---|
 | `finance.billers` | The family's linked BBPS billers and the 24 h due-amount cache | `customer_params` holds only the simulator's synthetic consumer id in Phase 1 (OI-4) |
 | `finance.transactions` | One row per payment attempt; the module's view of the money | `state` INITIATED → CONFIRMED / FAILED; `idempotency_key` unique |
+| `finance.family_settings` | The family's adjustable defaults (§4.6) | One row per family; absent row = shipped defaults |
 | `finance.idempotency_ledger` | MR §6.4 ledger; stored envelope returned verbatim on re-dispatch | Rows never garbage-collected before 7 days |
 
 ```sql
@@ -256,6 +258,16 @@ CREATE TABLE finance.transactions (
 CREATE INDEX idx_tx_family_created ON finance.transactions(family_id, created_at DESC);
 CREATE INDEX idx_tx_unconfirmed    ON finance.transactions(initiated_at) WHERE state = 'INITIATED';  -- reconcile hook scan
 
+CREATE TABLE finance.family_settings (                          -- §4.6; absent row = shipped defaults
+  family_id                UUID     PRIMARY KEY REFERENCES core.families(family_id) ON DELETE CASCADE,
+  balance_buffer_paise     BIGINT   NOT NULL DEFAULT 5000 CHECK (balance_buffer_paise BETWEEN 5000 AND 10000000),  -- never below the FTS G3 buffer
+  daily_limit_paise        BIGINT   CHECK (daily_limit_paise IS NULL OR daily_limit_paise >= 100),                 -- NULL = no family limit (FIN_013)
+  due_nudge_days           SMALLINT NOT NULL DEFAULT 3 CHECK (due_nudge_days BETWEEN 1 AND 7),
+  admins_get_success_copies BOOLEAN NOT NULL DEFAULT TRUE,  -- routine success notices only; safety alerts always reach the admins
+  updated_by_user_id       UUID     NOT NULL REFERENCES core.users(user_id),   -- an admin (app-layer check)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), deleted_at TIMESTAMPTZ
+);
+
 CREATE TABLE finance.idempotency_ledger (                       -- MR §6.4
   idempotency_key    UUID        PRIMARY KEY,
   family_id          UUID        NOT NULL REFERENCES core.families(family_id) ON DELETE CASCADE,
@@ -270,13 +282,31 @@ CREATE TABLE finance.idempotency_ledger (                       -- MR §6.4
 CREATE INDEX idx_ledger_family_created ON finance.idempotency_ledger(family_id, created_at DESC);
 ```
 
+### 4.6 Settings and defaults (founder rulings 2026-09-17)
+
+Principle (Decision Log, "defaults, not constants"): family preferences are adjustable defaults; safety gates are never settings. Finance adds one refinement: **a family may make a safety rule stricter, never looser.** The same idea already governs manifests, which may lower a biometric threshold but not raise it (MR §4.1).
+
+| Setting | Default | Bounds | Who | Direction |
+|---|---|---|---|---|
+| Balance buffer at gate G3 | ₹50 (5000 paise, FTS §2.2) | ₹50 to ₹1,00,000; never below ₹50 | Admin | Stricter only |
+| Daily family payment limit (FIN_013) | None | Any amount ≥ ₹1; removing or raising it needs the admin's passkey, lowering it does not | Admin | Stricter freely, looser with a passkey and an audit row |
+| "Bill due soon" nudge | 3 days before the due date | 1 to 7 days | Admin | Preference |
+| Routine success notices copied to the admins | On (Core PRD §2) | On / off | Admin | Preference |
+| Notification language | The recipient's `preferred_language` | Kernel value | Each user | Preference |
+
+Changes are Level 0 admin actions in the PWA, written to the kernel audit log (proposed code `FINANCE_SETTINGS_CHANGED`, details: setting name, old and new value; to be added with OI-3's list) because they change what money may move.
+
+**Never a setting:** the five gates and their order; a passkey for every BBPS payment whatever the amount; the forced balance fetch before paying, and the hard block when it cannot be made (no override, OI-7); one idempotency key per session and the Healer reusing it; the family-scoped lock; no "try again" control on an unknown outcome; Level 3 automation; the role blocks for minor, elder, staff, managed and passive; the public-surface block; safety alerts (FIN_011, FIN_012, `ROLE_VIOLATION`) reaching the admins.
+
+Out of scope for Phase 1 and noted so that it is not reinvented as a setting: a co-approval rule ("payments above ₹X by a member also need an admin's passkey"). It is a second approval gate, which is an FTS change, not a module preference.
+
 ## 5. India Stack (DPI) Touchpoints
 
 Phase 1 touches DPIs only through the WireMock simulators (RB §9; Decision Log 2026-09-17). Contract tests (RB §9.5) keep the stubs aligned with the real request/response shapes; nothing here implies a live integration.
 
 - **Identity:** none. No Aadhaar, no e-KYC. Actor identity comes from the authenticated PWA session; the passkey (WebAuthn user verification) stands in for the biometric of FTS G4 and CM §4.2 step 4.
-- **Data — Account Aggregator (consent provider `aa`):** purpose code `AA_BALANCE_FETCH` (CM §3.2: balance only, 15-minute retention, essential, not for minors). Grant flow CM §4.2 + §6.1.1 against the AA simulator (POST /Consent, 30 s polling, 10-minute approval window); fetch per CM §6.1.2 with the RB §3 budget (3 fetches/hour per consent handle, hourly TTL aligned to the IST clock) and coalescing (RB §3.2). Stubs: `aa_rate_limit.json` (RB §9.1, HTTP 429 with `Retry-After: 1800`), chaos `aa_random_failures` (RB §9.4, 20 % HTTP 500). Not in the runbook: the balance-fetch happy path, the consent status poll and a JWS-signed consent webhook — to be defined in Tech_Spec_Simulator_Architecture (P1).
-- **Payments — BBPS (routing provider `bbps`, not a consent provider):** the per-transaction authorisation is the passkey (G4) plus CONSENT_REVERIFY of the AA purpose (G5). Stubs: the Build Gate's six scenarios (SUCCESS, FAILED, PENDING, NOT_FOUND, 429, Timeout), `bbps_consecutive_failures.json` (RB §9.2, three 500s open the breaker), chaos `bbps_timeout` (RB §9.4, 12 s delay, 15 %). The simulator must dedupe a repeated idempotency key for 24 h (FIN_004) and answer a status query by key or by transaction ref for the Healer; the bill-fetch endpoint (`/biller/fetch`, RB §8.3 probe) and the status endpoint shapes are to be defined in Tech_Spec_Simulator_Architecture (P1).
+- **Data — Account Aggregator (consent provider `aa`):** purpose code `AA_BALANCE_FETCH` (CM §3.2: balance only, 15-minute retention, essential, not for minors). Grant flow CM §4.2 + §6.1.1 against the AA simulator (POST /Consent, 30 s polling, 10-minute approval window); fetch per CM §6.1.2 with the RB §3 budget (3 fetches/hour per consent handle, hourly TTL aligned to the IST clock) and coalescing (RB §3.2). Stubs: Tech_Spec_Simulator_Architecture §5.2, rows A1–A12 (consent create and status, rejected, never approved, revoked, FI request and fetch with healthy, low and slow variants, `aa_rate_limit.json` from RB §9.1, breaker failures, and the `/Consent/status` probe of RB §8.3); chaos `aa_random_failures` (RB §9.4, 20 % HTTP 500). The JWS-signed consent webhook is not simulated yet (SIM OI-3); revocation is caught by CONSENT_REVERIFY polling (row A5).
+- **Payments — BBPS (routing provider `bbps`, not a consent provider):** the per-transaction authorisation is the passkey (G4) plus CONSENT_REVERIFY of the AA purpose (G5). Stubs: Tech_Spec_Simulator_Architecture §5.1, rows B1–B17, which include the Build Gate's six scenarios (SUCCESS B4, FAILED B8, PENDING B6/B13, NOT_FOUND B11, 429 B14, timeout B10), `bbps_consecutive_failures.json` (RB §9.2) and the `/biller/fetch` probe of RB §8.3; chaos `bbps_timeout` (RB §9.4). Duplicate-key behaviour (FIN_004) and the status query are the simulator's payment state machine (SIM §4.2); the 24-hour boundary is tested in the Healer with an injected clock, not in the simulator. `POST /bill/fetch` and `GET /payment/status` are gateway contracts defined in SIM §6.1. Open: FTS §2.3's request carries a VPA and an account number, which invariant 9 forbids storing (SIM OI-1; OI-4 below).
 - **Commerce, voice:** none. ONDC is not declared; Bhashini is replaced by the browser speech stand-in with the RB §7.3 confidence thresholds (< 0.80 reject, 0.80–0.90 confirm).
 
 | Budget / breaker | Value (RB, Feb 2026) | Module behaviour |
@@ -295,7 +325,7 @@ Consistent with Core PRD §6 and DM §3.4. FTS wins where it and the Core PRD di
 | 1 | Two family members pay the same biller concurrently | Family-scoped lock `BBPS_{biller_id}` (FTS §9.2); second session gets FIN_009, no key, nothing external. Different billers proceed in parallel. |
 | 2 | Same payer double-taps or re-requests within 24 h | FTS §5.3 collision check returns the existing session's status; no new session, no new key. |
 | 3 | User-stated amount ≠ fetched due amount | `needs_clarification` with both figures; never pay the larger silently; partial payment is out of scope, so "pay ₹2,500 of ₹2,847" ends in a clear refusal. |
-| 4 | Balance insufficient (or unverifiable) and the bill is due today | FIN_005 / FIN_006 hard block (FTS G3). No override in Phase 1 (OI-7). Admin default notification carries the due date. |
+| 4 | Balance insufficient (or unverifiable) and the bill is due today | FIN_005 / FIN_006 hard block (FTS G3). No override, by founder ruling (OI-7, §4.6). Admin default notification carries the due date. |
 | 5 | BBPS 50/day exhausted, bill due today | Hard block with reset time; suggest the biller's own channel; offer a reminder at 00:01 IST; admin may mark "paid externally" (RB §11). |
 | 6 | Proxy contradiction on an expense tagged to a managed profile | DM §3.4: `hierarchy` → primary's action wins, secondary rejected silently, both logged as `PROXY_ACTION`; `notify_block` → both paused, both proxies + admin alerted. Phase 1: `PAY_BILL` rejects a non-null `acting_as` (`MOD_PERMISSION_DENIED`), so the rule is documented, not exercised. |
 | 7 | Agent disagreement — Finance says low balance, Health wants a medicine order | FinanceAgent returns `status: conflict` with the paise headroom; the Supervisor defaults to "Conserve resources" (Core PRD §6). Core → Core calls are forbidden (MR §3.2). |
@@ -323,12 +353,12 @@ States, not screens. The PWA renders one Finance "live card" whose state is driv
 |---|---|---|
 | Gate order, 2PC, key lifecycle, Healer, locks, FIN codes | FTS v1.2 §2, §4, §5, §6–§7, §9, §10 | Implements the module side of §2.3; supplies `side_effects`; never approves, never re-keys |
 | Manifest, envelope, ledger, isolation, MOD codes | MR v1.1 §4, §6, §7, §9 | §4.4 manifest; `finance.idempotency_ledger`; imports only `familylifeos.sdk` |
-| AA consent, CONSENT_REVERIFY, AA adapter | CM v1.2 §3.2, §4.2, §5, §6.1 | Declares `aa`; consumes `consent[].reverified_at`; rejects > 60 s as `MOD_CONSENT_STALE` |
-| Budgets, breakers, stubs | RB v1.2 §2–§4, §8, §9 | Reads budget outcomes from the DPI Gateway; never touches Redis budget keys itself |
+| AA consent, CONSENT_REVERIFY, AA adapter | CM v1.3 §3.2, §4.2, §5, §6.1 | Declares `aa`; consumes `consent[].reverified_at`; rejects > 60 s as `MOD_CONSENT_STALE` |
+| Budgets, breakers, stubs | RB v1.2 §2–§4, §8, §9; SIM §4–§6 | Reads budget outcomes from the DPI Gateway; never touches Redis budget keys itself |
 | Table conventions, roles, seed | DM v1.3 §9.3, §8; DM v1.3 | Schema §4.5; roles `admin`/`member`; `resource_lock` table |
 | TTLs and tiers | FSM v2.1 §2, §3.1 | Balance 15 min (forced on pay), bill dues 24 h; tier 1 only |
 
-**Error handling.** Raw codes never reach users (FTS §10.1). The envelope carries the MR code in `error.code`; the FIN code rides in `error.message_key` (`finance.error.FIN_xxx`) and `error.detail` (assumption for MR v1.1 — see report). Mapping of the codes this module raises or relays:
+**Error handling.** Raw codes never reach users (FTS §10.1). The envelope carries the MR code in `error.code`; the FIN code rides in `error.message_key` (`finance.error.FIN_xxx`) and `error.detail` (a convention this PRD and the Health PRD share; to be confirmed in the Module Registry round-2 review). Mapping of the codes this module raises or relays:
 
 | FIN | Envelope code / class | Retryable | User message (English; Hindi per FTS §10.2 / UX_Error_Message_Library P1) |
 |---|---|---|---|
@@ -342,7 +372,7 @@ States, not screens. The PWA renders one Finance "live card" whose state is driv
 | FIN_009 lock conflict | `MOD_LOCK_CONFLICT` / TERMINAL | After release | A payment to this biller is already in progress. |
 | FIN_010–FIN_015 | raised by kernel / Healer | per FTS §10.1 | per FTS §10.1 |
 
-**TTLs and windows.** Balance 15 min, forced on any pay (FSM §3.1); bill dues 24 h; session `expires_at` per DM §3.7 (AWAITING_APPROVAL 5 min, REASONING/EXECUTION 2 min — see OI-5); zombie threshold 5 min (FTS §7.1); Healer every 5 min; idempotency key valid 72 h (FTS §5.4); ledger rows ≥ 7 days (MR §6.4); locks stale after 30 min (FTS §9.3). **Rate limits** as in §5. **Reconcile hook (OI-3):** `FinanceAgent.reconcile(idempotency_key, outcome, external_ref)` moves an INITIATED row to CONFIRMED/FAILED when the Healer resolves a zombie; scans `idx_tx_unconfirmed` as a safety net.
+**TTLs and windows.** Balance 15 min, forced on any pay (FSM §3.1); bill dues 24 h; session `expires_at` per DM §3.7 (AWAITING_APPROVAL 5 min, REASONING/EXECUTION 2 min; the cleanup job never aborts an EXECUTION session, DM v1.3 §7.4); zombie threshold 5 min (FTS §7.1); Healer every 5 min; idempotency key valid 72 h (FTS §5.4); ledger rows ≥ 7 days (MR §6.4); locks stale after 30 min (FTS §9.3). **Rate limits** as in §5. **Reconcile hook (OI-3):** `FinanceAgent.reconcile(idempotency_key, outcome, external_ref)` moves an INITIATED row to CONFIRMED/FAILED when the Healer resolves a zombie; scans `idx_tx_unconfirmed` as a safety net.
 
 ### Success Metrics (The Autonomy Score)
 
@@ -369,12 +399,15 @@ States, not screens. The PWA renders one Finance "live card" whose state is driv
 ### Open Issues
 
 - **OI-1 — ₹50 buffer vs Level 2 recurring payments.** G3 checks `balance ≥ amount + 5000 paise` for a human-approved payment. A Level 2 recurring payment has no human in the loop, so the same buffer would let an autopay drain the account to ₹50; a larger safe-limit (per-payee cap plus a per-day cap) and a forced fetch per execution are needed before `PAY_RECURRING` exists. Owner: Shantanu Chaudhary, FTS v1.2 / this PRD v0.2.
-- **OI-2 — Session state after `MOD_EXECUTION_UNCONFIRMED`.** FTS §4.3 keeps the session in EXECUTION (Healer detects the zombie); MR §9 and §10 step 8b move it to FAILED. Both cannot hold — a FAILED session is invisible to the FTS §6.4 zombie query. This PRD follows FTS. **Settled 2026-09-17:** MR v1.1 §9 keeps the session in EXECUTION (review log MR §13).
+- **OI-2 — Session state after `MOD_EXECUTION_UNCONFIRMED`.** **Closed 2026-09-17:** the session stays in EXECUTION; MR v1.1 §9 was corrected to match FTS §4.3 (review log MR §13).
 - **OI-3 — Who writes the success audit row, and who fixes `finance.transactions`.** FTS §4.3 writes `BILL_PAYMENT_EXECUTED` and the session update in one kernel transaction; MR §6.3/§10 has the module write its own financial audit rows. This PRD follows FTS (module writes only `BILL_PAYMENT_INITIATED`); a `reconcile()` SDK hook is proposed so the Healer can settle module rows without touching the `finance` schema. The code name is settled: `BILL_PAYMENT_EXECUTED` (DM v1.3 §6, register item 7).
 - **OI-4 — Where the consumer number lives.** Paying BESCOM needs a consumer id (FTS §2.3 `customer_params`). Invariant 9 forbids account numbers in the app DB; a utility consumer number is not a bank account but is personal data. Phase 1 stores only the simulator id; production storage (encrypted column, or a DigiLocker/vault reference) is for Security_Threat_Model.md.
-- **OI-5 — DM §7.4 session cleanup vs the zombie window.** DM §3.7 expires REASONING/EXECUTION sessions after 2 min and §7.4 marks expired sessions ABORTED, which would abort an EXECUTION session (money possibly moved) before the Healer's 5-minute zombie check sees it. **Settled 2026-09-17:** DM v1.3 §7.4 cleanup never aborts an EXECUTION session (AGENTS.md §4 item 19).
-- **OI-6 — `CHECK_BALANCE` for `elder`.** **Ruled 2026-09-17:** denied by default (matches DM Q2 and Core PRD §2). Whether an admin can grant it per family through `role_module_permissions` (DM v1.3 §3.16) is settled in MR review round 2; a manifest or a family setting may narrow access, and any widening goes through that table and is audited.
+- **OI-5 — DM §7.4 session cleanup vs the zombie window.** **Closed 2026-09-17:** DM v1.3 §7.4's cleanup never aborts an EXECUTION session (AGENTS.md §4 item 19).
+- **OI-6 — `CHECK_BALANCE` for `elder`.** **Ruled 2026-09-17, closed for Phase 1:** denied (DM Q2, Core PRD §2). `role_module_permissions` is seeded by migration and has no per-family override (DM v1.3 §3.16), so there is no family setting for this today; whether one should exist is a question for the Module Registry round-2 review, not a Phase 1 feature.
 - **OI-7 — Admin override of a blocked balance check.** **Ruled 2026-09-17:** no override in Phase 1. This is a payment-safety gate (FTS G3), so it is deliberately not a family-adjustable setting; if an override is ever added it needs its own audit code and passkey.
+
+- **OI-8 — Per-family module settings convention.** This PRD adds `finance.family_settings`; see Vault PRD OI-8 (Module Registry round-2 review).
+- **OI-9 — Audit codes for settings changes.** `FINANCE_SETTINGS_CHANGED` is proposed with OI-3's list for the DM v1.3 taxonomy before the freeze.
 
 ### Q&A
 
@@ -394,4 +427,5 @@ States, not screens. The PWA renders one Finance "live card" whose state is driv
 - [x] Conflict Resolution scenarios handled (§6).
 - [x] GTM Approach outlined (§9, portfolio framing).
 - [x] Success Metrics (Autonomy Score) set (§8).
-- [ ] Independent review round completed and OI-2/OI-3/OI-5 settled in MR v1.1 / DM v1.3.
+- [x] OI-2 and OI-5 settled in MR v1.1 / DM v1.3; OI-6 and OI-7 ruled by the founder (2026-09-17).
+- [ ] Independent review round completed (Codex, WP-15); OI-3, OI-8 and OI-9 settled in the round-2 spec reviews; OI-1 before `PAY_RECURRING`; OI-4 in the threat model.
