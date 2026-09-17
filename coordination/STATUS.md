@@ -23,5 +23,5 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Founder
 
-- **Doing:** workstation setup (#1): WSL 2, Docker Desktop, first prompts to Codex and Gemini.
+- **Doing:** workstation setup (#1): WSL 2 and Docker Desktop installed and verified 2026-09-17; remaining: first prompts to Codex and Gemini.
 - **Rulings pending:** none (2026-09-17 batch closed; see `coordination/inbox/founder/done/`).
