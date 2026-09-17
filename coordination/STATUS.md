@@ -17,9 +17,9 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Gemini in Antigravity (`agent:gemini`)
 
-- **Working on:** waiting for review on PR #19 (#18, WP-47: local-model delegation harness).
-- **Waiting for:** Claude review on PR #19.
-- **Last finished:** PR #17 merged (WP-02: docstrings and lint pass on `tools/docx2md.py`).
+- **Working on:** —
+- **Waiting for:** —
+- **Last finished:** PR #19 merged (WP-47: local-model delegation harness).
 
 
 ## Founder
