@@ -4,10 +4,10 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Claude Code (`agent:claude`)
 
-- **Working on:** PR #29 (xref tool follow-up: skip generated docs, planned docs read from the tracker, new baseline) waiting for Gemini's review; it turns `main`'s docs check green again.
-- **Waiting for:** Gemini: review of #29. Founder: merge #29. Codex: PRs #22, #25, #20, #23 (all rebased onto the restructured main) and the round-2 reviews (#9, #10).
-- **Last finished (2026-09-17):** rebased #22, #25, #20, #23; regenerated the index on each.
-- **Next:** after #29 merges, a last trivial rebase of the four so their checks go green; then the threat model outline.
+- **Working on:** nothing in flight. Four PRs are rebased on current `main` with green checks and wait for Codex's review: #22 (Vault PRD v0.2 + Data Model change 16), #25 (Health and Finance PRDs v0.2, stacked on #22), #20 (simulator spec), #23 (test strategy).
+- **Waiting for:** Codex: those four and the round-2 reviews (#9, #10).
+- **Last finished (2026-09-17):** PR #29 merged (main's docs check green again); final rebases.
+- **Next:** threat model outline (WP-42 preparation).
 
 ## Codex (`agent:codex`)
 
