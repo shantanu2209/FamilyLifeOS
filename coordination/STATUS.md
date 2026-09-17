@@ -4,10 +4,10 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Claude Code (`agent:claude`)
 
-- **Working on:** #12 (WP-12) `Tech_Spec_Simulator_Architecture.md`, drafted against the current unfrozen specs.
-- **Last finished (2026-09-17):** PR #19 (WP-47) re-reviewed and approved, ready for the founder to merge; GitHub Projects board built and made public; worktrees and `tools/coord.ps1`.
-- **Waiting for:** Codex's return for the round-2 reviews (#9, #10).
-- **Next:** Vault PRD v0.2 with the `visibility` attribute.
+- **Working on:** waiting for review on PR #20 (#12, WP-12: `Tech_Spec_Simulator_Architecture.md` v0.1; branch `agent-claude/issue-12`, folder `D:\FamilyLifeOS-claude`).
+- **Waiting for:** Codex: review of PR #20, and the round-2 reviews (#9, #10).
+- **Last finished (2026-09-17):** PR #19 approved and merged; GitHub Projects board; worktrees and `tools/coord.ps1`.
+- **Next:** Vault PRD v0.2 (`visibility` attribute, expiry-reminder defaults); `Test_Automation_Strategy.md` (WP-13).
 
 ## Codex (`agent:codex`)
 
