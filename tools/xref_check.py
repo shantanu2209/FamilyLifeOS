@@ -4,7 +4,7 @@ Scans all Markdown documentation files for document and section cross-references
 resolving abbreviations (DM, FTS, CM, RB, MR, MC, FSM, NFR, PRD, tracker, SIM, TAS),
 bare section references, and markdown links. Validates target document existence,
 heading/section existence, and reports version mismatches (HISTORICAL / FORWARD / STALE)
-and planned/missing document references.
+and planned/missing document references. Supports baseline ratcheting for CI.
 """
 
 from __future__ import annotations
@@ -134,6 +134,17 @@ _HISTORICAL_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Finding statuses considered failing by default and tracked in baseline
+FAILING_STATUSES: set[str] = {
+    "VERSION_STALE",
+    "UNKNOWN_DOC",
+    "MISSING_DOC",
+    "DANGLING_SECTION",
+    "DANGLING_DOC",
+}
+
+BaselineKey = tuple[str, str, str | None, str | None, str | None, str]
+
 
 def _normalise_version(ver: str) -> str:
     """Normalise version strings: v2_0 -> 2.0, v1.2.1 -> 1.2.1, etc."""
@@ -142,11 +153,30 @@ def _normalise_version(ver: str) -> str:
     return v
 
 
+def is_historical_document(file_path: Path) -> bool:
+    """Check if a document's Status line indicates it is HISTORICAL (not maintained)."""
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            for i, line in enumerate(f):
+                if i > 25:
+                    break
+                if re.search(
+                    r">\s*\*{0,2}Status\*{0,2}:\*{0,2}\s+(?:[^\n]*\b)?HISTORICAL\b",
+                    line,
+                    re.IGNORECASE,
+                ):
+                    return True
+    except OSError:
+        pass
+    return False
+
+
 def read_document_version(file_path: Path) -> str | None:
     """Read a document's current version from its Status line or governance table.
 
     Looks for patterns like:
       > **Status:** v1.3 — frozen
+      > **Status:** FROZEN — v1.2
       > **Status:** DRAFT v0.2
       | v1.3 | 2026-09-17 | ... | (last row of governance table)
     """
@@ -191,6 +221,105 @@ class XRefFinding:
     status: str  # VALID | PLANNED_DOC | MISSING_DOC | DANGLING_SECTION | VERSION_STALE
     #              | VERSION_HISTORICAL | VERSION_FORWARD | UNKNOWN_DOC | DANGLING_DOC
     detail: str
+
+
+def finding_to_baseline_key(f: XRefFinding) -> BaselineKey:
+    """Extract a line-number-independent key tuple for a finding."""
+    return (
+        f.source_file,
+        f.status,
+        f.target_doc,
+        f.target_section,
+        f.cited_version,
+        f.raw_text,
+    )
+
+
+def finding_to_baseline_entry(f: XRefFinding) -> dict[str, Any]:
+    """Convert finding to a JSON-serializable baseline dictionary."""
+    return {
+        "cited_version": f.cited_version,
+        "raw_text": f.raw_text,
+        "source_file": f.source_file,
+        "status": f.status,
+        "target_doc": f.target_doc,
+        "target_section": f.target_section,
+    }
+
+
+def load_baseline(baseline_path: Path) -> set[BaselineKey]:
+    """Load baseline keys from baseline JSON file."""
+    if not baseline_path.exists():
+        return set()
+    try:
+        with open(baseline_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        keys: set[BaselineKey] = set()
+        for item in data:
+            keys.add(
+                (
+                    item.get("source_file", ""),
+                    item.get("status", ""),
+                    item.get("target_doc"),
+                    item.get("target_section"),
+                    item.get("cited_version"),
+                    item.get("raw_text", ""),
+                )
+            )
+        return keys
+    except (OSError, json.JSONDecodeError):
+        return set()
+
+
+def write_baseline(baseline_path: Path, findings: list[XRefFinding]) -> int:
+    """Write failing findings to baseline JSON file, sorted, one entry per line."""
+    entries_map: dict[BaselineKey, dict[str, Any]] = {}
+    for f in findings:
+        if f.status in FAILING_STATUSES:
+            key = finding_to_baseline_key(f)
+            if key not in entries_map:
+                entries_map[key] = finding_to_baseline_entry(f)
+
+    sorted_keys = sorted(
+        entries_map.keys(),
+        key=lambda k: (k[0], k[1], k[2] or "", k[3] or "", k[4] or "", k[5]),
+    )
+    sorted_entries = [entries_map[k] for k in sorted_keys]
+
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["[\n"]
+    for i, entry in enumerate(sorted_entries):
+        comma = "," if i < len(sorted_entries) - 1 else ""
+        lines.append(f"  {json.dumps(entry, sort_keys=True)}{comma}\n")
+    lines.append("]\n")
+
+    with open(baseline_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
+    return len(sorted_entries)
+
+
+def evaluate_against_baseline(
+    findings: list[XRefFinding],
+    baseline_keys: set[BaselineKey],
+) -> tuple[list[XRefFinding], list[BaselineKey]]:
+    """Compare findings with baseline. Returns (new_findings, resolved_baseline_keys)."""
+    new_findings: list[XRefFinding] = []
+    matched_keys: set[BaselineKey] = set()
+
+    for f in findings:
+        if f.status in FAILING_STATUSES:
+            k = finding_to_baseline_key(f)
+            if k in baseline_keys:
+                matched_keys.add(k)
+            else:
+                new_findings.append(f)
+
+    resolved_keys = sorted(
+        baseline_keys - matched_keys,
+        key=lambda k: (k[0], k[1], k[2] or "", k[3] or "", k[4] or "", k[5]),
+    )
+    return new_findings, resolved_keys
 
 
 class DocIndex:
@@ -644,14 +773,19 @@ def _classify_version_mismatch(
     source_line: str,
     cited_ver: str,
     canon_ver: str,
+    in_header_block: bool = False,
 ) -> str:
     """Classify a version mismatch as HISTORICAL, FORWARD, or STALE.
 
-    HISTORICAL: the citation is in a Document Governance table row, a change log,
-                a struck-through passage, or text about conversion/recovery/superseding.
+    HISTORICAL: the citation is in a document header block, a Document Governance table
+                row, a change log, a struck-through passage, or text about
+                conversion/recovery/superseding.
     FORWARD:    the cited version is higher than the current (a plan, not an error).
     STALE:      everything else (a reference that should be updated).
     """
+    if in_header_block:
+        return "VERSION_HISTORICAL"
+
     norm_cited = _normalise_version(cited_ver)
     norm_canon = _normalise_version(canon_ver)
 
@@ -681,6 +815,9 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
         all_files.append(agents_file)
 
     for file_path in all_files:
+        if is_historical_document(file_path):
+            continue
+
         rel_src = file_path.relative_to(repo_root).as_posix()
         try:
             with open(file_path, "r", encoding="utf-8", errors="replace") as f:
@@ -702,12 +839,17 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
             continue
 
         in_code_block = False
+        seen_subheading = False
         for line_no, line in enumerate(lines, start=1):
             if line.strip().startswith("```"):
                 in_code_block = not in_code_block
                 continue
             if in_code_block:
                 continue
+
+            if line.startswith("##"):
+                seen_subheading = True
+            in_header_block = (not seen_subheading) and line.strip().startswith(">")
 
             # Also scan for document-shaped names that aren't in the alias map
             for dsm in _DOC_SHAPED_PATTERNS.finditer(line):
@@ -812,7 +954,10 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
                     norm_canon = _normalise_version(canon_ver)
                     if norm_cited != norm_canon:
                         mismatch_status = _classify_version_mismatch(
-                            line, cited_ver, canon_ver
+                            line,
+                            cited_ver,
+                            canon_ver,
+                            in_header_block=in_header_block,
                         )
                         findings.append(
                             XRefFinding(
@@ -940,7 +1085,14 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
     return findings
 
 
-def print_report(findings: list[XRefFinding], verbose: bool = False) -> None:
+def print_report(
+    findings: list[XRefFinding],
+    verbose: bool = False,
+    has_baseline: bool = False,
+    new_findings: list[XRefFinding] | None = None,
+    resolved_keys: list[BaselineKey] | None = None,
+    baseline_count: int = 0,
+) -> None:
     """Print formatted summary and categorized issues."""
     valid = [f for f in findings if f.status == "VALID"]
     planned = [f for f in findings if f.status == "PLANNED_DOC"]
@@ -951,6 +1103,16 @@ def print_report(findings: list[XRefFinding], verbose: bool = False) -> None:
     forward = [f for f in findings if f.status == "VERSION_FORWARD"]
     dangling_sections = [f for f in findings if f.status == "DANGLING_SECTION"]
     dangling_docs = [f for f in findings if f.status == "DANGLING_DOC"]
+
+    if has_baseline and new_findings:
+        print("======================================================================")
+        print(f"### New findings (not in baseline) ({len(new_findings)})")
+        print(
+            "======================================================================\n"
+        )
+        for f in new_findings:
+            print(f"  [{f.source_file}:{f.line_number}] '{f.raw_text}' -> {f.detail}")
+        print()
 
     total = len(findings)
     print("======================================================================")
@@ -966,7 +1128,22 @@ def print_report(findings: list[XRefFinding], verbose: bool = False) -> None:
     print(f"  - Version Forward:      {len(forward)}")
     print(f"  - Dangling Sections:    {len(dangling_sections)}")
     print(f"  - Dangling Documents:   {len(dangling_docs)}")
+    if has_baseline:
+        print("  --------------------------------------------------------------------")
+        print(f"  - Baseline entries:     {baseline_count}")
+        print(f"  - New findings:         {len(new_findings or [])}")
+        print(f"  - Resolved entries:     {len(resolved_keys or [])}")
     print("----------------------------------------------------------------------\n")
+
+    if resolved_keys:
+        print(
+            f"### Resolved baseline entries ({len(resolved_keys)} resolved; run --update-baseline)\n"
+        )
+        for k in resolved_keys:
+            sec_info = f" §{k[3]}" if k[3] else ""
+            ver_info = f" (v{k[4]})" if k[4] else ""
+            print(f"  [{k[0]}] ({k[1]}) '{k[5]}' -> {k[2]}{sec_info}{ver_info}")
+        print()
 
     if planned:
         print(f"### Planned Document References ({len(planned)} references)")
@@ -1052,7 +1229,8 @@ def run_selftest() -> bool:
     """Build probe files in a temp directory and verify detection counts.
 
     Creates a minimal repo structure with known references and asserts the tool
-    catches invented sections, validates real ones, and classifies version mismatches.
+    catches invented sections, validates real ones, classifies version mismatches,
+    and correctly handles baseline passes, new findings, and resolved entries.
     Returns True on pass, False on failure.
     """
     tmpdir = Path(tempfile.mkdtemp(prefix="xref_selftest_"))
@@ -1109,7 +1287,7 @@ def run_selftest() -> bool:
         # Create Runbook
         (tmpdir / "docs" / "runbooks" / "Runbook_DPI_Rate_Limits.md").write_text(
             "# DPI Rate Limits Runbook\n"
-            "> **Status:** v1.2 — frozen\n\n"
+            "> **Status:** FROZEN — v1.2\n\n"
             "## 2. Redis Budget\n\n"
             "### 2.4 Fail-open\n\n"
             "## 8. Circuit Breakers\n\n"
@@ -1158,9 +1336,22 @@ def run_selftest() -> bool:
             encoding="utf-8",
         )
 
+        # Create a document marked as HISTORICAL (should be skipped during scan)
+        (tmpdir / "docs" / "strategy" / "historical_archive.md").write_text(
+            "# Old Archive\n"
+            "> **Status:** HISTORICAL — not maintained\n\n"
+            "Reference FTS §888.8 which does not exist.\n",
+            encoding="utf-8",
+        )
+
         # Probe file with test references
-        (tmpdir / "docs" / "specs" / "probe_test.md").write_text(
+        probe_path = tmpdir / "docs" / "specs" / "probe_test.md"
+        probe_content_initial = (
             "# Probe Test\n\n"
+            "> **Status:** v1.0 — draft\n"
+            "> **Canonical copy.** Converted from CM v1.1 §5\n"
+            "> **Cited elsewhere as:** Probe_Test v0.1\n\n"
+            "## 1. Tests\n\n"
             # 5 invented sections (should be DANGLING_SECTION)
             "Reference FTS §99.9 for something.\n"
             "Reference DM §3.99 for something.\n"
@@ -1172,7 +1363,7 @@ def run_selftest() -> bool:
             "Reference Consent Manager §2.6 for proxy.\n"
             # Version mismatch: historical (governance table row)
             "| v1.1 | 2026-01-01 | Initial | with CM v1.1 §5 |\n"
-            # Version mismatch: stale
+            # Version mismatch: stale (in body)
             "See NFR v2.1 §9 for details.\n"
             # Version mismatch: forward
             "This will be in DM v2.0 §1.\n"
@@ -1181,12 +1372,22 @@ def run_selftest() -> bool:
             # Unknown doc-shaped name
             "See Tech_Spec_Nonexistent §3.\n"
             # Bare §n at start of sentence (should be current doc)
-            "§4 defines the states.\n",
-            encoding="utf-8",
+            "§1 defines the tests.\n"
         )
+        probe_path.write_text(probe_content_initial, encoding="utf-8")
 
         # Run the checker
         result = check_all_references(tmpdir)
+
+        # Assert historical archive doc was skipped
+        hist_findings = [
+            f for f in result if f.source_file.endswith("historical_archive.md")
+        ]
+        errors: list[str] = []
+        if hist_findings:
+            errors.append(
+                f"Expected 0 findings from HISTORICAL document, got {len(hist_findings)}"
+            )
 
         # Filter to only probe file findings
         probe = [f for f in result if f.source_file.endswith("probe_test.md")]
@@ -1199,8 +1400,6 @@ def run_selftest() -> bool:
         historical_v = [f for f in probe if f.status == "VERSION_HISTORICAL"]
         forward_v = [f for f in probe if f.status == "VERSION_FORWARD"]
         unknown = [f for f in probe if f.status == "UNKNOWN_DOC"]
-
-        errors: list[str] = []
 
         # 5 invented sections should be dangling
         if len(dangling_secs) < 5:
@@ -1223,10 +1422,10 @@ def run_selftest() -> bool:
                 f"{[(f.raw_text, f.detail) for f in stale_v]}"
             )
 
-        # At least 1 historical version mismatch
-        if len(historical_v) < 1:
+        # At least 2 historical version mismatches (one in header block, one in table)
+        if len(historical_v) < 2:
             errors.append(
-                f"Expected >=1 VERSION_HISTORICAL, got {len(historical_v)}: "
+                f"Expected >=2 VERSION_HISTORICAL, got {len(historical_v)}: "
                 f"{[(f.raw_text, f.detail) for f in historical_v]}"
             )
 
@@ -1259,6 +1458,60 @@ def run_selftest() -> bool:
                 f"Expected chained DM §3.4, §3.7–§3.9 to validate, got {len(chained_valid)}"
             )
 
+        # --- Baseline ratchet tests ---
+        baseline_file = tmpdir / "tools" / "xref_baseline.json"
+
+        # 1. Write baseline from current findings
+        count = write_baseline(baseline_file, result)
+        if count == 0:
+            errors.append("Expected baseline write to record >0 entries")
+
+        base_keys = load_baseline(baseline_file)
+        if len(base_keys) != count:
+            errors.append(
+                f"Loaded baseline count {len(base_keys)} != written count {count}"
+            )
+
+        # Case 1: Findings present in baseline pass --strict (0 new findings)
+        new_f, res_k = evaluate_against_baseline(result, base_keys)
+        if len(new_f) != 0:
+            errors.append(
+                f"Baseline Case 1 failed: expected 0 new findings, got {len(new_f)}"
+            )
+        if len(res_k) != 0:
+            errors.append(
+                f"Baseline Case 1 failed: expected 0 resolved keys, got {len(res_k)}"
+            )
+
+        # Case 2: Introduce a NEW failing finding; assert it fails --strict
+        probe_path.write_text(
+            probe_content_initial + "\nReference Tech_Spec_AnotherNewUnknownDoc §1.\n",
+            encoding="utf-8",
+        )
+        res_with_new = check_all_references(tmpdir)
+        new_f2, _res_k2 = evaluate_against_baseline(res_with_new, base_keys)
+        if len(new_f2) < 1:
+            errors.append(
+                "Baseline Case 2 failed: expected >=1 new finding for unbaselined issue"
+            )
+
+        # Case 3: Resolve an existing failing finding; assert it is reported as resolved and passes
+        # Remove the unknown doc line from initial content
+        resolved_probe_content = probe_content_initial.replace(
+            "See Tech_Spec_Nonexistent §3.\n", ""
+        )
+        probe_path.write_text(resolved_probe_content, encoding="utf-8")
+        res_with_resolved = check_all_references(tmpdir)
+        new_f3, res_k3 = evaluate_against_baseline(res_with_resolved, base_keys)
+        if len(new_f3) != 0:
+            errors.append(
+                f"Baseline Case 3 failed: expected 0 new findings, got {len(new_f3)}"
+            )
+        if len(res_k3) < 1:
+            errors.append(
+                "Baseline Case 3 failed: expected >=1 resolved entry when finding removed"
+            )
+
         if errors:
             print("Selftest FAILED:")
             for e in errors:
@@ -1273,6 +1526,7 @@ def run_selftest() -> bool:
         print(f"    Version historical:{len(historical_v)}")
         print(f"    Version forward:   {len(forward_v)}")
         print(f"    Unknown docs:      {len(unknown)}")
+        print(f"  Baseline ratchet: verified {count} baselined, new-catch, and resolve")
         return True
 
     finally:
@@ -1303,12 +1557,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Exit with non-zero status if dangling references or stale versions are found",
+        help="Exit with non-zero status if unbaselined failing findings are found",
     )
     parser.add_argument(
         "--selftest",
         action="store_true",
         help="Run internal self-test with probe references and exit",
+    )
+    parser.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help="Write current failing findings to the baseline file",
+    )
+    parser.add_argument(
+        "--baseline",
+        default=None,
+        help="Path to baseline file (default: tools/xref_baseline.json relative to root)",
     )
     return parser.parse_args(argv)
 
@@ -1333,19 +1597,60 @@ def main(argv: list[str] | None = None) -> int:
 
     findings = check_all_references(root_path)
 
+    baseline_path = (
+        Path(args.baseline)
+        if args.baseline
+        else (root_path / "tools" / "xref_baseline.json")
+    )
+
+    if args.update_baseline:
+        count = write_baseline(baseline_path, findings)
+        print(
+            f"Updated baseline with {count} entries written to {baseline_path.as_posix()}"
+        )
+        return 0
+
+    has_baseline = baseline_path.exists()
+    baseline_keys = load_baseline(baseline_path) if has_baseline else set()
+    new_findings, resolved_keys = evaluate_against_baseline(findings, baseline_keys)
+
     if args.format == "json":
         output_data: dict[str, Any] = {
             "total": len(findings),
             "findings": [asdict(f) for f in findings],
+            "baseline_count": len(baseline_keys),
+            "new_findings": [asdict(f) for f in new_findings],
+            "resolved_baseline_entries": [
+                {
+                    "source_file": k[0],
+                    "status": k[1],
+                    "target_doc": k[2],
+                    "target_section": k[3],
+                    "cited_version": k[4],
+                    "raw_text": k[5],
+                }
+                for k in resolved_keys
+            ],
         }
         print(json.dumps(output_data, indent=2))
     else:
-        print_report(findings, verbose=args.verbose)
+        print_report(
+            findings,
+            verbose=args.verbose,
+            has_baseline=has_baseline,
+            new_findings=new_findings,
+            resolved_keys=resolved_keys,
+            baseline_count=len(baseline_keys),
+        )
 
-    dangling = [f for f in findings if f.status in ("DANGLING_DOC", "DANGLING_SECTION")]
-    stale = [f for f in findings if f.status == "VERSION_STALE"]
-    if args.strict and (dangling or stale):
-        return 1
+    if args.strict:
+        if has_baseline:
+            if new_findings:
+                return 1
+        else:
+            dangling = [f for f in findings if f.status in FAILING_STATUSES]
+            if dangling:
+                return 1
 
     return 0
 
