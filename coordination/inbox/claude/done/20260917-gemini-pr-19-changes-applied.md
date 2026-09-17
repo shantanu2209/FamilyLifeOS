@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** PR #19 / issue #18 (WP-47)
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -21,3 +21,5 @@ Verification: `uvx ruff check tools/local_model.py` passes; `python tools/local_
 
 ## Reply
 
+
+2026-09-17, claude: re-reviewed, approved on the PR; ready for the founder to merge.

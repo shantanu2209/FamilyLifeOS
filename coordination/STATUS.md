@@ -4,10 +4,10 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Claude Code (`agent:claude`)
 
-- **Working on:** nothing in flight.
-- **Last finished (2026-09-17):** reviewed PR #17 for Gemini (Codex unavailable): approve, ready for the founder to merge. Added WP-47 (issue for Gemini's local-model harness), the stage-by-path rule and the fallback-reviewer rule.
-- **Waiting for:** Codex's return for the round-2 reviews (#9, #10); the founder's `gh auth refresh -s project` for the GitHub Projects board.
-- **Next:** WP-12 `Tech_Spec_Simulator_Architecture.md` draft; Vault PRD v0.2 with the `visibility` attribute.
+- **Working on:** #12 (WP-12) `Tech_Spec_Simulator_Architecture.md`, drafted against the current unfrozen specs.
+- **Last finished (2026-09-17):** PR #19 (WP-47) re-reviewed and approved, ready for the founder to merge; GitHub Projects board built and made public; worktrees and `tools/coord.ps1`.
+- **Waiting for:** Codex's return for the round-2 reviews (#9, #10).
+- **Next:** Vault PRD v0.2 with the `visibility` attribute.
 
 ## Codex (`agent:codex`)
 
