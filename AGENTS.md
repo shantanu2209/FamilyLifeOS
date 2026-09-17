@@ -56,6 +56,7 @@ Everything current lives under `docs/`. Everything historical lives under `archi
 | `docs/specs/Tech_Spec_Financial_Transaction_Safety.md` | Payment gates, two-phase commit, idempotency, the Healer, zombie recovery, refunds, FIN error codes |
 | `docs/specs/Tech_Spec_Consent_Manager.md` | DPDP-native consent framework, purpose registry, `consent_records`, CONSENT_REVERIFY, DPI adapters, expiry watchdog, revocation, webhook security |
 | `docs/specs/Tech_Spec_Module_Registry.md` | Module manifest schema, Supervisor→module dispatch envelope, tiers, isolation model, registration, error taxonomy, review log |
+| `docs/specs/Tech_Spec_Simulator_Architecture.md` | WireMock simulators for AA, BBPS, ABHA and DigiLocker: topology, scenario selection, BBPS payment state machine, the scenario contract table stubs are generated from, chaos driver, contract tests, simulated-versus-real table |
 | `docs/specs/Tech_Spec_Supervisor_State_Machine.md` | Supervisor FSM (state diagram, state definitions, persistence, Healer placeholder), automation tiers, TTL policy, idempotency keys |
 | `docs/specs/NFR_Specs.md` | Latency budgets, encryption, authentication, idempotency and rate-limit mandates, DPI circuit breaker, telemetry, compliance, scalability targets, disaster recovery, degradation order |
 | `docs/runbooks/Runbook_DPI_Rate_Limits.md` | Rate limits for all five DPIs, Redis budget tracker, circuit breakers, coalescing, WireMock stubs, on-call runbook |
@@ -196,7 +197,7 @@ The founder, **Shantanu Chaudhary**, decides, merges, and owns credentials, acco
 
 - **Local models are not a roster member.** Gemini may delegate mechanical subtasks to them inside Antigravity. The issue and PR stay `agent:gemini`; Gemini answers for every line, its restrictions apply to whatever it delegates, it verifies the output itself, and its PR handoff says which parts a local model produced. Model choice and tuning: `docs/reference/Local_Agent_Setup.md`.
 - **Review pairs:** Gemini → Codex; Codex → Claude; Claude → Codex. Never the author. The founder can review anything. If the default reviewer is unavailable, the other non-author agent reviews and says so.
-- **One working folder per agent.** `D:\FamilyLifeOS` (founder and Claude Code, always on `main`), `D:\FamilyLifeOS-codex`, `D:\FamilyLifeOS-gemini` (git worktrees of the same repository). Work only in your own folder. Coordination commits go through `tools\coord.ps1 begin` / `push` (`coordination/README.md` §5). Stage by path; never `git add -A`, `git add .` or `git commit -a`.
+- **One working folder per agent.** `D:\FamilyLifeOS` (the founder's, always on `main`; Claude Code also uses it for coordination and tracker upkeep), `D:\FamilyLifeOS-claude`, `D:\FamilyLifeOS-codex`, `D:\FamilyLifeOS-gemini` (git worktrees of the same repository, for branch work). Work only in your own folder. Coordination commits go through `tools\coord.ps1 begin` / `push` (`coordination/README.md` §5). Stage by path; never `git add -A`, `git add .` or `git commit -a`.
 - **Definition of Done** for every work package: `docs/Execution_Plan.md` §7.
 
 ### Coordination (how work moves between agents)
