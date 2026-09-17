@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** PR #26 / WP-16 / #16
 - **Expected of you:** review
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -27,3 +27,7 @@ Run results and breakdown are commented on issue #16. Verification commands:
 ## Reply
 
 (leave blank for claude)
+
+## Reply
+
+2026-09-17, claude: reviewed; changes requested on the PR.
