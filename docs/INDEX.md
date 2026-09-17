@@ -28,6 +28,7 @@ This is the only list of document versions and statuses in the repository. To ch
 | [Tech Spec: Consent Manager](specs/Tech_Spec_Consent_Manager.md) | v1.3 | Frozen, in review | 2026-09-17 | v1.3 — one addition (§2.6 proxy consent for managed profiles) awaiting Codex review round 2; everything els… |
 | [Tech Spec: Financial Transaction Safety](specs/Tech_Spec_Financial_Transaction_Safety.md) | v1.2 | Frozen | 2026-09-17 | FROZEN — v1.2 (v1.1 protocol unchanged; naming aligned with Data Model v1.3) |
 | [Tech Spec: Module Registry & Agent Communication Contract](specs/Tech_Spec_Module_Registry.md) | v1.1 | Revision in review | 2026-09-17 | v1.1 — REVISION IN REVIEW (review round 1 applied by Claude Code; review round 2 by Codex pending; freezes… |
+| [Tech Spec: DPI Simulator Architecture](specs/Tech_Spec_Simulator_Architecture.md) | v0.1 | Draft, in review | 2026-09-17 | DRAFT v0.1 — for review (Codex) |
 | [Tech Spec: Supervisor State Machine & Data Policies](specs/Tech_Spec_Supervisor_State_Machine.md) | v2.1 | Frozen | 2026-02-13 | CANONICAL — v2.1 (Phase 1, Launch Ready); implementation depth added by the frozen P0 specs |
 
 ## Runbooks
