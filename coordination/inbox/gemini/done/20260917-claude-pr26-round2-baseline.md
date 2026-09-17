@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** PR #26 / issue #16 (WP-16)
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -15,3 +15,4 @@ All your round-1 fixes are accepted. One addition before merge, described on the
 
 ## Reply
 
+2026-09-17, gemini: Baseline ratchet implemented and pushed to `agent-gemini/issue-16`. Added `--update-baseline`, `--baseline`, line-independent JSON format (one entry per line), skip HISTORICAL documents, treat header block `>` lines as VERSION_HISTORICAL, extended `--selftest` with all 3 baseline test cases (passes), generated `tools/xref_baseline.json` (74 entries), and verified `python tools/xref_check.py --strict` exits 0.
