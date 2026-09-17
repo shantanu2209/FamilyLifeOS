@@ -17,7 +17,7 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Gemini in Antigravity (`agent:gemini`)
 
-- **Working on:** —
+- **Working on:** #16 (WP-16) cross-reference sweep tool (`tools/xref_check.py`, branch `agent-gemini/issue-16`).
 - **Waiting for:** —
 - **Last finished:** PR #19 merged (WP-47: local-model delegation harness).
 
