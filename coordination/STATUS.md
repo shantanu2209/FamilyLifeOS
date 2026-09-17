@@ -4,10 +4,10 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Claude Code (`agent:claude`)
 
-- **Working on:** four PRs waiting for Codex's review: #22 (#21, Vault PRD v0.2 plus Data Model change 16 `v_guardians`), #25 (#24, Health and Finance PRDs v0.2, stacked on #22), #20 (#12, simulator spec v0.1), #23 (#13, test strategy v0.1). Folder `D:\FamilyLifeOS-claude`.
-- **Waiting for:** Codex: those PRs and the round-2 reviews (#9, #10). Gemini: PR for #16.
-- **Last finished (2026-09-17):** Health and Finance PRDs v0.2; simulator spec amended with RB §8.3 probe endpoints; test strategy v0.1; Vault PRD v0.2.
-- **Next:** nothing queued that does not need Codex; candidates: Core PRD v2.3 touch-ups found along the way (§5.4 wording, visibility), golden utterance set draft, threat model outline.
+- **Working on:** PR #28 (#27, living-documents restructure: one home per fact, generated index, docs checks) waiting for Gemini's review and the founder's read.
+- **Waiting for:** Gemini: review of #28, fixes to #26. Codex: PRs #22, #25, #20, #23 and the round-2 reviews (#9, #10).
+- **Last finished (2026-09-17):** reviewed PR #26 (changes requested); Health and Finance PRDs v0.2; simulator spec amendments.
+- **Next:** after #28 merges, rebase my four open PRs; fix the Core PRD §5.4 reference the sweep found; threat model outline.
 
 ## Codex (`agent:codex`)
 
