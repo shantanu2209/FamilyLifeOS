@@ -11,7 +11,7 @@ _WireMock simulators for Account Aggregator, BBPS, ABHA and DigiLocker: layout, 
 
 | Version | Date | Description of Change | Author |
 |---|---|---|---|
-| v0.1 | 2026-09-17 | First draft: four simulators, scenario contract table, BBPS stateful behaviour for crash scenarios A–D and the Healer, chaos driver, contract tests, request-journal assertions, simulated-versus-real table. | Shantanu Chaudhary (with Claude Code) |
+| v0.1 | 2026-09-17 | First draft (amended the same day, before review, with what the module PRDs v0.2 needed: breaker probe endpoints B17, A12, H9; bad FHIR bundles selected by HIP id; healthy balance matched to the Finance PRD; a revoked document and a second DigiLocker account): four simulators, scenario contract table, BBPS stateful behaviour for crash scenarios A–D and the Healer, chaos driver, contract tests, request-journal assertions, simulated-versus-real table. | Shantanu Chaudhary (with Claude Code) |
 
 > ℹ **What this document is not.** It does not describe the real DPI APIs. No sandbox credentials exist in portfolio mode (tracker → Decision Log, 2026-09-17), so nothing here has been verified against Sahamati, NPCI, ABDM or DigiLocker. The endpoint shapes are the ones the frozen specs already use; where this document adds one, it says so and marks it as the FamilyLifeOS **gateway contract**, not as a fact about the DPI (AGENTS.md §6: do not invent DPI facts).
 
@@ -120,7 +120,7 @@ The scenario is chosen by a **value the application sends anyway**: the biller i
 |---|---|---|
 | `SIM_` | BBPS `biller_id` | `SIM_FAILED_001` |
 | `SIM-AA-` | AA `consentHandle` | `SIM-AA-LOWBAL` |
-| `sim.` | ABHA address local part | `sim.partial@abdm` |
+| `SIM-HIP-` | ABHA `hip_id` in the health-information request | `SIM-HIP-PARTIAL` |
 | `SIM_` | DigiLocker `doctype` | `SIM_EXPIRED_DL` |
 
 Identifiers without a reserved prefix get the happy path. The reference biller is `BESCOM_KA_001` (FTS §2.3); the Finance PRD's other linked billers (Airtel, BWSSB) get ids of the same form when its fixtures are written, and the seed family's consent handles (DM §8) map to healthy balances.
@@ -226,6 +226,7 @@ The table Gemini generates stubs from. **File** is relative to `wiremock/<dpi>/m
 | B14 | Rate limited | `bbps_rate_limit.json` | any | `H: X-Simulate-Rate-Limit: bbps` | 429, `Retry-After: 3600` | `tests/integration/test_gateway_bbps.py` |
 | B15 | Biller down | `bbps_consecutive_failures.json` (RB §9.2, unchanged) | `POST /payment` | `H: X-Simulate-Failures: bbps-circuit` | 500 `BILLER_UNREACHABLE` | `tests/dpi_contracts/test_bbps.py`, breaker test |
 | B16 | Status API down | `bbps_status_unreachable.json` | `GET /payment/status` | `H: X-Simulate-Failures: bbps-circuit` | 503 | `tests/integration/test_healer_poll_count.py` |
+| B17 | Breaker probe | `bbps_biller_info.json` | `POST /biller/fetch` | — | 200, biller name and category; no bill, no money (RB §8.3: the half-open probe) | `tests/integration/test_gateway_bbps.py` |
 
 The tracker's Build Gate list ("SUCCESS, FAILED, PENDING, NOT_FOUND, 429, timeout") is B4, B8, B6/B13, B11, B14 and B10.
 
@@ -239,11 +240,12 @@ The tracker's Build Gate list ("SUCCESS, FAILED, PENDING, NOT_FOUND, 429, timeou
 | A4 | Consent never approved | `aa_consent_never.json` | `GET /Consent/{handle}` | `ID: SIM-AA-NEVER` | `PENDING` always | same (timeout path) |
 | A5 | Consent revoked | `aa_consent_revoked.json` | `GET /Consent/{handle}` | `ID: SIM-AA-REVOKED` | `REVOKED` | `tests/integration/test_consent_reverify.py` (gate G5 fails safe) |
 | A6 | FI request | `aa_fi_request.json` | `POST /FI/request` | — | 200, `sessionId` | `test_gateway_aa.py` |
-| A7 | FI fetch, healthy balance | `aa_fi_fetch_ok.json` | `GET /FI/fetch/{sessionId}` | default | 200, §6.2 body, balance 5 000 000 paise | `test_finance_pay_bill.py` (gate G3 passes) |
+| A7 | FI fetch, healthy balance | `aa_fi_fetch_ok.json` | `GET /FI/fetch/{sessionId}` | default | 200, §6.2 body, balance 1 825 040 paise (the figure in Finance PRD Scenario 1) | `test_finance_pay_bill.py` (gate G3 passes) |
 | A8 | FI fetch, low balance | `aa_fi_fetch_low.json` | `GET /FI/fetch/{sessionId}` | `ID: SIM-AA-LOWBAL` handle on the preceding request | balance 100 000 paise (below 284 700 + 5 000 buffer) | same (G3 blocks, FIN code per FTS §10) |
 | A9 | FI fetch, not ready | `aa_fi_fetch_wait.json` | `GET /FI/fetch/{sessionId}` | `ID: SIM-AA-SLOW` | 202 twice, then A7 | `test_gateway_aa.py` (30 s poll limit with injected clock) |
 | A10 | Rate limited | `aa_rate_limit.json` (RB §9.1, unchanged) | `POST /FI/request` | `H: X-Simulate-Rate-Limit: aa` | 429, `Retry-After: 1800` | `tests/dpi_contracts/test_aa.py` |
 | A11 | AA down | `aa_consecutive_failures.json` | `POST /FI/request` | `H: X-Simulate-Failures: aa-circuit` | 500 | breaker test; degradation script (MC §4.7) |
+| A12 | Breaker probe | `aa_consent_status_probe.json` | `GET /Consent/status` | — | 200, `status: UP` (RB §8.3: a status check, not an FI fetch) | `test_gateway_aa.py` |
 
 Because `GET /FI/fetch/{sessionId}` does not carry the consent handle, A8 and A9 are selected by a `sessionId` prefix that A6's variants return for the reserved handles (`SIM-AA-LOWBAL` → `sessionId` beginning `low-`).
 
@@ -255,10 +257,11 @@ Because `GET /FI/fetch/{sessionId}` does not carry the consent handle, A8 and A9
 | H2 | Consent granted | `abha_consent_status_*.json` | `GET /sim/consent-requests/{id}` | scenario `abha-consent-approve` | `REQUESTED`, then `GRANTED` + `artefact_id` | same |
 | H3 | Health-information request | `abha_hi_request.json` | `POST /v0.5/health-information/cm/request` | — | 202, `transaction_id` | `tests/integration/test_health_prescription.py` |
 | H4 | Bundle, clean | `abha_hi_bundle_ok.json` + `__files/nani_prescription.json` | `GET /sim/health-information/{transaction_id}` | default | 200, FHIR R4 Bundle: 2 MedicationRequest, 1 Observation | same; e2e "Nani's medication reminder" |
-| H5 | Bundle, partial | `abha_hi_bundle_partial.json` + `__files/nani_prescription_partial.json` | same | `ID: sim.partial@abdm` | 200, one MedicationRequest missing `dosageInstruction` | `test_health_fhir_partial.py` (RB §5.3: partial data, no breaker trip) |
-| H6 | Bundle, malformed | `abha_hi_bundle_malformed.json` | same | `ID: sim.malformed@abdm` | 200, RB §9.4's malformed body | same (`parse_quality = FAILED`) |
+| H5 | Bundle, partial | `abha_hi_bundle_partial.json` + `__files/nani_prescription_partial.json` | same | `ID: hip_id SIM-HIP-PARTIAL` in the H3 request (the `transaction_id` it returns begins `partial-`) | 200, one MedicationRequest missing `dosageInstruction` | `test_health_fhir_partial.py` (RB §5.3: partial data, no breaker trip) |
+| H6 | Bundle, malformed | `abha_hi_bundle_malformed.json` | same | `ID: hip_id SIM-HIP-MALFORMED` (`transaction_id` begins `malformed-`) | 200, RB §9.4's malformed body | same (`parse_quality = FAILED`) |
 | H7 | Consent budget exhausted | `abha_rate_limit.json` | `POST /v0.5/consent-requests/init` | `H: X-Simulate-Rate-Limit: abha` | 429 | `test_gateway_abha.py` |
 | H8 | ABDM down | `abha_consecutive_failures.json` | any `/v0.5/*` | `H: X-Simulate-Failures: abha-circuit` | 500 | breaker test (3 failures → 20 min, RB §8.2); degraded mode (RB §5.4) |
+| H9 | Breaker probe | `abha_hip_read.json` | `GET /health/hip/read` | — | 200, one HIP entry `SIM-HIP-001` (RB §8.3: HIP discovery, not a consent grant) | `test_gateway_abha.py` |
 
 `/sim/...` paths are simulator conveniences that replace ABDM's asynchronous callbacks with polling (§9).
 
@@ -269,10 +272,11 @@ Because `GET /FI/fetch/{sessionId}` does not carry the consent handle, A8 and A9
 | D1 | Authorise | `dl_authorize.json` | `GET /public/oauth2/1/authorize` | — | 302 to `redirect_uri` with `code=sim-code-…` and the caller's `state` | `tests/integration/test_vault_link.py` |
 | D2 | Token | `dl_token.json` | `POST /public/oauth2/1/token` | — | 200, synthetic `access_token`, `refresh_token`, `expires_in: 3600` | same |
 | D3 | Token refresh refused | `dl_token_revoked.json` | `POST /public/oauth2/1/token` | `refresh_token` beginning `sim-revoked-` | 401 | `test_consent_reverify.py` (Vault path) |
-| D4 | Issued documents | `dl_issued_list.json` | `GET /public/oauth2/2/files/issued` | — | 200, §6.4 list: driving licence, vehicle RC, PAN, birth certificate (Arjun) | `test_vault_link.py`, `test_vault_show.py` |
+| D4 | Issued documents | `dl_issued_list.json` | `GET /public/oauth2/2/files/issued` | bearer token's account part (`sim-token-<seed user uuid>-…`; the account is chosen at D1 with the simulator-only query parameter `sim_account`) | 200, §6.4 list for that account. Ravi's account: driving licence, vehicle RC, PAN, birth certificate (Arjun). Priya's account: vehicle RC, insurance policy, PAN. An adult's documents come from that adult's own account (Vault PRD v0.2 §4.2) | `test_vault_link.py`, `test_vault_show.py` |
 | D5 | Document expiring | within D4 | — | `doctype: SIM_EXPIRING_DL` | licence with `valid_to` 20 days ahead of the injected clock | `test_vault_expiry.py` (30- and 7-day reminder defaults) |
 | D6 | Document fetch | `dl_file.json` + `__files/synthetic.pdf` | `GET /public/oauth2/1/file/{uri}` | — | 200, a one-page synthetic PDF | `test_vault_show.py` (bytes never persisted: asserted) |
 | D7 | DigiLocker down | `dl_consecutive_failures.json` | any | `H: X-Simulate-Failures: …` with value `digilocker-circuit` | 500 | breaker test (Vault PRD OI-4 borrows the AA values) |
+| D8 | Document revoked | `dl_file_revoked.json` | `GET /public/oauth2/1/file/{uri}` | `ID: uri sim-revoked-0001` | 410, `error: document_revoked` | `test_vault_show.py` (VAULT_005; local metadata updated, DigiLocker wins) |
 
 ---
 
@@ -316,7 +320,7 @@ Canonical bodies. Field names follow the frozen specs where the specs show a pay
 
 ### 6.3 ABHA
 
-`__files/nani_prescription.json` is a FHIR R4 `Bundle` of type `collection` with two `MedicationRequest` resources (a twice-daily and a once-daily medicine, synthetic names from a published generic list, `dosageInstruction.timing` filled) and one `Observation`. The patient reference is `sim.nani@abdm`. No real person, practitioner or hospital appears; the HIP is `SIM-HIP-001` "Simulated Clinic".
+`__files/nani_prescription.json` is a FHIR R4 `Bundle` of type `collection` with two `MedicationRequest` resources (a twice-daily and a once-daily medicine, synthetic names from a published generic list, `dosageInstruction.timing` filled) and one `Observation`. The patient reference is `nani.sharma@sbx`, the synthetic ABHA address the Health PRD uses for Nani (no reserved prefix, so she gets the happy path). A second hospital sending bad data for the same patient is the realistic case, which is why H5 and H6 are selected by HIP id and not by patient. No real person, practitioner or hospital appears; the HIP is `SIM-HIP-001` "Simulated Clinic".
 
 ### 6.4 DigiLocker
 
