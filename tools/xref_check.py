@@ -3,7 +3,8 @@
 Scans all Markdown documentation files for document and section cross-references,
 resolving abbreviations (DM, FTS, CM, RB, MR, MC, FSM, NFR, PRD, tracker, SIM, TAS),
 bare section references, and markdown links. Validates target document existence,
-heading/section existence, and reports version mismatches and pending-merge references.
+heading/section existence, and reports version mismatches (HISTORICAL / FORWARD / STALE)
+and planned/missing document references.
 """
 
 from __future__ import annotations
@@ -12,7 +13,9 @@ import argparse
 import json
 import os
 import re
+import shutil
 import sys
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -90,38 +93,90 @@ DOC_ALIASES: dict[str, str] = {
     "coordination/README": "coordination/README.md",
     "AGENTS": "AGENTS.md",
     "AGENTS.md": "AGENTS.md",
+    "PRD_Template": "docs/templates/PRD_Template.md",
+    "PRD Template": "docs/templates/PRD_Template.md",
 }
 
-# Documents in active review / open PRs (#20, #22, #23) or unwritten
-SPECIAL_STATUS_DOCS: dict[str, str] = {
-    "docs/specs/Tech_Spec_Simulator_Architecture.md": "Pending merge (PR #20)",
-    "docs/specs/Test_Automation_Strategy.md": "Pending merge (PR #23)",
-    "docs/specs/Security_Threat_Model.md": "Unwritten P1 doc (AGENTS.md §3.1)",
+# Documents that are planned but not yet written (paths only, no PR numbers).
+# If a planned document materialises on disk, it is automatically treated as present.
+PLANNED_DOCS: set[str] = {
+    "docs/specs/Security_Threat_Model.md",
 }
 
-# Canonical document versions as of M0/M1
-CANONICAL_VERSIONS: dict[str, str] = {
-    "docs/specs/Data_Model_Schema.md": "1.3",
-    "docs/specs/Tech_Spec_Financial_Transaction_Safety.md": "1.2",
-    "docs/specs/Tech_Spec_Consent_Manager.md": "1.3",
-    "docs/runbooks/Runbook_DPI_Rate_Limits.md": "1.2",
-    "docs/specs/Tech_Spec_Module_Registry.md": "1.1",
-    "docs/specs/Tech_Spec_Supervisor_State_Machine.md": "2.1",
-    "docs/specs/NFR_Specs.md": "2.2",
-    "docs/strategy/Master_Context.md": "2.1",
-    "docs/strategy/PRD_FamilyLifeOS_Core.md": "2.2",
-    "docs/strategy/Master_PRD.md": "2.1",
-    "docs/strategy/Vision_Parking_Lot.md": "2.0",
-    "docs/strategy/PRD_Module_Finance.md": "0.1",
-    "docs/strategy/PRD_Module_Health.md": "0.1",
-    "docs/strategy/PRD_Module_Secure_Vault.md": "0.1",
-    "docs/strategy/Roadmap.md": "0.2",
-    "docs/Execution_Plan.md": "0.3",
-    "docs/strategy/GTM_Plan.md": "0.2",
+# Module PRD aliases that must NOT resolve to Core PRD when cited as "this PRD"
+# or "PRD v0.x" inside those files.
+_MODULE_PRD_FILES: set[str] = {
+    "docs/strategy/PRD_Module_Finance.md",
+    "docs/strategy/PRD_Module_Health.md",
+    "docs/strategy/PRD_Module_Secure_Vault.md",
 }
+
+# Regex patterns for document-shaped names that should be reported as UNKNOWN_DOC
+# if they aren't in the alias map.
+_DOC_SHAPED_PATTERNS = re.compile(
+    r"\b(Tech_Spec_\w+|Runbook_\w+|PRD_\w+|\w+_Strategy)\b"
+)
 
 SEC_TOKEN_PATTERN = r"(?:[0-9]+(?:\.[0-9]+)*|[Qq]\d+|[Gg]\d+|[Mm]\d+|WP-\d+|Step\s*\d+)"
 DASH_PATTERN = r"[\u2013\u2014\-]"
+
+# Patterns indicating a version citation is HISTORICAL rather than stale.
+# Governance table rows, change logs, recovery notes, converted/superseded text.
+_HISTORICAL_PATTERNS = re.compile(
+    r"(?:"
+    r"\|\s*v?\d"  # governance table row: starts with | vN
+    r"|(?:converted|recovered|superseded|was|renamed|replaced|original|archived|folded)"
+    r"|~~"  # struck-through text
+    r"|decision\s*log"
+    r"|change\s*(?:log|summary)"
+    r"|(?:Document\s+)?Governance"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _normalise_version(ver: str) -> str:
+    """Normalise version strings: v2_0 -> 2.0, v1.2.1 -> 1.2.1, etc."""
+    v = ver.lstrip("v").strip()
+    v = v.replace("_", ".")
+    return v
+
+
+def read_document_version(file_path: Path) -> str | None:
+    """Read a document's current version from its Status line or governance table.
+
+    Looks for patterns like:
+      > **Status:** v1.3 — frozen
+      > **Status:** DRAFT v0.2
+      | v1.3 | 2026-09-17 | ... | (last row of governance table)
+    """
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except OSError:
+        return None
+
+    # Strategy 1: Look for > **Status:** line (most documents)
+    status_re = re.compile(
+        r">\s*\*{0,2}Status\*{0,2}:\*{0,2}\s+"
+        r"(?:(?:DRAFT|FROZEN|CANONICAL)\s*[^\dv]*?)?"
+        r"v?(\d+(?:[._]\d+)+)",
+        re.IGNORECASE,
+    )
+    for line in lines:
+        m = status_re.search(line)
+        if m:
+            return _normalise_version(m.group(1))
+
+    # Strategy 2: Last governance table row with a version
+    gov_ver_re = re.compile(r"^\|\s*v?(\d+(?:[._]\d+)*)\s*\|")
+    last_gov_ver = None
+    for line in lines:
+        m = gov_ver_re.match(line)
+        if m:
+            last_gov_ver = _normalise_version(m.group(1))
+
+    return last_gov_ver
 
 
 @dataclass
@@ -133,17 +188,19 @@ class XRefFinding:
     target_section: str | None
     cited_version: str | None
     canonical_version: str | None
-    status: str  # VALID | PENDING_MERGE | DANGLING_DOC | DANGLING_SECTION | VERSION_MISMATCH
+    status: str  # VALID | PLANNED_DOC | MISSING_DOC | DANGLING_SECTION | VERSION_STALE
+    #              | VERSION_HISTORICAL | VERSION_FORWARD | UNKNOWN_DOC | DANGLING_DOC
     detail: str
 
 
 class DocIndex:
-    """Indexes document headings, sections, and anchors."""
+    """Indexes document headings, sections, anchors, and reads live versions."""
 
     def __init__(self, repo_root: Path) -> None:
         self.repo_root = repo_root
         self.sections_by_doc: dict[str, set[str]] = {}
         self.anchors_by_doc: dict[str, set[str]] = {}
+        self.versions_by_doc: dict[str, str] = {}
         self._index_all()
 
     def _index_all(self) -> None:
@@ -205,6 +262,11 @@ class DocIndex:
                 self.anchors_by_doc[rel_path] = anchors
             except OSError:
                 pass
+
+            # Read live version from document
+            ver = read_document_version(path)
+            if ver:
+                self.versions_by_doc[rel_path] = ver
 
 
 DOC_ALIASES_LOWER = {k.lower(): v for k, v in DOC_ALIASES.items()}
@@ -302,6 +364,21 @@ def split_clauses_safely(line: str) -> list[tuple[int, int]]:
     if start < len(line):
         spans.append((start, len(line)))
     return spans
+
+
+def _is_sentence_start(line: str, match_start: int) -> bool:
+    """Check if a match position is at the start of a sentence.
+
+    A bare §n at the start of a sentence should mean the current file,
+    not inherit a document from a previous clause.
+    """
+    before = line[:match_start].rstrip()
+    if not before:
+        return True
+    if before[-1] in ".!?:":
+        return True
+    # Start of a list item
+    return bool(re.match(r"^\s*[-*]\s*$", before) or re.match(r"^\s*\d+\.\s*$", before))
 
 
 def find_references_in_line(
@@ -433,7 +510,17 @@ def find_references_in_line(
                 if not (has_ext or has_ver or is_formal or has_sec or is_backticked):
                     continue
 
-            doc_matches.append((dm.start(), dm.end(), d_alias, d_ver))
+            # Inside a module PRD, "PRD v0.x" or "this PRD" should refer to
+            # the module PRD itself, not to the Core PRD.
+            if (
+                current_doc in _MODULE_PRD_FILES
+                and d_alias.upper() == "PRD"
+                and d_ver
+                and _normalise_version(d_ver).startswith("0.")
+            ):
+                doc_matches.append((dm.start(), dm.end(), current_doc, d_ver))
+            else:
+                doc_matches.append((dm.start(), dm.end(), d_alias, d_ver))
 
         if doc_matches:
             # We have one or more document citations in this clause
@@ -503,7 +590,11 @@ def find_references_in_line(
                     continue
                 sec_str = sm.group(1)
                 raw_str = sm.group(0)
-                fallback = clause_default_doc
+                # If at sentence start, use current_doc; otherwise inherit
+                if _is_sentence_start(line, c_start + sm.start()):
+                    fallback = current_doc
+                else:
+                    fallback = clause_default_doc
                 refs.append((raw_str, fallback, sec_str, None, "bare_section"))
                 matched_spans.append((g_start, g_end))
 
@@ -527,7 +618,11 @@ def find_references_in_line(
                     continue
                 sec_str = sm.group(1)
                 raw_str = sm.group(0)
-                fallback = clause_default_doc
+                # If at sentence start, use current_doc; otherwise inherit
+                if _is_sentence_start(line, c_start + sm.start()):
+                    fallback = current_doc
+                else:
+                    fallback = clause_default_doc
                 refs.append((raw_str, fallback, sec_str, None, "bare_section"))
                 matched_spans.append((g_start, g_end))
 
@@ -545,10 +640,40 @@ def find_references_in_line(
     return refs
 
 
+def _classify_version_mismatch(
+    source_line: str,
+    cited_ver: str,
+    canon_ver: str,
+) -> str:
+    """Classify a version mismatch as HISTORICAL, FORWARD, or STALE.
+
+    HISTORICAL: the citation is in a Document Governance table row, a change log,
+                a struck-through passage, or text about conversion/recovery/superseding.
+    FORWARD:    the cited version is higher than the current (a plan, not an error).
+    STALE:      everything else (a reference that should be updated).
+    """
+    norm_cited = _normalise_version(cited_ver)
+    norm_canon = _normalise_version(canon_ver)
+
+    # Forward: cited version > canonical version
+    cited_parts = [int(x) for x in norm_cited.split(".") if x.isdigit()]
+    canon_parts = [int(x) for x in norm_canon.split(".") if x.isdigit()]
+    if cited_parts > canon_parts:
+        return "VERSION_FORWARD"
+
+    # Historical: governance table, change log, struck-through, converted/recovered
+    if _HISTORICAL_PATTERNS.search(source_line):
+        return "VERSION_HISTORICAL"
+
+    return "VERSION_STALE"
+
+
 def check_all_references(repo_root: Path) -> list[XRefFinding]:
     """Scan all documentation files and validate cross-references."""
     index = DocIndex(repo_root)
     findings: list[XRefFinding] = []
+    # Track (source_file, line_number, target_doc, target_section) for dedup
+    seen_keys: set[tuple[str, int, str | None, str | None]] = set()
 
     all_files = list(repo_root.glob("docs/**/*.md"))
     agents_file = repo_root / "AGENTS.md"
@@ -584,6 +709,27 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
             if in_code_block:
                 continue
 
+            # Also scan for document-shaped names that aren't in the alias map
+            for dsm in _DOC_SHAPED_PATTERNS.finditer(line):
+                doc_name = dsm.group(1)
+                if normalize_doc_name(doc_name) is None:
+                    dedup_key = (rel_src, line_no, doc_name, None)
+                    if dedup_key not in seen_keys:
+                        seen_keys.add(dedup_key)
+                        findings.append(
+                            XRefFinding(
+                                source_file=rel_src,
+                                line_number=line_no,
+                                raw_text=doc_name,
+                                target_doc=doc_name,
+                                target_section=None,
+                                cited_version=None,
+                                canonical_version=None,
+                                status="UNKNOWN_DOC",
+                                detail=f"Document-shaped name '{doc_name}' not in alias map",
+                            )
+                        )
+
             extracted = find_references_in_line(line, rel_src, line_no)
             for raw_text, raw_doc, raw_sec, cited_ver, ref_type in extracted:
                 if not raw_doc:
@@ -602,6 +748,12 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
                 else:
                     target_path = normalize_doc_name(raw_doc)
 
+                # Deduplication: skip if we already recorded this exact finding
+                dedup_key = (rel_src, line_no, target_path or raw_doc, raw_sec)
+                if dedup_key in seen_keys:
+                    continue
+                seen_keys.add(dedup_key)
+
                 # 1. Document Existence Check
                 if not target_path:
                     findings.append(
@@ -619,47 +771,11 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
                     )
                     continue
 
-                # Check if target is a special / pending-merge document
-                if target_path in SPECIAL_STATUS_DOCS:
-                    reason = SPECIAL_STATUS_DOCS[target_path]
-                    findings.append(
-                        XRefFinding(
-                            source_file=rel_src,
-                            line_number=line_no,
-                            raw_text=raw_text,
-                            target_doc=target_path,
-                            target_section=raw_sec,
-                            cited_version=cited_ver,
-                            canonical_version=CANONICAL_VERSIONS.get(target_path),
-                            status="PENDING_MERGE",
-                            detail=f"{target_path} is {reason}",
-                        )
-                    )
-                    continue
-
+                # Check if target file exists on disk
                 full_target_file = repo_root / target_path
                 if not full_target_file.exists():
-                    findings.append(
-                        XRefFinding(
-                            source_file=rel_src,
-                            line_number=line_no,
-                            raw_text=raw_text,
-                            target_doc=target_path,
-                            target_section=raw_sec,
-                            cited_version=cited_ver,
-                            canonical_version=CANONICAL_VERSIONS.get(target_path),
-                            status="DANGLING_DOC",
-                            detail=f"Target file does not exist on disk: '{target_path}'",
-                        )
-                    )
-                    continue
-
-                # 2. Version Mismatch Check
-                canon_ver = CANONICAL_VERSIONS.get(target_path)
-                if cited_ver and canon_ver:
-                    norm_cited = cited_ver.lstrip("v")
-                    norm_canon = canon_ver.lstrip("v")
-                    if norm_cited != norm_canon:
+                    # Is this a planned document?
+                    if target_path in PLANNED_DOCS:
                         findings.append(
                             XRefFinding(
                                 source_file=rel_src,
@@ -668,9 +784,50 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
                                 target_doc=target_path,
                                 target_section=raw_sec,
                                 cited_version=cited_ver,
-                                canonical_version=canon_ver,
-                                status="VERSION_MISMATCH",
-                                detail=f"Cited v{norm_cited}, but {os.path.basename(target_path)} status is v{norm_canon}",
+                                canonical_version=None,
+                                status="PLANNED_DOC",
+                                detail=f"{target_path} is a planned document (not yet written)",
+                            )
+                        )
+                    else:
+                        findings.append(
+                            XRefFinding(
+                                source_file=rel_src,
+                                line_number=line_no,
+                                raw_text=raw_text,
+                                target_doc=target_path,
+                                target_section=raw_sec,
+                                cited_version=cited_ver,
+                                canonical_version=None,
+                                status="MISSING_DOC",
+                                detail=f"Target file does not exist on disk: '{target_path}'",
+                            )
+                        )
+                    continue
+
+                # 2. Version Mismatch Check — read live version from document
+                canon_ver = index.versions_by_doc.get(target_path)
+                if cited_ver and canon_ver:
+                    norm_cited = _normalise_version(cited_ver)
+                    norm_canon = _normalise_version(canon_ver)
+                    if norm_cited != norm_canon:
+                        mismatch_status = _classify_version_mismatch(
+                            line, cited_ver, canon_ver
+                        )
+                        findings.append(
+                            XRefFinding(
+                                source_file=rel_src,
+                                line_number=line_no,
+                                raw_text=raw_text,
+                                target_doc=target_path,
+                                target_section=raw_sec,
+                                cited_version=norm_cited,
+                                canonical_version=norm_canon,
+                                status=mismatch_status,
+                                detail=(
+                                    f"Cited v{norm_cited}, but "
+                                    f"{os.path.basename(target_path)} status is v{norm_canon}"
+                                ),
                             )
                         )
 
@@ -733,7 +890,6 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
 
                 if missing_secs:
                     # Check if all missing sections actually exist in the citing document itself
-                    # (common in self-describing clauses, changelogs, or when citing an external doc alongside local sections)
                     known_self = index.sections_by_doc.get(rel_src, set())
                     if rel_src != target_path and all(
                         s in known_self or s.upper() in known_self for s in missing_secs
@@ -746,7 +902,7 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
                                 target_doc=rel_src,
                                 target_section=raw_sec,
                                 cited_version=cited_ver,
-                                canonical_version=CANONICAL_VERSIONS.get(rel_src),
+                                canonical_version=index.versions_by_doc.get(rel_src),
                                 status="VALID",
                                 detail="Section reference valid (self-reference in current document)",
                             )
@@ -787,8 +943,12 @@ def check_all_references(repo_root: Path) -> list[XRefFinding]:
 def print_report(findings: list[XRefFinding], verbose: bool = False) -> None:
     """Print formatted summary and categorized issues."""
     valid = [f for f in findings if f.status == "VALID"]
-    pending = [f for f in findings if f.status == "PENDING_MERGE"]
-    version_mismatches = [f for f in findings if f.status == "VERSION_MISMATCH"]
+    planned = [f for f in findings if f.status == "PLANNED_DOC"]
+    missing_docs = [f for f in findings if f.status == "MISSING_DOC"]
+    unknown_docs = [f for f in findings if f.status == "UNKNOWN_DOC"]
+    stale = [f for f in findings if f.status == "VERSION_STALE"]
+    historical = [f for f in findings if f.status == "VERSION_HISTORICAL"]
+    forward = [f for f in findings if f.status == "VERSION_FORWARD"]
     dangling_sections = [f for f in findings if f.status == "DANGLING_SECTION"]
     dangling_docs = [f for f in findings if f.status == "DANGLING_DOC"]
 
@@ -798,19 +958,21 @@ def print_report(findings: list[XRefFinding], verbose: bool = False) -> None:
     print("======================================================================\n")
     print(f"Total References Scanned: {total}")
     print(f"  - Valid References:     {len(valid)}")
-    print(f"  - Pending Merge (PRs):  {len(pending)}")
-    print(f"  - Version Mismatches:   {len(version_mismatches)}")
+    print(f"  - Planned Documents:    {len(planned)}")
+    print(f"  - Missing Documents:    {len(missing_docs)}")
+    print(f"  - Unknown Documents:    {len(unknown_docs)}")
+    print(f"  - Version Stale:        {len(stale)}")
+    print(f"  - Version Historical:   {len(historical)}")
+    print(f"  - Version Forward:      {len(forward)}")
     print(f"  - Dangling Sections:    {len(dangling_sections)}")
     print(f"  - Dangling Documents:   {len(dangling_docs)}")
     print("----------------------------------------------------------------------\n")
 
-    if pending:
-        print(
-            f"### Pending Merge References ({len(pending)} references to PR #20, PR #23, or P1 specs)"
-        )
+    if planned:
+        print(f"### Planned Document References ({len(planned)} references)")
         # Group by target doc
         by_doc: dict[str, list[XRefFinding]] = {}
-        for f in pending:
+        for f in planned:
             by_doc.setdefault(f.target_doc or "unknown", []).append(f)
         for doc, doc_findings in by_doc.items():
             print(f"  Target: {doc} ({doc_findings[0].detail})")
@@ -820,11 +982,46 @@ def print_report(findings: list[XRefFinding], verbose: bool = False) -> None:
                 print(f"    ... and {len(doc_findings) - 5} more references")
         print()
 
-    if version_mismatches:
+    if missing_docs:
+        print(f"### Missing Documents ({len(missing_docs)} references)")
+        for f in missing_docs:
+            print(f"  [{f.source_file}:{f.line_number}] '{f.raw_text}' -> {f.detail}")
+        print()
+
+    if unknown_docs:
+        print(f"### Unknown Document Names ({len(unknown_docs)} references)")
+        for f in unknown_docs:
+            print(f"  [{f.source_file}:{f.line_number}] '{f.raw_text}' -> {f.detail}")
+        print()
+
+    if stale:
         print(
-            f"### Version Mismatches ({len(version_mismatches)} references citing older/different versions)"
+            f"### Version Stale ({len(stale)} references citing outdated versions — findings)"
         )
-        for f in version_mismatches:
+        for f in stale:
+            print(f"  [{f.source_file}:{f.line_number}] '{f.raw_text}' -> {f.detail}")
+        print()
+
+    if historical:
+        print(
+            f"### Version Historical ({len(historical)} references in governance/change log — not findings)"
+        )
+        if verbose:
+            for f in historical:
+                print(
+                    f"  [{f.source_file}:{f.line_number}] '{f.raw_text}' -> {f.detail}"
+                )
+        else:
+            print(
+                f"  (use --verbose to list all {len(historical)} historical citations)"
+            )
+        print()
+
+    if forward:
+        print(
+            f"### Version Forward ({len(forward)} references citing future versions — not findings)"
+        )
+        for f in forward:
             print(f"  [{f.source_file}:{f.line_number}] '{f.raw_text}' -> {f.detail}")
         print()
 
@@ -851,6 +1048,237 @@ def print_report(findings: list[XRefFinding], verbose: bool = False) -> None:
         print()
 
 
+def run_selftest() -> bool:
+    """Build probe files in a temp directory and verify detection counts.
+
+    Creates a minimal repo structure with known references and asserts the tool
+    catches invented sections, validates real ones, and classifies version mismatches.
+    Returns True on pass, False on failure.
+    """
+    tmpdir = Path(tempfile.mkdtemp(prefix="xref_selftest_"))
+    try:
+        # Create minimal directory structure
+        (tmpdir / "docs" / "specs").mkdir(parents=True)
+        (tmpdir / "docs" / "strategy").mkdir(parents=True)
+        (tmpdir / "docs" / "runbooks").mkdir(parents=True)
+
+        # Create a minimal Data Model document with headings
+        (tmpdir / "docs" / "specs" / "Data_Model_Schema.md").write_text(
+            "# Data Model Schema\n"
+            "> **Status:** v1.3 — frozen\n\n"
+            "## 1. Overview\n\n"
+            "## 3. Tables\n\n"
+            "### 3.4 users\n\n"
+            "### 3.7 supervisor_sessions\n\n"
+            "### 3.9 resource_lock\n\n",
+            encoding="utf-8",
+        )
+
+        # Create FTS with headings
+        (
+            tmpdir / "docs" / "specs" / "Tech_Spec_Financial_Transaction_Safety.md"
+        ).write_text(
+            "# Financial Transaction Safety\n"
+            "> **Status:** v1.2 — frozen\n\n"
+            "## 2. Architecture\n\n"
+            "### 2.2 Pre-execution gates\n\n"
+            "## 6. Healer\n\n"
+            "### 6.4 Idempotency\n\n",
+            encoding="utf-8",
+        )
+
+        # Create Consent Manager with headings
+        (tmpdir / "docs" / "specs" / "Tech_Spec_Consent_Manager.md").write_text(
+            "# Consent Manager\n"
+            "> **Status:** v1.3 — frozen\n\n"
+            "## 2. Consent Model\n\n"
+            "### 2.6 Proxy consent\n\n"
+            "## 5. CONSENT_REVERIFY\n\n",
+            encoding="utf-8",
+        )
+
+        # Create Module Registry
+        (tmpdir / "docs" / "specs" / "Tech_Spec_Module_Registry.md").write_text(
+            "# Module Registry\n"
+            "> **Status:** v1.1 — review\n\n"
+            "## 7. Isolation\n\n"
+            "### 7.3 RBAC\n\n",
+            encoding="utf-8",
+        )
+
+        # Create Runbook
+        (tmpdir / "docs" / "runbooks" / "Runbook_DPI_Rate_Limits.md").write_text(
+            "# DPI Rate Limits Runbook\n"
+            "> **Status:** v1.2 — frozen\n\n"
+            "## 2. Redis Budget\n\n"
+            "### 2.4 Fail-open\n\n"
+            "## 8. Circuit Breakers\n\n"
+            "### 8.3 Probes\n\n",
+            encoding="utf-8",
+        )
+
+        # Create NFR
+        (tmpdir / "docs" / "specs" / "NFR_Specs.md").write_text(
+            "# NFR Specs\n> **Status:** v2.2 — canonical\n\n## 9. Security\n\n",
+            encoding="utf-8",
+        )
+
+        # Create a Core PRD
+        (tmpdir / "docs" / "strategy" / "PRD_FamilyLifeOS_Core.md").write_text(
+            "# Core PRD\n"
+            "> **Status:** v2.2 — canonical\n\n"
+            "## 4. Requirements\n\n"
+            "### 4.8 Spec map\n\n"
+            "## 5. Shared Services\n\n",
+            encoding="utf-8",
+        )
+
+        # Create Master Context
+        (tmpdir / "docs" / "strategy" / "Master_Context.md").write_text(
+            "# Master Context\n"
+            "> **Status:** v2.1 — canonical\n\n"
+            "## 3. Architecture\n\n"
+            "### 3.3 Stack\n\n",
+            encoding="utf-8",
+        )
+
+        # Create Supervisor FSM
+        (
+            tmpdir / "docs" / "specs" / "Tech_Spec_Supervisor_State_Machine.md"
+        ).write_text(
+            "# Supervisor State Machine\n"
+            "> **Status:** v2.1 — canonical\n\n"
+            "## 4. States\n\n",
+            encoding="utf-8",
+        )
+
+        # AGENTS.md at root
+        (tmpdir / "AGENTS.md").write_text(
+            "# AGENTS\n\n## 4. Invariants\n\n## 6. Working rules\n\n",
+            encoding="utf-8",
+        )
+
+        # Probe file with test references
+        (tmpdir / "docs" / "specs" / "probe_test.md").write_text(
+            "# Probe Test\n\n"
+            # 5 invented sections (should be DANGLING_SECTION)
+            "Reference FTS §99.9 for something.\n"
+            "Reference DM §3.99 for something.\n"
+            "Reference Data Model §42 for something.\n"
+            "Reference MR §7.9 for something.\n"
+            "Reference CM §12.7 for something.\n"
+            # 2 real sections (should be VALID)
+            "Reference RB §2.4 for fail-open.\n"
+            "Reference Consent Manager §2.6 for proxy.\n"
+            # Version mismatch: historical (governance table row)
+            "| v1.1 | 2026-01-01 | Initial | with CM v1.1 §5 |\n"
+            # Version mismatch: stale
+            "See NFR v2.1 §9 for details.\n"
+            # Version mismatch: forward
+            "This will be in DM v2.0 §1.\n"
+            # Chained section ref
+            "DM v1.3 §3.4, §3.7–§3.9\n"
+            # Unknown doc-shaped name
+            "See Tech_Spec_Nonexistent §3.\n"
+            # Bare §n at start of sentence (should be current doc)
+            "§4 defines the states.\n",
+            encoding="utf-8",
+        )
+
+        # Run the checker
+        result = check_all_references(tmpdir)
+
+        # Filter to only probe file findings
+        probe = [f for f in result if f.source_file.endswith("probe_test.md")]
+
+        dangling_secs = [f for f in probe if f.status == "DANGLING_SECTION"]
+        valid_secs = [
+            f for f in probe if f.status == "VALID" and f.target_section is not None
+        ]
+        stale_v = [f for f in probe if f.status == "VERSION_STALE"]
+        historical_v = [f for f in probe if f.status == "VERSION_HISTORICAL"]
+        forward_v = [f for f in probe if f.status == "VERSION_FORWARD"]
+        unknown = [f for f in probe if f.status == "UNKNOWN_DOC"]
+
+        errors: list[str] = []
+
+        # 5 invented sections should be dangling
+        if len(dangling_secs) < 5:
+            errors.append(
+                f"Expected >=5 dangling sections, got {len(dangling_secs)}: "
+                f"{[(f.raw_text, f.target_doc) for f in dangling_secs]}"
+            )
+
+        # At least 2 real sections should be valid
+        if len(valid_secs) < 2:
+            errors.append(
+                f"Expected >=2 valid section refs, got {len(valid_secs)}: "
+                f"{[(f.raw_text, f.target_doc) for f in valid_secs]}"
+            )
+
+        # At least 1 stale version mismatch
+        if len(stale_v) < 1:
+            errors.append(
+                f"Expected >=1 VERSION_STALE, got {len(stale_v)}: "
+                f"{[(f.raw_text, f.detail) for f in stale_v]}"
+            )
+
+        # At least 1 historical version mismatch
+        if len(historical_v) < 1:
+            errors.append(
+                f"Expected >=1 VERSION_HISTORICAL, got {len(historical_v)}: "
+                f"{[(f.raw_text, f.detail) for f in historical_v]}"
+            )
+
+        # At least 1 forward version mismatch
+        if len(forward_v) < 1:
+            errors.append(
+                f"Expected >=1 VERSION_FORWARD, got {len(forward_v)}: "
+                f"{[(f.raw_text, f.detail) for f in forward_v]}"
+            )
+
+        # At least 1 unknown doc
+        if len(unknown) < 1:
+            errors.append(
+                f"Expected >=1 UNKNOWN_DOC, got {len(unknown)}: "
+                f"{[(f.raw_text, f.detail) for f in unknown]}"
+            )
+
+        # Chained ref: DM v1.3 §3.4, §3.7–§3.9 should all validate
+        chained_valid = [
+            f
+            for f in probe
+            if f.status == "VALID"
+            and f.target_doc
+            and f.target_doc.endswith("Data_Model_Schema.md")
+            and f.target_section
+            and any(s in f.target_section for s in ["3.4", "3.7", "3.9"])
+        ]
+        if len(chained_valid) < 1:
+            errors.append(
+                f"Expected chained DM §3.4, §3.7–§3.9 to validate, got {len(chained_valid)}"
+            )
+
+        if errors:
+            print("Selftest FAILED:")
+            for e in errors:
+                print(f"  - {e}")
+            return False
+
+        print("Selftest PASSED.")
+        print(f"  Probe findings: {len(probe)} total")
+        print(f"    Dangling sections: {len(dangling_secs)}")
+        print(f"    Valid sections:    {len(valid_secs)}")
+        print(f"    Version stale:     {len(stale_v)}")
+        print(f"    Version historical:{len(historical_v)}")
+        print(f"    Version forward:   {len(forward_v)}")
+        print(f"    Unknown docs:      {len(unknown)}")
+        return True
+
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -870,12 +1298,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Show detailed valid reference samples",
+        help="Show detailed valid reference samples and historical version citations",
     )
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Exit with non-zero status if dangling references are found",
+        help="Exit with non-zero status if dangling references or stale versions are found",
+    )
+    parser.add_argument(
+        "--selftest",
+        action="store_true",
+        help="Run internal self-test with probe references and exit",
     )
     return parser.parse_args(argv)
 
@@ -888,6 +1321,10 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.reconfigure(encoding="utf-8")
 
     args = parse_args(argv)
+
+    if args.selftest:
+        return 0 if run_selftest() else 1
+
     root_path = Path(args.root).resolve()
 
     if not root_path.exists():
@@ -906,7 +1343,8 @@ def main(argv: list[str] | None = None) -> int:
         print_report(findings, verbose=args.verbose)
 
     dangling = [f for f in findings if f.status in ("DANGLING_DOC", "DANGLING_SECTION")]
-    if args.strict and dangling:
+    stale = [f for f in findings if f.status == "VERSION_STALE"]
+    if args.strict and (dangling or stale):
         return 1
 
     return 0
