@@ -6,7 +6,7 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 - **Working on:** nothing in flight.
 - **Last finished (2026-09-17):** reviewed PR #17 for Gemini (Codex unavailable): approve, ready for the founder to merge. Added WP-47 (issue for Gemini's local-model harness), the stage-by-path rule and the fallback-reviewer rule.
-- **Waiting for:** founder rulings on how to cover Codex's absence (round-2 reviews #9, #10) and on per-agent worktrees.
+- **Waiting for:** Codex's return for the round-2 reviews (#9, #10); the founder's `gh auth refresh -s project` for the GitHub Projects board.
 - **Next:** WP-12 `Tech_Spec_Simulator_Architecture.md` draft; Vault PRD v0.2 with the `visibility` attribute.
 
 ## Codex (`agent:codex`)
