@@ -154,14 +154,18 @@ def _normalise_version(ver: str) -> str:
 
 
 def is_historical_document(file_path: Path) -> bool:
-    """Check if a document's Status line indicates it is HISTORICAL (not maintained)."""
+    """True when the Status line says HISTORICAL (not maintained) or GENERATED.
+
+    docs/INDEX.md is generated and repeats other documents' status text, so the
+    references in it are not its own.
+    """
     try:
         with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             for i, line in enumerate(f):
                 if i > 25:
                     break
                 if re.search(
-                    r">\s*\*{0,2}Status\*{0,2}:\*{0,2}\s+(?:[^\n]*\b)?HISTORICAL\b",
+                    r">\s*\*{0,2}Status\*{0,2}:\*{0,2}\s+(?:[^\n]*\b)?(?:HISTORICAL|GENERATED)\b",
                     line,
                     re.IGNORECASE,
                 ):

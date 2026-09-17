@@ -3,7 +3,6 @@
   {"cited_version": null, "raw_text": "Test_Automation_Strategy.md", "source_file": "docs/Execution_Plan.md", "status": "MISSING_DOC", "target_doc": "docs/specs/Test_Automation_Strategy.md", "target_section": null},
   {"cited_version": null, "raw_text": "Runbook_Demo_Deployment", "source_file": "docs/Execution_Plan.md", "status": "UNKNOWN_DOC", "target_doc": "Runbook_Demo_Deployment", "target_section": null},
   {"cited_version": null, "raw_text": "Testing_Strategy", "source_file": "docs/Execution_Plan.md", "status": "UNKNOWN_DOC", "target_doc": "Testing_Strategy", "target_section": null},
-  {"cited_version": null, "raw_text": "\u00a72.6", "source_file": "docs/INDEX.md", "status": "DANGLING_SECTION", "target_doc": "docs/INDEX.md", "target_section": "2.6"},
   {"cited_version": null, "raw_text": "\u00a77", "source_file": "docs/PROJECT_TRACKER.md", "status": "MISSING_DOC", "target_doc": "docs/specs/Test_Automation_Strategy.md", "target_section": "7"},
   {"cited_version": null, "raw_text": "Marketing_GTM_Strategy", "source_file": "docs/PROJECT_TRACKER.md", "status": "UNKNOWN_DOC", "target_doc": "Marketing_GTM_Strategy", "target_section": null},
   {"cited_version": null, "raw_text": "Runbook_Demo_Deployment", "source_file": "docs/PROJECT_TRACKER.md", "status": "UNKNOWN_DOC", "target_doc": "Runbook_Demo_Deployment", "target_section": null},
