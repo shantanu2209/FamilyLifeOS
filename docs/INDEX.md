@@ -14,7 +14,7 @@ This is the only list of document versions and statuses in the repository. To ch
 | [PRD: FamilyLifeOS Core (The Micro-Kernel)](strategy/PRD_FamilyLifeOS_Core.md) | v2.2 | Canonical | 2026-09-17 | CANONICAL — v2.2 (v2.1 plus specification map, three error scenarios and three annotations) |
 | [PRD: Financial Command Center (module `finance`)](strategy/PRD_Module_Finance.md) | v0.1 | Draft, in review | 2026-09-17 | DRAFT v0.1 — pending review |
 | [PRD: Health & Wellness (module `health`)](strategy/PRD_Module_Health.md) | v0.1 | Draft, in review | 2026-09-17 | DRAFT v0.1 — pending review |
-| [PRD: Secure Vault (module `secure_vault`)](strategy/PRD_Module_Secure_Vault.md) | v0.1 | Draft, in review | 2026-09-17 | DRAFT v0.1 — pending review |
+| [PRD: Secure Vault (module `secure_vault`)](strategy/PRD_Module_Secure_Vault.md) | v0.2 | Draft, in review | 2026-09-17 | DRAFT v0.2 — founder rulings of 2026-09-17 applied; independent review (Codex, WP-15) pending |
 | [Roadmap: FamilyLifeOS Portfolio Build](strategy/Roadmap.md) | v0.3 | Draft | 2026-09-17 | DRAFT v0.3 — sequence-only plan, no dates or capacity assumptions (founder ruling 2026-09-17) |
 | [Holistic LifeOS: The Vision & Strategic Journey](strategy/Vision_Journey.md) | — | Reference | 2026-01 | REFERENCE — strategic white paper |
 | [Vision Parking Lot: Future Capabilities of FamilyLifeOS](strategy/Vision_Parking_Lot.md) | v2.0 | Reference | 2026-02-13 | REFERENCE — v2.0 (Strategic Backlog, Phase 3+) |

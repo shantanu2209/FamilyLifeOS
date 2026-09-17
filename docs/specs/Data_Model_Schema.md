@@ -247,11 +247,14 @@ CREATE TABLE family_relationships (
   -- 'child'    = from_user is child of to_user
   -- 'sibling'  = from_user is sibling of to_user
   -- 'in_law'   = from_user is in-law of to_user
+  -- 'guardian' = from_user is the legal guardian of to_user (v1.3 change 16; set by an admin, Level 0 with passkey;
+  --              meant for a minor whose parents are not in the family or not alive)
+  -- 'ward'     = from_user is the ward of to_user (reverse edge of 'guardian')
   -- 'employer' = from_user employs to_user (admin → staff)
   -- 'employee' = from_user works for to_user (staff → admin)
   relationship_type VARCHAR(20) NOT NULL
                     CHECK (relationship_type IN
-                      ('spouse','parent','child','sibling','in_law','employer','employee')),
+                      ('spouse','parent','child','sibling','in_law','guardian','ward','employer','employee')),
 
   -- is_active: FALSE for relationships in dissolved households (divorce, separation)
   -- Inactive edges are retained for audit purposes
@@ -932,7 +935,7 @@ INSERT INTO role_module_permissions (role, module_id) VALUES
 
 ### 3.17 Kernel views readable by modules (v1.3, Module Registry §7.2 whitelist)
 
-Each Core Module's database role gets SELECT on these four views and nothing else in `core`. They expose references, never token material, phone numbers, emails or push tokens.
+Each Core Module's database role gets SELECT on these five views and nothing else in `core`. They expose references, never token material, phone numbers, emails or push tokens.
 ```sql
 -- What a module may know about the family graph. No phone, email, or shadow expiry.
 CREATE VIEW v_family_members AS
@@ -970,8 +973,25 @@ CREATE VIEW v_device_surfaces AS
 SELECT d.family_id, d.device_id, d.owner_user_id, d.device_type, d.is_public_surface
 FROM device_registry d;
 
+-- Who is responsible for a dependent (v1.3 change 16). One row per (dependent, guardian, basis).
+-- Modules use it to decide who may see or be told about a dependent's data; they never read
+-- family_relationships or proxy_assignments directly.
+CREATE VIEW v_guardians AS
+SELECT fr.family_id, fr.to_user_id AS dependent_user_id, fr.from_user_id AS guardian_user_id,
+       CASE fr.relationship_type WHEN 'parent' THEN 'parent' ELSE 'legal_guardian' END AS basis,
+       NULL::VARCHAR(10) AS proxy_rank, NULL::VARCHAR(20) AS conflict_resolution_rule, NULL::INTEGER AS notify_timeout_mins
+FROM family_relationships fr
+JOIN users dep ON dep.user_id = fr.to_user_id   AND dep.deleted_at IS NULL AND dep.role = 'minor'
+JOIN users g   ON g.user_id   = fr.from_user_id AND g.deleted_at   IS NULL AND g.role IN ('admin','member')
+WHERE fr.relationship_type IN ('parent','guardian') AND fr.is_active
+UNION ALL
+SELECT pa.family_id, pa.managed_user_id, pa.proxy_user_id,
+       'proxy' AS basis, pa.proxy_rank, pa.conflict_resolution_rule, pa.notify_timeout_mins
+FROM proxy_assignments pa
+JOIN users g ON g.user_id = pa.proxy_user_id AND g.deleted_at IS NULL;
+
 -- Per module, at registration (Module Registry §7.2):
--- GRANT SELECT ON v_family_members, v_module_permissions, v_active_consents, v_device_surfaces TO role_module_<id>;
+-- GRANT SELECT ON v_family_members, v_module_permissions, v_active_consents, v_device_surfaces, v_guardians TO role_module_<id>;
 ```
 
 ### 3.18 Audit write protocol (v1.3)
@@ -1553,6 +1573,8 @@ INSERT INTO family_relationships (family_id, from_user_id, to_user_id, relations
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', 'spouse'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000003', 'parent'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000001', 'child'),
+  ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000003', 'parent'),  -- Priya → Arjun (v1.3 change 16: v_guardians needs both parents)
+  ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000002', 'child'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000004', 'child'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000004', 'b0000000-0000-4000-8000-000000000001', 'parent'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000005', 'employer'),
@@ -1653,6 +1675,7 @@ No database has been created yet, so `V001__initial_schema` is authored directly
 | 12 | fetch_count_today is bookkeeping; Redis is the enforcement point | §3.5, Q6, §7.3 | Item 11 |
 | 13 | Seed identifiers are valid UUIDs; SYSTEM family/actor, activations and a sample consent seeded | §8 | v1.3 review |
 | 14 | All kernel objects live in schema `core`; module schemas per module | §1.1, §9.3 | MR §7.2 |
+| 16 | family_relationships gains 'guardian' / 'ward'; new kernel view v_guardians (parents and legal guardians of minors, proxies of managed profiles, with proxy rank, conflict rule and timeout); seed gains the Priya ↔ Arjun parent/child edges | §3.3, §3.17, §8 | Founder ruling 2026-09-17 on Vault visibility for minors; also closes Health PRD OI-4 |
 | 15 | consent_records.proxy_consent_user_id + idx_consent_proxy; action PROXY_CONSENT_GRANTED (taxonomy is now 41 codes) | §3.12, §6 | Founder ruling 2026-09-17 on Health PRD OI-2; CM v1.3 §2.6 |
 
 Consequential edits made the same day in other documents: FTS v1.2 (`fsm_state` naming; lock release semantics), Consent Manager v1.2 (`fsm_state`; lowercase role values; 'cancelled'; ONDC provider; DDL now lives here), Module Registry v1.1 (registry DDL, kernel views and audit functions now live here; consent-provider enum narrowed), Runbook v1.2 (fetch_count_today semantics). Review round 2 by Codex covers this document and the Module Registry together.
