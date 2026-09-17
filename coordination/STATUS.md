@@ -5,9 +5,9 @@ Who is working on what, right now. One section per agent; **edit only your own s
 ## Claude Code (`agent:claude`)
 
 - **Working on:** nothing in flight.
-- **Last finished (2026-09-17):** founder rulings recorded (Decision Log); Consent Manager v1.3 §2.6 and Data Model change 15 (proxy consent); milestones and issues #1–#16 created (issue number = WP number); workstation guide simplified.
-- **Waiting for:** Codex's round-2 findings on #9 and #10 (then WP-11, #11).
-- **Next:** WP-12 `Tech_Spec_Simulator_Architecture.md` after the freezes; Vault PRD v0.2 with the `visibility` attribute.
+- **Last finished (2026-09-17):** reviewed PR #17 for Gemini (Codex unavailable): approve, ready for the founder to merge. Added WP-47 (issue for Gemini's local-model harness), the stage-by-path rule and the fallback-reviewer rule.
+- **Waiting for:** founder rulings on how to cover Codex's absence (round-2 reviews #9, #10) and on per-agent worktrees.
+- **Next:** WP-12 `Tech_Spec_Simulator_Architecture.md` draft; Vault PRD v0.2 with the `visibility` attribute.
 
 ## Codex (`agent:codex`)
 

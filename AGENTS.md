@@ -181,7 +181,8 @@ The founder, **Shantanu Chaudhary**, decides, merges, and owns credentials, acco
 | **Gemini in Antigravity** | `agent:gemini` | Routine generation with a clear source of truth: WireMock stubs from spec tables, Alembic migrations from DDL, fixtures, FHIR samples, cross-reference sweeps, PR summaries, lint and docstring passes, tracker and README sync. Orchestrates any **local models** (Ollama on the founder's machine) as its own sub-agents | Make design decisions; touch payment, consent or audit code paths; edit `docs/specs/`, `docs/runbooks/` or `AGENTS.md`; resolve an inconsistency-register item; merge |
 
 - **Local models are not a roster member.** Gemini may delegate mechanical subtasks to them inside Antigravity. The issue and PR stay `agent:gemini`; Gemini answers for every line, its restrictions apply to whatever it delegates, it verifies the output itself, and its PR handoff says which parts a local model produced. Model choice and tuning: `docs/reference/Local_Agent_Setup.md`.
-- **Review pairs:** Gemini → Codex; Codex → Claude; Claude → Codex. Never the author. The founder can review anything.
+- **Review pairs:** Gemini → Codex; Codex → Claude; Claude → Codex. Never the author. The founder can review anything. If the default reviewer is unavailable, the other non-author agent reviews and says so.
+- **Shared folder: stage by path.** All agents currently work in the same checkout. Never `git add -A`, `git add .` or `git commit -a`; stage only the files you changed, leave other agents' uncommitted changes alone, and return the folder to `main` when your branch is pushed.
 - **Definition of Done** for every work package: `docs/Execution_Plan.md` §7.
 
 ### Coordination (how work moves between agents)

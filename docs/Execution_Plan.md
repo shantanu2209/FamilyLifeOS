@@ -1,7 +1,7 @@
-# Execution Plan: Work Packages WP-01 to WP-46
+# Execution Plan: Work Packages WP-01 to WP-47
 
-> **Status:** DRAFT v0.2 — sequence-only, no dates or capacity assumptions (founder ruling 2026-09-17) · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
-> **Scope:** The roadmap (`docs/strategy/Roadmap.md`) broken into 46 numbered work packages in dependency order, grouped by phase, each with owner and reviewer agent, spec inputs, file outputs, verification, dependencies, size and GitHub labels. Applies to the portfolio build only (tracker → Decision Log, 2026-09-17). Includes the Definition of Done that every package must meet and the `gh` commands that seed the Phase 0 and Phase 1 issues.
+> **Status:** DRAFT v0.3 — sequence-only, no dates or capacity assumptions (founder ruling 2026-09-17) · **Author:** Shantanu Chaudhary (Lead Product Architect), drafted with Claude Code · **Last content change:** 2026-09-17
+> **Scope:** The roadmap (`docs/strategy/Roadmap.md`) broken into 47 numbered work packages in dependency order, grouped by phase, each with owner and reviewer agent, spec inputs, file outputs, verification, dependencies, size and GitHub labels. Applies to the portfolio build only (tracker → Decision Log, 2026-09-17). Includes the Definition of Done that every package must meet and the `gh` commands that seed the Phase 0 and Phase 1 issues.
 > **Supersedes:** For planning purposes only: tracker → "Next Actions (Immediate)" (the Week 1/Week 2 day plans, all of which are done), tracker → "Development Environment Needs" and "CI/CD Pipeline Integration" checklists (folded into WP-05, WP-06, WP-14, WP-17), and the tracker's "Test Automation Roadmap" weeks (folded into WP-13 and the Phase 2 packages). The tracker's Build Gate section itself is not superseded: Phase 2 below mirrors it line by line and the tracker remains the place where the gate is ticked.
 
 ## 0. Document Governance
@@ -10,6 +10,7 @@
 |---|---|---|---|
 | v0.1 | 2026-09-17 | First draft: 46 work packages across Phases 0–4, per-phase tables and notes, Definition of Done, critical path, issue-seeding commands for Phases 0–1. | Shantanu Chaudhary (with Claude Code) |
 | v0.2 | 2026-09-17 | Founder ruling: no target dates and no assumed founder hours. Phase date ranges, dated fallbacks, milestone due dates and time-based sizes removed; the plan is ordered by dependency only. Roster reduced to three agents: the local-model lane is folded into Gemini's (WP-02 becomes agent onboarding, WP-08 is Gemini's recurring maintenance), the `agent:local` label is replaced by `in-progress`. WP-01 now points to `docs/reference/Workstation_Setup.md`. Hosted LLM default recorded as Claude Haiku. | Shantanu Chaudhary (with Claude Code) |
+| v0.3 | 2026-09-17 | WP-47 added (local-model delegation harness for Gemini; Phase 0, off the critical path). WP-01 reduced to WSL 2, Docker Desktop and opening the two agent apps (Codex desktop app, no CLI; Python 3.12 comes from uv). | Shantanu Chaudhary (with Claude Code) |
 
 ---
 
@@ -27,12 +28,12 @@
 
 | Phase | Packages | Codex | Claude | Gemini | Founder-led | Sizes (L / M / S) |
 |---|---|---|---|---|---|---|
-| 0 | WP-01 to WP-08 | 2 | 2 | 1 (recurring) | 3 | 0 / 3 / 5 |
+| 0 | WP-01 to WP-08, WP-47 | 2 | 2 | 2 (one recurring) | 3 | 0 / 4 / 5 |
 | 1 | WP-09 to WP-16 | 3 | 3 | 2 | 0 | 1 / 5 / 2 |
 | 2 | WP-17 to WP-32 | 12 | 1 | 3 | 0 | 10 / 5 / 1 |
 | 3 | WP-33 to WP-39 | 6 | 0 | 1 | 0 | 3 / 4 / 0 |
 | 4 | WP-40 to WP-46 | 3 | 3 | 0 | 1 | 1 / 5 / 1 |
-| Total | 46 | 26 | 9 | 7 | 4 | 15 / 22 / 9 |
+| Total | 47 | 26 | 9 | 8 | 4 | 15 / 23 / 9 |
 
 Phase 2 carries roughly half the plan's work; WP-25, WP-26, WP-29 and WP-30 run in lanes parallel to the gate sequence. The founder's review-and-merge attention is the binding constraint (Roadmap §5): if open PRs pile up, the lanes are serialised rather than the reviews shortened. Gemini may delegate mechanical parts of its packages to local models it orchestrates inside Antigravity; the package, the PR and the accountability stay Gemini's.
 
@@ -52,6 +53,7 @@ Nothing can be built before the founder has installed the tooling (WP-01), so Ph
 | WP-06 | CI workflow: ruff, import-linter, pytest unit and integration on every PR (web and e2e jobs added later) | Codex → Claude | Tracker "Pull Request Pipeline"; WP-05 | `.github/workflows/ci.yml` (jobs `lint`, `unit`, `integration`; uv cache; concurrency cancel) | A PR shows all jobs green; branch protection lists them as required | WP-05 | M | `agent:codex`, `build-gate` |
 | WP-07 | AGENTS.md §6: point to `coordination/README.md`, keep a roster summary and the review pairs, reference the DoD | Claude → founder | Tracker Decision Log (roster); `coordination/README.md`; this plan §1, §7 | AGENTS.md (version note in §1 status line); Decision Log "to be formalised" note closed | Read-through; Gemini can quote its own rules when asked; one source for the protocol, not two | — | S | `agent:claude`, `spec` |
 | WP-08 | Recurring maintenance after each batch of merges: tracker matrix sync, lint and docstring passes, README table | Gemini → Codex | AGENTS.md §6 (roster); PRs merged since the last run | Small PRs touching only tracker, README, docstrings | `uv run ruff check .`; reviewer confirms statuses match merged PRs | WP-02, WP-06 | S (recurring) | `agent:gemini` |
+| WP-47 | Local-model delegation harness for Gemini: a stdlib script that sends one bounded subtask to the local Ollama model and writes the result to a file, plus an Antigravity workspace workflow that says when and how Gemini delegates and how it checks the result | Gemini → Claude | AGENTS.md §6 (roster: local models); `coordination/README.md` §1; `docs/reference/Local_Agent_Setup.md` §2 (model, Ollama settings) | `tools/local_model.py`; `.agents/workflows/delegate-to-local.md`; a short "How Gemini uses it" section in `Local_Agent_Setup.md`; one demonstration run recorded in the PR | `uvx ruff check tools/local_model.py`; `python tools/local_model.py --selftest` answers from `qwen3.5:9b`; the demonstration output was checked by Gemini and the handoff says so | WP-02; founder has pulled `qwen3.5:9b` | M | `agent:gemini` |
 
 Notes on specific packages:
 
@@ -60,6 +62,7 @@ Notes on specific packages:
 - **WP-05.** `pyproject.toml` pins Python 3.12 and declares the runtime dependencies (FastAPI, uvicorn, SQLAlchemy with asyncpg, Alembic, redis, Pydantic, httpx, structlog) and the dev group (pytest, pytest-asyncio, testcontainers, pytest-playwright, ruff, import-linter, pre-commit, coverage). The import-linter contract encodes MR §7.1 as a forbidden contract (`modules.*` may not import `modules.*` or `familylifeos.kernel.*`) plus a layered contract (`familylifeos.sdk` may not import `familylifeos.kernel`); `tools/check_importlib.py` greps `modules/` for `importlib` and `__import__` (MR OI-5).
 - **WP-06.** Jobs run on `ubuntu-latest` with the uv cache; `integration` relies on the runner's Docker for Testcontainers; the coverage report is uploaded as an artefact and stays informational until WP-32 turns it into a gate.
 - **WP-07.** The roster, the roles and the session close-out rule were added to AGENTS.md §6 on 2026-09-17; what remains is the DoD reference check and Codex's read-through.
+- **WP-47.** Deliberately not an MCP server and not a third-party package: a script the repository owns, calling Ollama's local HTTP API with the standard library only, run by Gemini from the terminal. No network access other than `localhost:11434`; no file writes outside the path given on the command line; the prompt, the input files and the output path are arguments, so every delegation is reproducible from the PR. The workflow file limits delegation to mechanical subtasks with a verifier (docstrings, fixtures from a table, format conversions) and repeats that Gemini's restrictions apply to delegated work. An MCP wrapper can come later if the script proves useful.
 - **WP-08.** The first maintenance issue also asks Codex for `tools/tracker_sync_check.py`, which compares the status tables in README and AGENTS.md §3 with the tracker's Document Status Matrix; from then on Gemini runs it as its verification.
 
 ---
