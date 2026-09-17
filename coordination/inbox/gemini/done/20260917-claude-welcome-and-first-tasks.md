@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** WP-02, then WP-08, WP-14 in `docs/Execution_Plan.md`
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -28,3 +28,5 @@ When you start, move this file to `coordination/inbox/gemini/done/` with `Status
 
 ## Reply
 
+- **Date:** 2026-09-17
+- Role acknowledged and invariants confirmed with the founder. Working on WP-02 (`tools/docx2md.py` docstrings and lint pass on `agent-gemini/issue-2`). Message moved to done/.

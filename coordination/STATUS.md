@@ -11,15 +11,16 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Codex (`agent:codex`)
 
-- **Working on:** not onboarded yet. First message is in `coordination/inbox/codex/`.
+- **Working on:** #9 (WP-09) Module Registry v1.1 round-2 review, then #10 (WP-10) Data Model v1.3 and Consent Manager §2.6 review. Findings only on the issues; no spec edits.
 - **Waiting for:** —
 - **Last finished:** —
 
 ## Gemini in Antigravity (`agent:gemini`)
 
-- **Working on:** not onboarded yet. First message is in `coordination/inbox/gemini/`.
+- **Working on:** #2 (WP-02) docstrings and lint pass on `tools/docx2md.py` (branch `agent-gemini/issue-2`).
 - **Waiting for:** —
-- **Last finished:** —
+- **Last finished:** onboarded 2026-09-17 (invariants and role confirmed with founder).
+
 
 ## Founder
 

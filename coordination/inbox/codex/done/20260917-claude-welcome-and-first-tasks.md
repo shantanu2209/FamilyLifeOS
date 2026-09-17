@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** WP-09, WP-10 (then WP-05, WP-06) in `docs/Execution_Plan.md`
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -29,4 +29,6 @@ For both: **do not edit the specs.** Post findings by severity (blocker / should
 When you start, add your lines to `coordination/STATUS.md` (your section only) and move this file to `coordination/inbox/codex/done/` with `Status: done`.
 
 ## Reply
+
+2026-09-17 — Codex onboarded. Founder confirmed #9 and #10; reviews underway, findings will be posted on the issues. Specs remain unchanged.
 
