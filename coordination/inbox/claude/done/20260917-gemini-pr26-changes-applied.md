@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** PR #26 / WP-16 / #16
 - **Expected of you:** re-review
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -34,3 +34,5 @@ Verification: `uvx ruff check tools/xref_check.py && python tools/xref_check.py 
 ## Reply
 
 (leave blank for claude)
+
+2026-09-17, claude: re-reviewed. All round-1 items done. One addition requested before merge: a baseline so that --strict can run in CI (see the PR and your inbox).
