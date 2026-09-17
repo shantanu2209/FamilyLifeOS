@@ -2,8 +2,8 @@
 
 How the founder and the three AI agents work together on this repository without the founder relaying messages between them. The repository itself is the communication channel: GitHub issues carry tasks, labels route them, branches and pull requests carry the work, reviews are done by a different agent than the author, and `coordination/STATUS.md` plus `coordination/inbox/` carry everything else one agent needs to tell another. `AGENTS.md` holds the rules every agent obeys; this file holds the process.
 
-> **Status:** v0.2 · 2026-09-17 · **Owner:** Shantanu Chaudhary (founder, Lead Product Architect)
-> v0.1 (2026-09-17) had four agents and no message channel. v0.2: three agents (the local-model lane is folded into Gemini's), a status file and per-agent inboxes added, event-driven rhythm instead of a daily/weekly one.
+> **Status:** v0.3 · 2026-09-17 · **Owner:** Shantanu Chaudhary (founder, Lead Product Architect)
+> v0.1 (2026-09-17) had four agents and no message channel. v0.2: three agents (the local-model lane is folded into Gemini's), a status file and per-agent inboxes added, event-driven rhythm instead of a daily/weekly one. v0.3: one git worktree per agent, `tools/coord.ps1` for coordination commits, fallback reviewer.
 
 ---
 
@@ -42,7 +42,7 @@ Escalation goes up the table: Gemini → Codex → Claude → founder. A task th
 
 ## 4. Working an issue, review and merge
 
-1. Start of session: read your inbox (`coordination/inbox/<you>/`) and `coordination/STATUS.md`. Then pick up the issue: add `in-progress`, update your STATUS section.
+1. Start of session, in your own folder (§5): `tools\coord.ps1 begin`, read your inbox (`coordination/inbox/<you>/`) and `coordination/STATUS.md`. Then pick up the issue: add `in-progress`, update your STATUS section, `tools\coord.ps1 push`.
 2. Branch from `main`: `agent-<name>/issue-<n>`. Work never goes to `main` directly (the only exception is §5).
 3. Read `AGENTS.md`, then the spec sections the issue cites. Cite section numbers in commit messages and PR descriptions. Stay inside the issue's scope; anything else becomes a follow-up issue.
 4. Verify before opening the PR: run the command or test the issue names; paste the result in the PR.
@@ -63,9 +63,24 @@ Escalation goes up the table: Gemini → Codex → Claude → founder. A task th
 - Messages are coordination, not decisions and not specs. Anything durable belongs in the tracker, a spec or an issue.
 - The repository is public: no secrets, no real personal data, nothing you would not put in a PR.
 
-**One folder, several agents: stage by path.** Today all agents work in the same checkout (`D:\FamilyLifeOS`). Never run `git add -A`, `git add .` or `git commit -a`: they sweep up whatever another agent left uncommitted (this happened on 2026-09-17: one agent's coord commit carried another agent's STATUS and inbox edits). Stage the exact files you changed (`git add coordination/STATUS.md coordination/inbox/codex/<file>`), check `git status` before committing, and leave changes that are not yours alone. Do not switch branches while another agent is mid-task in the same folder; finish on your branch, push, and return the folder to `main`.
+**One working folder per agent (git worktrees).** Agents never share a checkout (decided 2026-09-17, after one agent's commit swept up another's uncommitted edits in the shared folder). All three folders are the same repository; branches, commits and the remote are shared, working files are not.
 
-**Committing coordination files.** Changes that touch only `coordination/STATUS.md` and `coordination/inbox/**` may be committed straight to `main` with a subject starting `coord:` (for example `coord: gemini status, message to codex about WP-18`). Pull with rebase first; never force-push. An agent that cannot push to `main` (Codex cloud) includes its coordination changes in its PR, or comments on the issue, and the next local agent mirrors anything urgent. Everything outside those two paths goes through a PR.
+| Folder | Who | State |
+|---|---|---|
+| `D:\FamilyLifeOS` | founder, Claude Code | always on `main` |
+| `D:\FamilyLifeOS-codex` | Codex | detached at `origin/main` between tasks, on `agent-codex/issue-<n>` during one |
+| `D:\FamilyLifeOS-gemini` | Gemini | detached at `origin/main` between tasks, on `agent-gemini/issue-<n>` during one |
+
+A worktree cannot check out `main` (the founder's folder holds it), so an agent's folder rests on a detached `origin/main`. Even in your own folder, **stage by path**; never `git add -A`, `git add .` or `git commit -a`.
+
+**Committing coordination files: `tools\coord.ps1`.** Changes that touch only `coordination/STATUS.md` and `coordination/inbox/**` go straight to `main`, and only through the helper:
+
+1. `tools\coord.ps1 begin` — needs a clean tree; fetches and puts your folder at the current `origin/main`. Do this at the start of a session and again after you have pushed your branch.
+2. Edit your STATUS section and any inbox files.
+3. `tools\coord.ps1 push -Message "coord: <what>"` — stages only those two paths, refuses if anything else is modified or if you are on an issue branch, commits, pushes to `main`, and rebases once if `main` moved.
+4. Then start work: `git switch -c agent-<name>/issue-<n>`.
+
+Coordination edits are never made while on an issue branch; they would end up in the PR or be lost. An agent that cannot push to `main` (Codex cloud) includes its coordination changes in its PR, or comments on the issue, and the next local agent mirrors anything urgent. Everything outside those two paths goes through a PR. Never force-push.
 
 ## 6. Frozen documents
 

@@ -64,7 +64,7 @@ Settings worth changing: **Resources → WSL integration** → enable for Ubuntu
 
 No install: the founder already uses the Codex desktop app. The Codex CLI was only needed as a harness for a local-model agent, and local models now sit under Gemini in Antigravity.
 
-1. In the Codex app, add `D:\FamilyLifeOS` as a project (local folder). Codex reads `AGENTS.md` by itself.
+1. In the Codex app, add **`D:\FamilyLifeOS-codex`** as a project (local folder). That is Codex's own git worktree of this repository (`coordination/README.md` §5); `D:\FamilyLifeOS` is the founder's and Claude Code's folder. Codex reads `AGENTS.md` by itself.
 2. Keep approvals on for commands and for anything outside the folder.
 3. First prompt:
 
@@ -75,7 +75,7 @@ No install: the founder already uses the Codex desktop app. The Codex CLI was on
 ### Step 4 — Antigravity (the third agent: Gemini)
 
 1. Start Antigravity (`D:\Antigravity`), sign in with your Google account, and update it if it offers to. Since v1.20.3 (March 2026) Antigravity reads `AGENTS.md` natively as well as `GEMINI.md`; this repository has both, and `GEMINI.md` only adds Gemini's role on top.
-2. **File → Open Folder → `D:\FamilyLifeOS`.** Trust the workspace.
+2. **File → Open Folder → `D:\FamilyLifeOS-gemini`** (Gemini's own git worktree; not `D:\FamilyLifeOS`). Trust the workspace.
 3. Model: pick the Gemini Flash-class model for everyday work (the role is routine generation; keep the Pro model for the cross-reference sweep, WP-16, if Flash misses things).
 4. Agent settings: start in the mode that **asks before running terminal commands and before writing outside the workspace**. Loosen it later if it gets tedious.
 5. Git and GitHub work through what is already on the machine (`git`, `gh`). Make sure pushes use the GitHub no-reply address; it is already set for this repository, check with `git config user.email` in the Antigravity terminal.
