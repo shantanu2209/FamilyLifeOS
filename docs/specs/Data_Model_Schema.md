@@ -2,9 +2,9 @@
 
 _FamilyLifeOS Core — Canonical Database Specification_
 
-> **Status:** v1.3 — REVISION IN REVIEW (unfrozen 2026-09-17 for founder-approved changes; re-freezes after Codex review round 2), Phase 1 (Foundation) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-17
+> **Status:** v1.4 — REVISION IN REVIEW (Codex round-2 findings applied; re-freezes after Codex's targeted re-review), Phase 1 (Foundation) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-21
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `Data_Model_Schema_v1.2.1.docx` (original kept in `archive/originals/`). v1.2.1 content was converted unchanged; the v1.3 revision was then made directly in this Markdown file (see §9.4 for the change summary). Superseded versions in the archive: `Data_Model_Schema.docx` (v1.0–v1.1), `Data_Model_Schema_v1.2.docx`.
-> **Cited elsewhere as:** Data Model v1.3, Data_Model_Schema v1.2.1 (frozen predecessor), Data_Model_Schema_v1_2_1, DM §n.
+> **Cited elsewhere as:** Data Model v1.4, Data Model v1.3 (the revision it corrects), Data_Model_Schema v1.2.1 (frozen predecessor), Data_Model_Schema_v1_2_1, DM §n.
 
 ## 0. Document Governance
 
@@ -15,25 +15,26 @@ _FamilyLifeOS Core — Canonical Database Specification_
 | v1.2 | 2026-02-21 | Architecture freeze release: soft-delete consistency mandate (new §4.3); CHECK constraints on users (shadow_node ↔ shadow_expires_at) and consent_handles (revoked_at, expires_at > granted_at); tracker updated with typed payload models escalation and webhook signature validation note. TOC added. | Shantanu Chaudhary |
 | v1.2.1 | 2026-02-21 | Documentation patch (no DDL changes): Q1 query annotated to clarify SYSTEM_ACTOR family isolation; audit_log.fsm_exit_state comment linked to NFR v2.1 telemetry enum. Tracker: Security_Threat_Model.md escalated from P1 to late-P0; offline_task_queue composite idempotency key added to parking lot. | Shantanu Chaudhary |
 | v1.3 | 2026-09-17 | Revision for the founder decisions of 2026-09-17 and Inconsistency Register items 1–3, 7, 8, 10–12 (see §9.4 for the full list): roles renamed spouse→member, child→minor; resource lock moved to its own `resource_lock` table (§3.11); `supervisor_sessions` gains intent_type, bbps_transaction_ref_id, healer_poll_count, session_notes; `offline_task_queue.status` gains 'cancelled'; `consent_handles.provider` gains 'ONDC'; `consent_records`, `consent_ui_disclosures` and the enforce_dpi_handle trigger folded in from Consent Manager v1.1 (§3.12–3.13); registry tables folded in from Module Registry (§3.14–3.15); `role_module_permissions` and the four kernel views (§3.16–3.17); audit write protocol `fn_lock_audit_tail` / `fn_append_audit` (§3.18); action taxonomy widened to the union across specs (§6); session-expiry cleanup no longer aborts EXECUTION sessions (§7.4); NULL previous_hash serialises as '' (§3.6, Q12); seed UUIDs made valid (§8); all kernel objects in schema `core` (§1.1). No database exists yet, so V001 is authored from this version. | Shantanu Chaudhary (with Claude Code) |
+| v1.4 | 2026-09-21 | Codex review round 2 (issue #10: 17 findings; issue #9 finding 12; PR #22 finding 3) and four founder rulings of 2026-09-21, see §9.5: audit chain gets a per-family head row and a durable append sequence (`audit_chain_heads`, `audit_log.chain_seq`, `occurred_at`); the audit functions are schema-qualified with a pinned search_path and a narrow owner; purge anonymises the `users` row in place instead of deleting it (`purged_at`), so audit and consent references survive; `users.is_child`; proxy re-confirmation state on `consent_records`; composite FK to the disclosure shown; deletion no longer aborts EXECUTION sessions; `supervisor_sessions.resource_key` and one intent identifier for collision checks; lock history no longer cascades away with its session; kernel views filter to live, unexpired rows and are declared candidate references, not authorisation; relationship types guardian/ward and the view `v_guardians` (moved here from PR #22, with the live-subject fix); module audit codes registered with typed payloads (taxonomy is 52 codes); family-level settings table convention; seed runs clean as one migration; one SYSTEM_ACTOR_UUID. V001 is still authored directly from this version. | Shantanu Chaudhary (with Claude Code; review by Codex) |
 
 ## Table of Contents
 
 - **1. Purpose & Design Philosophy** — 1.1 Core Design Principles • 1.2 Scope
 - **2. Entity-Relationship Overview** — ERD diagram of the ten original core tables plus a note on the v1.3 additions
-- **3. Table Definitions (Full DDL)** — 3.1 families • 3.2 users • 3.3 family_relationships • 3.4 proxy_assignments • 3.5 consent_handles • 3.6 audit_log (NFR-linked) • 3.7 supervisor_sessions • 3.8 device_registry • 3.9 offline_task_queue • 3.10 updated_at trigger • 3.11 resource_lock • 3.12 consent_records • 3.13 consent_ui_disclosures • 3.14 module_registry & intent_routes • 3.15 family_module_activations • 3.16 role_module_permissions • 3.17 kernel views • 3.18 audit write protocol
+- **3. Table Definitions (Full DDL)** — 3.1 families • 3.2 users • 3.3 family_relationships • 3.4 proxy_assignments • 3.5 consent_handles • 3.6 audit_log (NFR-linked) • 3.7 supervisor_sessions • 3.8 device_registry • 3.9 offline_task_queue • 3.10 updated_at trigger • 3.11 resource_lock • 3.12 consent_records • 3.13 consent_ui_disclosures • 3.14 module_registry & intent_routes • 3.15 family_module_activations • 3.16 role_module_permissions • 3.17 kernel views • 3.18 audit write protocol (with audit_chain_heads)
 - **4. Cardinality Rules & Application-Layer Enforcement** — 4.1 Admin Minimum Constraint • 4.2 Shadow Node Rules • 4.3 Soft Delete Consistency Mandate
 - **5. Graph Traversal & Operational Queries** — Q1 All Members (SYSTEM_ACTOR note) • Q2 RBAC Check • Q3 Proxies • Q4 Admins • Q5 Consent Expiry Watchdog • Q6 CONSENT_REVERIFY • Q7 Resource Lock • Q8 Audit Feed • Q9 Shadow Purge • Q10 Healer Queue • Q11 Relationship Map • Q12 Hash Chain Verify
-- **6. Audit Log Action Taxonomy** — 40 standardised action codes (union across all specs) • SYSTEM_ACTOR_UUID convention
+- **6. Audit Log Action Taxonomy** — 52 standardised action codes (union across all specs) • SYSTEM_ACTOR_UUID convention
 - **7. Data Lifecycle Management** — 7.1 Soft Delete & DPDP • 7.2 Hash Chain Schedule • 7.3 Rate Limit Reset • 7.4 Session Expiry Cleanup
 - **8. Seed Data (Development & Testing)** — Sharma Family canonical test scenario
-- **9. Migration Notes & Schema Evolution** — 9.1 Stability Commitment • 9.2 Alembic • 9.3 Module Table Convention • 9.4 v1.3 Change Summary & Migration Plan
+- **9. Migration Notes & Schema Evolution** — 9.1 Stability Commitment • 9.2 Alembic • 9.3 Module Table Convention • 9.4 v1.3 Change Summary & Migration Plan • 9.5 v1.4 Change Summary
 - **10. Open Issues & Q&A** — Resolved issues • 7 Q&A entries
 
 ## 1. Purpose & Design Philosophy
 
 This document is the canonical database specification for FamilyLifeOS. It defines every table, column, index, constraint, and query pattern that the engineering team will use to implement the Core Kernel. Every other technical document (FSM Spec, Financial Transaction Safety, Consent Manager) depends on this schema being stable and agreed upon before implementation begins.
 
-> ⚠ REVISION IN REVIEW (v1.3): unfrozen on 2026-09-17 to apply three founder-approved decisions (role names, resource lock table, session columns) and to fold in the tables that Consent Manager v1.1 and Module Registry v1.0 had defined outside this document. Codex runs review round 2; on approval the document re-freezes. v1.2.1 passed two independent reviews.
+> ⚠ REVISION IN REVIEW (v1.4): Codex's round-2 review (2026-09-21) required changes; v1.4 applies them (§9.5) and goes back to Codex for a targeted re-review, after which the document re-freezes. History: v1.3 was unfrozen on 2026-09-17 to apply three founder-approved decisions (role names, resource lock table, session columns) and to fold in the tables that Consent Manager v1.1 and Module Registry v1.0 had defined outside this document. Codex runs review round 2; on approval the document re-freezes. v1.2.1 passed two independent reviews.
 > Schema changes after a freeze require: a written migration plan (Alembic file), review of all affected queries in Section 5, backward-compatible changes only, and team announcement before merging.
 > All other P0 documents reference this schema by table and column name. If any other document's DDL differs from this one, this document wins.
 
@@ -41,11 +42,11 @@ This document is the canonical database specification for FamilyLifeOS. It defin
 
 - Family-as-unit: The family_id is the top-level partition key for all data. Everything belongs to a family, not just an individual.
 - Privacy-by-default: No raw credentials, passwords, Aadhaar numbers, or UPI IDs are stored in the application database. Only consent handles and UUIDs.
-- Soft-delete over hard-delete: User data is never immediately purged on deletion requests. A deleted_at timestamp is set; a nightly purge job executes the actual removal after 24 hours (DPDP Act compliance window).
+- Soft-delete, then erase: User data is never immediately purged on deletion requests. A deleted_at timestamp is set; a nightly purge job erases the personal data after 24 hours (DPDP Act compliance window). v1.4: the purge **anonymises the `users` row in place** and deletes the user's personal child rows; the emptied row stays as a placeholder so that the append-only audit chain and other people's consent records keep a valid reference (§7.1, founder ruling 2026-09-21).
 - Append-only audit: The audit_log table is append-only. No UPDATE or DELETE operations are permitted on it. Tamper detection is via hash chain.
 - Application-layer cardinality: Business rules like 'max 2 admins per family' are enforced in the application service layer, not via database constraints. The database stores the data; the service enforces the rules. This avoids complex deferred constraint failures.
 - Managed services: This schema targets AWS RDS for PostgreSQL (version 15+). No extensions beyond pgcrypto (for UUID generation) are required. The portfolio build runs the same DDL on PostgreSQL 15+ in Docker Compose.
-- Kernel schema (v1.3): every table, view and function in this document lives in the PostgreSQL schema `core`. Kernel code connects with `search_path = core`, so the DDL and queries below are written unqualified. Each Core Module owns its own schema named after its module_id and may read `core` only through the whitelisted views in §3.17 and write audit rows only through the functions in §3.18 (Module Registry §7.2).
+- Kernel schema (v1.3): every table, view and function in this document lives in the PostgreSQL schema `core`. Kernel code connects with `search_path = core`, so the DDL and queries below are written unqualified. The one exception is the body of the SECURITY DEFINER functions in §3.18, which is schema-qualified and pins its own search_path (v1.4). Each Core Module owns its own schema named after its module_id and may read `core` only through the whitelisted views in §3.17 and write audit rows only through the functions in §3.18 (Module Registry §7.2).
 
 ### 1.2 Scope of This Document
 
@@ -200,8 +201,25 @@ CREATE TABLE users (
   preferred_language  VARCHAR(10) NOT NULL DEFAULT 'en'
                       CHECK (preferred_language IN ('en','hi','te','kn','ta','mr','gu','pa','bn','ml')),
 
-  -- Soft delete
+  -- Child marker, independent of the login role (v1.4, founder ruling 2026-09-21). A 'minor' is always a
+  -- child; a 'managed' profile may be one (an infant has no login, so it cannot be a 'minor'). Child
+  -- protections (Consent Manager §2.5: parental consent, no analytics or behavioural purposes) follow this
+  -- marker, never the role. Set by an admin when the profile is created; cleared by an admin (Level 0)
+  -- when the person turns 18, together with the minor -> member role change where there is one.
+  -- The system stores no date of birth, so it never flips this by itself.
+  is_child            BOOLEAN     NOT NULL DEFAULT FALSE,
+  CONSTRAINT chk_is_child_role CHECK (
+    (role = 'minor' AND is_child = TRUE) OR
+    (role = 'managed') OR
+    (role NOT IN ('minor','managed') AND is_child = FALSE)
+  ),
+
+  -- Soft delete, then erasure (§7.1)
   deleted_at          TIMESTAMPTZ,
+  -- v1.4: set by the nightly purge when it has erased this row's personal data in place. A purged row is a
+  -- placeholder: display_name 'Deleted user', phone and email NULL, language 'en'. It identifies nobody.
+  purged_at           TIMESTAMPTZ,
+  CONSTRAINT chk_purged_is_deleted CHECK (purged_at IS NULL OR deleted_at IS NOT NULL),
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -215,6 +233,9 @@ CREATE UNIQUE INDEX idx_users_phone ON users(phone_number) WHERE phone_number IS
 -- Shadow node expiry scan: nightly cron job
 CREATE INDEX idx_users_shadow_expiry ON users(shadow_expires_at)
   WHERE shadow_node = TRUE AND deleted_at IS NULL;
+
+-- Nightly purge scan (§7.1): soft-deleted, not yet erased  [v1.4]
+CREATE INDEX idx_users_purge_due ON users(deleted_at) WHERE deleted_at IS NOT NULL AND purged_at IS NULL;
 ```
 
 > ⚠  CARDINALITY RULES (Application-Layer Enforcement — NOT database constraints):
@@ -247,11 +268,14 @@ CREATE TABLE family_relationships (
   -- 'child'    = from_user is child of to_user
   -- 'sibling'  = from_user is sibling of to_user
   -- 'in_law'   = from_user is in-law of to_user
+  -- 'guardian' = from_user is the legal guardian of to_user (v1.4; set by an admin, Level 0 with passkey;
+  --              meant for a child whose parents are not in the family or not alive)
+  -- 'ward'     = from_user is the ward of to_user (reverse edge of 'guardian')
   -- 'employer' = from_user employs to_user (admin → staff)
   -- 'employee' = from_user works for to_user (staff → admin)
   relationship_type VARCHAR(20) NOT NULL
                     CHECK (relationship_type IN
-                      ('spouse','parent','child','sibling','in_law','employer','employee')),
+                      ('spouse','parent','child','sibling','in_law','guardian','ward','employer','employee')),
 
   -- is_active: FALSE for relationships in dissolved households (divorce, separation)
   -- Inactive edges are retained for audit purposes
@@ -457,13 +481,27 @@ CREATE TABLE audit_log (
   -- Reason: DB-computed hashes are harder to verify externally and create lock-in.
   current_hash    VARCHAR(64)   NOT NULL,
 
-  -- IMMUTABILITY: This table must NEVER have UPDATE or DELETE permissions granted.
-  -- Grant only INSERT + SELECT to the application database user.
-  timestamp       TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+  -- v1.4: APPEND ORDER. chain_seq is the position of this row in its family's chain: 1, 2, 3, ... with no
+  -- gaps, assigned by fn_append_audit under the chain-head lock (§3.18). It is the ONLY ordering used for
+  -- locking, for previous_hash and for verification (Q12). Timestamps are not an order: NOW() is the
+  -- transaction start time, so two rows of one transaction tie, and a transaction that began earlier can
+  -- append later. chain_seq is not part of the hash; the previous_hash links already fix the order, and a
+  -- renumbered row shows up as a broken link.
+  chain_seq       BIGINT        NOT NULL,
+
+  -- IMMUTABILITY: This table must NEVER have UPDATE or DELETE permissions granted to any login role.
+  -- The application role gets SELECT only; rows are inserted by fn_append_audit (§3.18).
+  -- timestamp   = when the row was appended (clock_timestamp() inside fn_append_audit).
+  -- occurred_at = when the event happened, if that differs: the Healer writing a recovered payment passes
+  --               the provider's execution time (FTS §6.3). NULL means "same as timestamp".
+  timestamp       TIMESTAMPTZ   NOT NULL DEFAULT clock_timestamp(),
+  occurred_at     TIMESTAMPTZ,
+
+  CONSTRAINT uq_audit_chain_seq UNIQUE (family_id, chain_seq)
 );
 
--- CRITICAL: Revoke UPDATE and DELETE from app DB user
--- REVOKE UPDATE, DELETE ON audit_log FROM familylifeos_app;
+-- CRITICAL: no login role may change history.
+-- REVOKE ALL ON audit_log FROM familylifeos_app;  GRANT SELECT ON audit_log TO familylifeos_app;
 -- Module DB roles have NO privileges on this table at all; they append through
 -- fn_lock_audit_tail / fn_append_audit (§3.18). Kernel code uses the same two functions.
 
@@ -473,9 +511,13 @@ CREATE INDEX idx_audit_family_ts ON audit_log(family_id, timestamp DESC);
 -- Query actions by a specific user
 CREATE INDEX idx_audit_user ON audit_log(user_id, timestamp DESC);
 
--- Verify hash chain integrity (daily verification job)
--- Query: SELECT * FROM audit_log WHERE family_id=$1 ORDER BY timestamp ASC
+-- Verify hash chain integrity (daily verification job): the UNIQUE (family_id, chain_seq) index serves it.
+-- Query: SELECT * FROM audit_log WHERE family_id=$1 ORDER BY chain_seq ASC
 ```
+
+> ℹ  v1.4, references to people who are later erased: `user_id` keeps its NOT NULL foreign key. It stays valid
+> because the purge never deletes a `users` row; it empties it (§7.1). Audit rows are never rewritten, cascaded
+> or re-hashed, and `details` never held personal data in the first place (§6).
 
 > ⚠  IMPORTANT: The database CHECK constraint for hash verification from Master Context v2.0 has been intentionally removed.
 > Reason: digest() inside a CHECK constraint is evaluated on every INSERT and every SELECT that checks constraints.
@@ -514,8 +556,14 @@ CREATE TABLE supervisor_sessions (
   -- The former resource_lock column is gone. Rationale: FTS §9.3 needs locks that can outlive a
   -- session's state transitions and be released independently of them.
 
-  -- Intent type, mirrors intent_payload.parsed_intent for indexed lookups (FTS §5.3)  [v1.3]
+  -- Intent type: the manifest intent_code, identical to intent_payload.parsed_intent, e.g. 'PAY_BILL'
+  -- (FTS §5.3). v1.4: this is the one identifier; 'BILL_PAYMENT' is an audit-code prefix, never an intent.
   intent_type       VARCHAR(50),
+
+  -- v1.4: the resource this session acts on, in resource_lock key format ('BBPS_' || biller_id, §3.11).
+  -- Set at INTENT_ANALYSIS once entities are resolved; NULL for intents with no contended resource.
+  -- The duplicate-payment check (FTS §5.3) reads this column, not a path inside intent_payload.
+  resource_key      VARCHAR(200),
 
   -- External reference returned by BBPS once a payment is acknowledged (FTS §6.4). NULL until then.  [v1.3]
   bbps_transaction_ref_id VARCHAR(100),
@@ -548,13 +596,25 @@ CREATE INDEX idx_session_user_active ON supervisor_sessions(user_id, fsm_state)
 CREATE INDEX idx_session_recovery ON supervisor_sessions(fsm_state, expires_at)
   WHERE fsm_state IN ('AWAITING_APPROVAL','CONSENT_REVERIFY','EXECUTION');
 
--- Collision detection for duplicate payment intents (FTS §5.3)  [v1.3]
-CREATE INDEX idx_session_intent_lookup ON supervisor_sessions(family_id, intent_type, created_at DESC)
-  WHERE fsm_state NOT IN ('FAILED','ABORTED','SUCCESS_CONFIRMATION');
+-- Collision detection for duplicate payment intents (FTS §5.3)  [v1.3; v1.4 adds resource_key]
+CREATE INDEX idx_session_intent_lookup ON supervisor_sessions(family_id, intent_type, resource_key, created_at DESC)
+  WHERE fsm_state NOT IN ('FAILED','ABORTED');
 
 -- v1.3: idx_session_resource_lock and idx_session_resource_lock_unique were removed with the
 -- column. Uniqueness of a live lock is enforced by idx_resource_lock_live on resource_lock (§3.11).
 ```
+
+**Persisted states and what the other specs' words map to (v1.4).** Only the eleven values in the CHECK above are ever written to `fsm_state`, and only the four values in §3.6 to `audit_log.fsm_exit_state`. Other documents use a few more words; none of them is a stored value:
+
+| Word used elsewhere | What is stored in `supervisor_sessions.fsm_state` | What is stored in `audit_log.fsm_exit_state` |
+|---|---|---|
+| BLOCKED (MR §9: RBAC, activation or public-surface refusal before dispatch) | `FAILED`, with `session_notes` = the MOD_* code | `FAILED` |
+| CONSENT_REVERIFY_FAILED (CM §5) | `FAILED` (it is an audit **action**, §6, not a state) | `FAILED` |
+| SUCCESS_CONFIRMATION (normal completion, or Admin override to success, FTS §11.3) | `SUCCESS_CONFIRMATION` | `SUCCESS` |
+| ABORTED (user cancel, timeout, account deletion) | `ABORTED` | `ABORTED` |
+| A payment approved and in flight (BILL_PAYMENT_INITIATED) | `EXECUTION` | `AWAITING_APPROVAL` is never used for this; the row carries NULL until the outcome is known |
+
+`fsm_exit_state` is telemetry about how a session ended; it is never copied from `fsm_state` by string. The mapping function lives in the kernel next to the audit writer and is unit-tested against both CHECK constraints.
 
 ### 3.8 device_registry
 
@@ -724,7 +784,9 @@ CREATE TABLE resource_lock (
   -- Resource key format (FTS §9.2): 'BBPS_' || biller_id for bill payments.
   -- Other resource classes use a class prefix + identifier: 'MEMBER_' || user_id, 'CONSENT_' || consent_id.
   resource_key   VARCHAR(200) NOT NULL,
-  session_id     UUID         NOT NULL REFERENCES supervisor_sessions(session_id) ON DELETE CASCADE,
+  -- v1.4: RESTRICT, not CASCADE. Lock history is kept 7 days; a session row may not be purged while a lock
+  -- row still points at it (§7.4 Step 3 deletes the old lock rows first, then the sessions that are free).
+  session_id     UUID         NOT NULL REFERENCES supervisor_sessions(session_id) ON DELETE RESTRICT,
   acquired_by    UUID         NOT NULL REFERENCES users(user_id),
   acquired_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   -- NULL while held. Set on release: Phase 2 COMMIT, FAILED/ABORTED transition,
@@ -776,11 +838,24 @@ CREATE TABLE consent_records (
   jurisdiction             VARCHAR(10)  NOT NULL DEFAULT 'IN',
   lawful_basis             VARCHAR(40)  NOT NULL DEFAULT 'explicit_consent',
 
-  -- Required for minor users before status = 'active' (Consent Manager §2.5)
+  -- Required when the subject is a child (users.is_child, v1.4) before status = 'active': the parent or
+  -- legal guardian who consented (Consent Manager §2.5)
   parental_consent_user_id UUID         REFERENCES users(user_id),
 
-  -- Required when user_id is a managed profile: the assigned proxy who granted (Consent Manager v1.3 §2.6)
+  -- Required when user_id is a managed profile: the assigned proxy who granted (Consent Manager §2.6).
+  -- For a managed child both columns are set; they may name the same person.
   proxy_consent_user_id    UUID         REFERENCES users(user_id),
+
+  -- v1.4, proxy re-confirmation (Consent Manager v1.4 §2.6.4). Set TRUE by the kernel when the proxy who
+  -- granted this record is deleted. It is NOT consent_handles.revalidation_required: that flag is about the
+  -- provider's view of a handle and is cleared by a provider status call; this one is about a human and is
+  -- cleared only when the CURRENT primary proxy confirms with biometric or PIN. While TRUE, the record
+  -- does not pass CONSENT_REVERIFY for a new external fetch; processing of data already held continues
+  -- (medication reminders do not stop).
+  proxy_reconfirm_required BOOLEAN      NOT NULL DEFAULT FALSE,
+  proxy_reconfirmed_by     UUID         REFERENCES users(user_id),
+  proxy_reconfirmed_at     TIMESTAMPTZ,
+  CONSTRAINT chk_proxy_reconfirm CHECK ((proxy_reconfirmed_by IS NULL) = (proxy_reconfirmed_at IS NULL)),
 
   -- Link to the external DPI handle; NULL for first-party-only purposes
   consent_handle_id        UUID         REFERENCES consent_handles(consent_id),
@@ -796,8 +871,13 @@ CREATE TABLE consent_records (
 
   CONSTRAINT chk_granted_before_expiry CHECK (granted_at IS NULL OR expires_at > granted_at),
   CONSTRAINT chk_revoked_has_timestamp CHECK (status NOT IN ('revoked','withdrawn') OR revoked_at IS NOT NULL),
-  CONSTRAINT chk_pending_no_grant_time CHECK (status != 'pending' OR granted_at IS NULL)
+  CONSTRAINT chk_pending_no_grant_time CHECK (status != 'pending' OR granted_at IS NULL),
+
+  -- v1.4: proof of what the person was shown. The disclosure row must exist before the grant (§3.13).
+  CONSTRAINT fk_consent_disclosure FOREIGN KEY (purpose_code, consent_ui_version)
+    REFERENCES consent_ui_disclosures (purpose_code, version)
 );
+-- Creation order in V001: consent_ui_disclosures (§3.13) before consent_records.
 
 -- Only one ACTIVE consent per user per purpose
 CREATE UNIQUE INDEX idx_one_active_consent_per_purpose
@@ -810,9 +890,13 @@ CREATE INDEX idx_consent_records_expiry ON consent_records (expires_at, status) 
 CREATE INDEX idx_consent_parental ON consent_records (parental_consent_user_id)
   WHERE parental_consent_user_id IS NOT NULL;
 
--- Proxy consent lookup (Consent Manager v1.3 §2.6)
+-- Proxy consent lookup (Consent Manager §2.6)
 CREATE INDEX idx_consent_proxy ON consent_records (proxy_consent_user_id)
   WHERE proxy_consent_user_id IS NOT NULL;
+
+-- Records waiting for the new primary proxy (Consent Manager v1.4 §2.6.4)
+CREATE INDEX idx_consent_proxy_reconfirm ON consent_records (family_id, user_id)
+  WHERE proxy_reconfirm_required = TRUE AND status = 'active';
 
 -- Consent Manager v1.1 Fix 1: a DPI purpose must never be recorded without its external handle.
 -- Without this, a crash between the consent_handles INSERT and the consent_records INSERT leaves
@@ -932,7 +1016,9 @@ INSERT INTO role_module_permissions (role, module_id) VALUES
 
 ### 3.17 Kernel views readable by modules (v1.3, Module Registry §7.2 whitelist)
 
-Each Core Module's database role gets SELECT on these four views and nothing else in `core`. They expose references, never token material, phone numbers, emails or push tokens.
+Each Core Module's database role gets SELECT on these five views and nothing else in `core`. They expose references, never token material, phone numbers, emails or push tokens.
+
+> ⚠  v1.4: **a row in a view is a candidate reference, never an authorisation.** The views filter to live people and unexpired rows so that a module does not plan work it cannot do, but the decision to act on someone's data is made by the kernel: RBAC and purpose-bound consent resolution before dispatch (Module Registry §7.3), and CONSENT_REVERIFY, live against the tables, immediately before any external call (Consent Manager §5). A module must never treat "there is a row in v_active_consents" as consent.
 ```sql
 -- What a module may know about the family graph. No phone, email, or shadow expiry.
 CREATE VIEW v_family_members AS
@@ -958,45 +1044,91 @@ WHERE f.deleted_at IS NULL;
 
 -- Consent references only. external_consent_id and data_scope are never exposed to modules;
 -- the DPI Gateway resolves handles at call time (Module Registry §6.1 rule 3).
+-- v1.4: live subject, unexpired record, and (where there is one) an active, unexpired handle.
 CREATE VIEW v_active_consents AS
 SELECT cr.family_id, cr.user_id, cr.record_id, cr.purpose_code, cr.consent_handle_id,
-       ch.provider, cr.status, cr.expires_at, ch.revalidation_required
+       ch.provider, cr.status, cr.expires_at, ch.revalidation_required, cr.proxy_reconfirm_required
 FROM consent_records cr
+JOIN users u ON u.user_id = cr.user_id AND u.family_id = cr.family_id AND u.deleted_at IS NULL
 LEFT JOIN consent_handles ch ON ch.consent_id = cr.consent_handle_id
-WHERE cr.status = 'active';
+WHERE cr.status = 'active'
+  AND cr.expires_at > NOW()
+  AND (cr.consent_handle_id IS NULL OR (ch.status = 'active' AND ch.expires_at > NOW()));
 
--- Public/private surface per device (PRD Scenario 9). No push tokens.
+-- Public/private surface per device (PRD Scenario 9). No push tokens. v1.4: live owners only.
 CREATE VIEW v_device_surfaces AS
 SELECT d.family_id, d.device_id, d.owner_user_id, d.device_type, d.is_public_surface
-FROM device_registry d;
+FROM device_registry d
+JOIN users o ON o.user_id = d.owner_user_id AND o.family_id = d.family_id AND o.deleted_at IS NULL;
 
--- Per module, at registration (Module Registry §7.2):
--- GRANT SELECT ON v_family_members, v_module_permissions, v_active_consents, v_device_surfaces TO role_module_<id>;
+-- Who is responsible for a dependent (v1.4). One row per (dependent, guardian, basis).
+-- Modules use it to decide who may see or be told about a dependent's data; they never read
+-- family_relationships or proxy_assignments directly. Both branches require a LIVE dependent of the
+-- right kind, a LIVE guardian, and both people in the row's own family.
+CREATE VIEW v_guardians AS
+SELECT fr.family_id, fr.to_user_id AS dependent_user_id, fr.from_user_id AS guardian_user_id,
+       CASE fr.relationship_type WHEN 'parent' THEN 'parent' ELSE 'legal_guardian' END AS basis,
+       NULL::VARCHAR(10) AS proxy_rank, NULL::VARCHAR(20) AS conflict_resolution_rule, NULL::INTEGER AS notify_timeout_mins
+FROM family_relationships fr
+JOIN users dep ON dep.user_id = fr.to_user_id   AND dep.family_id = fr.family_id
+              AND dep.deleted_at IS NULL AND dep.is_child = TRUE
+JOIN users g   ON g.user_id   = fr.from_user_id AND g.family_id   = fr.family_id
+              AND g.deleted_at IS NULL AND g.role IN ('admin','member')
+WHERE fr.relationship_type IN ('parent','guardian') AND fr.is_active
+UNION ALL
+SELECT pa.family_id, pa.managed_user_id, pa.proxy_user_id,
+       'proxy' AS basis, pa.proxy_rank, pa.conflict_resolution_rule, pa.notify_timeout_mins
+FROM proxy_assignments pa
+JOIN users dep ON dep.user_id = pa.managed_user_id AND dep.family_id = pa.family_id
+              AND dep.deleted_at IS NULL AND dep.role = 'managed'
+JOIN users g   ON g.user_id   = pa.proxy_user_id   AND g.family_id   = pa.family_id
+              AND g.deleted_at IS NULL AND g.role IN ('admin','member');
+
+-- Per module, at registration (Module Registry §7.2). USAGE without CREATE: without it every grant below
+-- fails with "permission denied for schema core" on a deny-by-default database (v1.4).
+-- GRANT USAGE ON SCHEMA core TO role_module_<id>;
+-- GRANT SELECT ON v_family_members, v_module_permissions, v_active_consents, v_device_surfaces, v_guardians
+--   TO role_module_<id>;
 ```
 
-### 3.18 Audit write protocol (v1.3)
+Consequences of the predicates, stated so tests can assert them: a dependent in the soft-delete window has no guardians; a managed profile changed to `member` loses its proxy rows from the view at once (the `proxy_assignments` rows are also removed by the role-change service); an edge whose two people are not both in `fr.family_id` returns nothing. A managed child with a parent edge appears twice (basis `parent` and basis `proxy`); consumers de-duplicate by `guardian_user_id`.
 
-Two SECURITY DEFINER functions let any writer (kernel or module) append to `audit_log` without table privileges while keeping two earlier decisions intact: the hash is computed in application code with the canonical JSON of §3.6 (so auditors can verify it without database access), and concurrent writers are serialised per family with a row lock (FTS §11.3). Both calls happen inside one transaction together with the business write they describe (two-phase commit, FTS §4.3).
+### 3.18 Audit write protocol (v1.3, reworked in v1.4)
+
+Two SECURITY DEFINER functions let any writer (kernel or module) append to `audit_log` without table privileges while keeping two earlier decisions intact: the hash is computed in application code with the canonical JSON of §3.6 (so auditors can verify it without database access), and concurrent writers are serialised per family (FTS §11.3). Both calls happen inside one transaction together with the business write they describe (two-phase commit, FTS §4.3).
+
+v1.4 changes what is locked. v1.3 locked the newest `audit_log` row, which fails in two ways: a family with no rows has nothing to lock, so two first writers both start a chain; and a writer that waited for the lock then compared against a head that had moved. The lock is now a **per-family head row** that always exists once touched, and it carries the sequence counter.
 ```sql
+-- One row per family: the serialisation point and the append counter. Never read by application code.
+CREATE TABLE audit_chain_heads (
+  family_id  UUID        PRIMARY KEY REFERENCES families(family_id),
+  last_seq   BIGINT      NOT NULL DEFAULT 0,        -- chain_seq of the newest audit_log row; 0 = empty chain
+  last_hash  VARCHAR(64),                            -- current_hash of that row; NULL = empty chain
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
 -- Step 1 — lock the family's chain head and return its hash (NULL when the family has no rows yet).
--- The row lock is held until COMMIT, so no other writer can append for this family meanwhile.
-CREATE OR REPLACE FUNCTION fn_lock_audit_tail(p_family_id UUID)
+-- The head row is created on first use, so an empty chain is locked exactly like a long one. The row lock
+-- is held until COMMIT or ROLLBACK; a second writer blocks here and, once released, reads the NEW head.
+CREATE OR REPLACE FUNCTION core.fn_lock_audit_tail(p_family_id UUID)
 RETURNS VARCHAR(64)
-LANGUAGE plpgsql SECURITY DEFINER AS $$
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = core, pg_temp
+AS $$
 DECLARE v_hash VARCHAR(64);
 BEGIN
-  SELECT current_hash INTO v_hash
-  FROM audit_log
-  WHERE family_id = p_family_id
-  ORDER BY timestamp DESC, log_id DESC
-  LIMIT 1
+  INSERT INTO core.audit_chain_heads (family_id) VALUES (p_family_id)
+  ON CONFLICT (family_id) DO NOTHING;
+  SELECT h.last_hash INTO v_hash
+  FROM core.audit_chain_heads h
+  WHERE h.family_id = p_family_id
   FOR UPDATE;
   RETURN v_hash;
 END $$;
 
--- Step 2 — append with the hash computed in application code. The function re-reads the chain head
--- and refuses if the caller's previous_hash is stale, so misuse fails loudly instead of corrupting the chain.
-CREATE OR REPLACE FUNCTION fn_append_audit(
+-- Step 2 — append with the hash computed in application code. Takes the same lock (a no-op when Step 1 ran
+-- in this transaction), refuses a stale previous_hash, assigns the next chain_seq and advances the head.
+CREATE OR REPLACE FUNCTION core.fn_append_audit(
   p_log_id         UUID,
   p_family_id      UUID,
   p_user_id        UUID,
@@ -1004,46 +1136,76 @@ CREATE OR REPLACE FUNCTION fn_append_audit(
   p_details        JSONB,
   p_fsm_exit_state VARCHAR(30),
   p_previous_hash  VARCHAR(64),
-  p_current_hash   VARCHAR(64)
+  p_current_hash   VARCHAR(64),
+  p_occurred_at    TIMESTAMPTZ DEFAULT NULL          -- event time when it differs from append time (FTS §6.3)
 ) RETURNS UUID
-LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE v_head VARCHAR(64);
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = core, pg_temp
+AS $$
+DECLARE v_seq BIGINT; v_head VARCHAR(64);
 BEGIN
-  SELECT current_hash INTO v_head
-  FROM audit_log WHERE family_id = p_family_id
-  ORDER BY timestamp DESC, log_id DESC LIMIT 1;
+  SELECT h.last_seq, h.last_hash INTO v_seq, v_head
+  FROM core.audit_chain_heads h
+  WHERE h.family_id = p_family_id
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'AUDIT_CHAIN_NOT_LOCKED: call fn_lock_audit_tail first (family %)', p_family_id;
+  END IF;
   IF v_head IS DISTINCT FROM p_previous_hash THEN
     RAISE EXCEPTION 'AUDIT_CHAIN_HEAD_MISMATCH: head=% given=%', v_head, p_previous_hash;
   END IF;
-  INSERT INTO audit_log (log_id, family_id, user_id, action, details, fsm_exit_state,
-                         previous_hash, current_hash, timestamp)
+  INSERT INTO core.audit_log (log_id, family_id, user_id, action, details, fsm_exit_state,
+                              previous_hash, current_hash, chain_seq, timestamp, occurred_at)
   VALUES (p_log_id, p_family_id, p_user_id, p_action, p_details, p_fsm_exit_state,
-          p_previous_hash, p_current_hash, NOW());
+          p_previous_hash, p_current_hash, v_seq + 1, clock_timestamp(), p_occurred_at);
+  UPDATE core.audit_chain_heads
+  SET last_seq = v_seq + 1, last_hash = p_current_hash, updated_at = clock_timestamp()
+  WHERE family_id = p_family_id;
   RETURN p_log_id;
 END $$;
 
-REVOKE ALL ON FUNCTION fn_lock_audit_tail(UUID) FROM PUBLIC;
-REVOKE ALL ON FUNCTION fn_append_audit(UUID,UUID,UUID,VARCHAR,JSONB,VARCHAR,VARCHAR,VARCHAR) FROM PUBLIC;
+-- Ownership and privileges. The functions run as their owner, so the owner holds exactly what they need.
+-- CREATE ROLE familylifeos_audit_owner NOLOGIN;
+-- GRANT USAGE ON SCHEMA core TO familylifeos_audit_owner;
+-- GRANT SELECT, INSERT ON core.audit_log TO familylifeos_audit_owner;               -- no UPDATE, no DELETE
+-- GRANT SELECT, INSERT, UPDATE ON core.audit_chain_heads TO familylifeos_audit_owner;
+-- ALTER FUNCTION core.fn_lock_audit_tail(UUID) OWNER TO familylifeos_audit_owner;
+-- ALTER FUNCTION core.fn_append_audit(UUID,UUID,UUID,VARCHAR,JSONB,VARCHAR,VARCHAR,VARCHAR,TIMESTAMPTZ)
+--   OWNER TO familylifeos_audit_owner;
+REVOKE ALL ON core.audit_chain_heads FROM PUBLIC;   -- and no grant to familylifeos_app or any module role
+REVOKE ALL ON FUNCTION core.fn_lock_audit_tail(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION core.fn_append_audit(UUID,UUID,UUID,VARCHAR,JSONB,VARCHAR,VARCHAR,VARCHAR,TIMESTAMPTZ) FROM PUBLIC;
 -- GRANT EXECUTE on both to familylifeos_app and to each role_module_<id> at registration.
 ```
 
+Why each hardening line is there (PostgreSQL 15 documentation, CREATE FUNCTION, "Writing SECURITY DEFINER Functions Safely"): a SECURITY DEFINER function resolves unqualified names through the **caller's** search_path, so a caller who can create a schema or a temporary table named `audit_log` could make the function write there with the owner's privileges. Every object is therefore schema-qualified, `search_path` is pinned with `pg_temp` last, and the owner is a no-login role with no rights beyond the two tables. `fn_append_audit` does not trust the application to have called Step 1: it takes the lock itself.
+
 Application side (asyncpg), the only supported way to write an audit row:
 ```python
-async with conn.transaction():
-    prev = await conn.fetchval('SELECT fn_lock_audit_tail($1)', family_id)      # NULL -> None
+async with conn.transaction():                     # READ COMMITTED, the PostgreSQL default
+    prev = await conn.fetchval('SELECT core.fn_lock_audit_tail($1)', family_id)      # NULL -> None
     log_id = uuid.uuid4()
     canonical = json.dumps(details, sort_keys=True, separators=(',', ':'))
     current = hashlib.sha256(
-        f'{log_id}{user_id}{action}{canonical}{prev or ""}'.encode('utf-8')     # NULL previous_hash -> ''
+        f'{log_id}{user_id}{action}{canonical}{prev or ""}'.encode('utf-8')          # NULL previous_hash -> ''
     ).hexdigest()
-    await conn.fetchval('SELECT fn_append_audit($1,$2,$3,$4,$5,$6,$7,$8)',
-                        log_id, family_id, user_id, action, details, fsm_exit_state, prev, current)
+    await conn.fetchval('SELECT core.fn_append_audit($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+                        log_id, family_id, user_id, action, details, fsm_exit_state, prev, current, occurred_at)
+    # A second audit row in the same transaction repeats the three steps; fn_lock_audit_tail then returns
+    # the hash this transaction just wrote.
     # ... the business write this row describes (e.g. supervisor_sessions update) in the same transaction ...
 ```
 
-> ⚠  The `details` argument must already be a typed, PII-free payload (UUIDs and amounts only). Typed payload
-> models per action code are specified in Tech_Spec_Audit_Log_Implementation.md (P1) and are required before
-> any real user data enters the system (tracker parking lot).
+Contention and retry (v1.4):
+- Lock the chain head **last among row locks and as late as possible**: business rows first (`families` FOR UPDATE for cardinality, the session row, the resource lock), then the audit head, then COMMIT. One order everywhere means no deadlock between two writers of one family. The head lock serialises a family's writers for the few milliseconds between Step 1 and COMMIT; never hold it across an external call.
+- Transactions run at READ COMMITTED. A writer that waited on the head lock re-reads the row when the lock is granted and therefore hashes against the new head. Under REPEATABLE READ or SERIALIZABLE the same wait ends in SQLSTATE 40001; the caller retries the **whole business transaction** (at most 3 attempts, jittered 10–50 ms), never just the audit call.
+- `AUDIT_CHAIN_HEAD_MISMATCH` and `AUDIT_CHAIN_NOT_LOCKED` are programmer errors (hash computed before the lock, or Step 1 skipped). They abort the business transaction and are not retried.
+- Required tests (Test Automation Strategy, audit-chain package): two connections appending to an **empty** chain; two connections appending to an existing chain; two rows in one transaction; a caller with `search_path` pointing at a schema that contains its own `audit_log`; a module role attempting direct DML on `core.audit_log` and `core.audit_chain_heads`. In every passing case both business operations commit and Q12 verifies one linear chain with `chain_seq` 1..n.
+
+> ⚠  The `details` argument must already be a typed, PII-free payload (§6: identifiers, amounts, registered enum
+> values; never free text). Typed payload models per action code are specified in
+> Tech_Spec_Audit_Log_Implementation.md (P1) and are required before any real user data enters the system
+> (tracker parking lot). The payloads of the module codes added in v1.4 are fixed in §6.1 already.
 
 ## 4. Cardinality Rules & Application-Layer Enforcement
 
@@ -1103,12 +1265,14 @@ Specific risks if this rule is not followed:
 On-delete service responsibilities (in addition to setting deleted_at):
 - Immediately deactivate all proxy_assignments where proxy_user_id = deleted user. Do not wait for hard purge.
 - Immediately set status = 'revoked' on all consent_handles for the deleted user. Revoke DPI consents via the provider API in the same transaction.
-- Immediately abort any supervisor_sessions in AWAITING_APPROVAL or EXECUTION state belonging to the deleted user.
+- Immediately abort the deleted user's supervisor_sessions in every non-terminal state **except EXECUTION** (v1.4). A session in EXECUTION may already have moved money; nothing but the Healer may take it out of that state (FTS §6–7, §7.4 below, AGENTS invariant 19). Deletion cuts the person's access and consents at once; it does not cut the system's duty to finish the books. The Healer reconciles the session under SYSTEM_ACTOR_UUID, writes the payment's audit row, and releases the lock. The balance-check consent it would have needed is no longer required: reconciliation only asks the biller network for the status of a payment already submitted.
+- A consent record the deleted user granted **as a proxy** for a managed profile stays valid and is flagged `proxy_reconfirm_required = TRUE` (§3.12; Consent Manager v1.4 §2.6.4).
 - Revocation of proxy_assignments for managed profiles: if the deleted user was the sole (primary) proxy for a managed profile, alert Admin immediately — the managed profile is now without a caregiver.
 
-> ℹ  The hard purge job (nightly at 01:00 IST) handles the physical removal of rows.
->    Service-layer cleanup above is a safety net against the ~24h window between soft and hard delete.
->    The ON DELETE CASCADE on users → child tables handles hard-delete cleanup automatically.
+> ℹ  The purge job (nightly at 01:00 IST) erases the personal data (§7.1). v1.4: it does not delete the
+>    `users` row, so the ON DELETE CASCADE clauses on users → child tables fire only when a whole family
+>    is removed in a test database; the purge deletes the child rows it must delete explicitly, by name.
+>    Service-layer cleanup above is a safety net against the ~24h window between soft delete and purge.
 
 ## 5. Graph Traversal & Operational Queries
 
@@ -1373,18 +1537,22 @@ ORDER BY u_from.display_name, fr.relationship_type;
 
 ### Q12 — Verify Audit Log Hash Chain Integrity
 
-Used by: Daily integrity verification job. Reads all entries for a family in timestamp order, re-computes expected_hash, and flags any mismatch. Run as a read-only operation against a replica, not the primary.
+Used by: Daily integrity verification job. Reads all entries for a family in append order (`chain_seq`, v1.4), re-computes expected_hash, and flags any mismatch. Run as a read-only operation against a replica, not the primary.
 ```sql
 -- Fetch all entries in chain order for a family
-SELECT log_id, user_id, action, details, timestamp, previous_hash, current_hash
+SELECT log_id, user_id, action, details, chain_seq, timestamp, previous_hash, current_hash
 FROM audit_log
 WHERE family_id = $1
-ORDER BY timestamp ASC, log_id ASC;
+ORDER BY chain_seq ASC;
 
 -- Application verification loop (Python pseudocode):
 # import json, hashlib
 # prev_hash = None
+# expected_seq = 1
 # for row in rows:
+#   if row.chain_seq != expected_seq or row.previous_hash != prev_hash:        # gap, duplicate or fork (v1.4)
+#     alert_admin(family_id, row.log_id, 'HASH_CHAIN_BROKEN'); break
+#   expected_seq += 1
 #   # CRITICAL: Use canonical JSON (sorted keys, no spaces).
 #   # str(row.details) is NON-DETERMINISTIC and will produce false tamper alerts.
 #   canonical_details = json.dumps(row.details, sort_keys=True, separators=(',', ':'))
@@ -1400,7 +1568,7 @@ ORDER BY timestamp ASC, log_id ASC;
 
 Every entry in audit_log.action must use one of the standardized action codes below. This ensures consistent querying, filtering, and reporting. Engineers must NOT use free-text strings for the action field.
 
-System-initiated entries: Some audit events are triggered by automated jobs (cron, Healer) rather than a human user. These entries use a reserved system user UUID defined as a constant in the application config (e.g. SYSTEM_ACTOR_UUID = '00000000-0000-0000-0000-000000000001'). This UUID must exist as a user row in the users table with role='managed' and family_id pointing to a reserved system family. This allows audit_log foreign key constraints to hold without special-casing the schema.
+System-initiated entries: Some audit events are triggered by automated jobs (cron, Healer) rather than a human user. These entries use a reserved system user UUID defined as a constant in the application config (SYSTEM_ACTOR_UUID = '00000000-0000-4000-8000-000000000001', the row seeded in §8; v1.4 removed a second, unseeded value that stood here). This UUID must exist as a user row in the users table with role='managed' and family_id pointing to a reserved system family. This allows audit_log foreign key constraints to hold without special-casing the schema.
 
 | Action Code | Module | Automation Tier | Description | Defined in |
 |---|---|---|---|---|
@@ -1421,7 +1589,8 @@ System-initiated entries: Some audit events are triggered by automated jobs (cro
 | CONSENT_REVERIFY_PASSED | Consent | system | CONSENT_REVERIFY gate passed. | CM §5 |
 | CONSENT_REVERIFY_FAILED | Consent | system | CONSENT_REVERIFY gate failed; session did not execute. | CM §5 |
 | PARENTAL_CONSENT_GRANTED | Consent | Level 0 | A parent granted consent on behalf of a minor. | CM §2.5 |
-| PROXY_CONSENT_GRANTED | Consent | Level 0 | An assigned proxy granted consent on behalf of a managed profile. | CM v1.3 §2.6 |
+| PROXY_CONSENT_GRANTED | Consent | Level 0 | An assigned proxy granted consent on behalf of a managed profile. Written in the same transaction as CONSENT_GRANTED. | CM §2.6 |
+| PROXY_CONSENT_RECONFIRMED | Consent | Level 0 | The current primary proxy re-confirmed a record whose granting proxy was deleted. | CM v1.4 §2.6.4 |
 | CONSENT_UI_VERSION_CHANGED | Consent | system | A material disclosure change queued re-consent. | CM §4.6 |
 | MEMBER_ADDED | Family | Level 0 | Admin added a family member (or shadow node). | DM v1.2.1 |
 | MEMBER_REMOVED | Family | Level 0 | Admin removed a family member. | DM v1.2.1 |
@@ -1442,21 +1611,56 @@ System-initiated entries: Some audit events are triggered by automated jobs (cro
 | ACCOUNT_DELETION_REQUESTED | System | Level 0 | User requested account deletion (last entry by the user's own action). | CM §2.2 |
 | DATA_DELETION_COMPLETED | System | system | Nightly purge hard-deleted the user's rows (final entry before cascade). | CM §2.2 |
 | HASH_CHAIN_VERIFIED | System | system | Integrity check passed. | DM §7.2 |
-| SHADOW_NODE_EXPIRED | System | system | Unaccepted shadow node soft-deleted after 7 days; details={shadow_user_id, display_name, expired_at}. | DM §4.2 |
+| SHADOW_NODE_EXPIRED | System | system | Unaccepted shadow node soft-deleted after 7 days; details={shadow_user_id, expired_at}. v1.4 removed display_name: a name is personal data. | DM §4.2 |
 | VOICE_INTENT_PROCESSED | Voice | Level 0 | A voice utterance was transcribed and passed to the Supervisor (no transcript stored). | RB §10.3 |
 | VOICE_ASR_LOW_CONFIDENCE | Voice | system | ASR confidence < 0.80; details={confidence, language, transcript_length}. | RB §7.3 |
+| VAULT_DOCUMENT_LINKED | Vault | Level 0 | A document reference was linked to a holder. | Vault PRD §4; payload §6.1 |
+| VAULT_DOCUMENT_UNLINKED | Vault | Level 0 | A document reference was removed. | Vault PRD §4; payload §6.1 |
+| VAULT_VISIBILITY_CHANGED | Vault | Level 0 | A document's visibility value changed (by its holder, a guardian, or the role-change hook as system). | Vault PRD §4.6; payload §6.1 |
+| VAULT_MILESTONE_DETECTED | Vault | system | A milestone was derived from a linked document. | Vault PRD §4.1; payload §6.1 |
+| VAULT_SETTINGS_CHANGED | Vault | Level 0 | A family-level Vault setting changed. | Vault PRD §4.6; payload §6.1 |
+| MEDICATION_SCHEDULED | Health | Level 0 / Level 1 | A medication schedule was created or changed. | Health PRD §4; payload §6.1 |
+| MEDICATION_EVENT_RESOLVED | Health | Level 0 / system | A dose event reached TAKEN, SKIPPED or MISSED. MISSED is written by the sweep as system. | Health PRD §4.5; payload §6.1 |
+| HEALTH_RECORD_FETCHED | Health | Level 1 | Records were fetched through ABHA for a subject. | Health PRD §5; payload §6.1 |
+| HEALTH_SETTINGS_CHANGED | Health | Level 0 | A family-level Health setting changed. | Health PRD §4.6; payload §6.1 |
+| FINANCE_SETTINGS_CHANGED | Finance | Level 0 | A family-level Finance setting changed (loosening needs a passkey). | Finance PRD §4.6; payload §6.1 |
 
-> ℹ  v1.3 made this table the union of every code written by FTS v1.2, CM v1.2, RB v1.2, MR v1.1 and PRD v2.2 (Inconsistency Register item 7). Two v1.2.1 codes were renamed rather than kept as duplicates: BILL_PAYMENT_SUCCESS → BILL_PAYMENT_EXECUTED and CONSENT_REVOKED → CONSENT_WITHDRAWN. "system" in the tier column means the actor is SYSTEM_ACTOR_UUID. Every code gets a typed, PII-free payload model in Tech_Spec_Audit_Log_Implementation.md (P1).
+> ℹ  52 codes as of v1.4. v1.3 made this table the union of every code written by FTS v1.2, CM v1.2, RB v1.2, MR v1.1 and PRD v2.2 (Inconsistency Register item 7); v1.4 adds PROXY_CONSENT_RECONFIRMED and the ten module codes the three Phase 1 PRDs had proposed. A module may emit only codes listed here; an unregistered code is rejected by the SDK's audit client before it reaches the database. Two v1.2.1 codes were renamed rather than kept as duplicates: BILL_PAYMENT_SUCCESS → BILL_PAYMENT_EXECUTED and CONSENT_REVOKED → CONSENT_WITHDRAWN. "system" in the tier column means the actor is SYSTEM_ACTOR_UUID. Every code gets a typed, PII-free payload model in Tech_Spec_Audit_Log_Implementation.md (P1).
+
+### 6.1 Payloads of the module codes (v1.4)
+
+`details` holds identifiers, integer amounts, booleans and values from a registered enum. It never holds a name, phone number, drug name, dosage, prescriber, document number, date of birth, free text, or an "old value / new value" blob of arbitrary JSON. The SDK validates each payload against a Pydantic model with `extra = "forbid"`; unknown keys fail the write. The kernel codes get their models in Tech_Spec_Audit_Log_Implementation.md; the module codes are fixed here because the PRDs are about to be implemented against them.
+
+| Action code | `user_id` (actor) | `details` keys, all required unless marked |
+|---|---|---|
+| VAULT_DOCUMENT_LINKED | the person who linked | `document_id` UUID, `holder_user_id` UUID, `document_class` enum (Vault PRD §4.5), `consent_record_id` UUID |
+| VAULT_DOCUMENT_UNLINKED | the person who unlinked | `document_id`, `holder_user_id`, `reason` enum: `holder_request` \| `consent_ended` \| `account_deleted` |
+| VAULT_VISIBILITY_CHANGED | the person who changed it, or SYSTEM_ACTOR_UUID for the role-change hook | `document_id`, `holder_user_id`, `from` enum, `to` enum (`family_adults` \| `holder_only` \| `guardians`), `cause` enum: `holder_choice` \| `guardian_choice` \| `role_change` |
+| VAULT_MILESTONE_DETECTED | SYSTEM_ACTOR_UUID | `document_id`, `holder_user_id`, `milestone_type` enum (Vault PRD §4.1). No date: a milestone date can be turned back into a date of birth |
+| VAULT_SETTINGS_CHANGED | the admin | `setting` enum (the column name), `from` and `to` as the setting's typed value (integer, boolean or enum; never text) |
+| MEDICATION_SCHEDULED | the person who scheduled | `schedule_id` UUID, `subject_user_id` UUID, `source` enum: `manual` \| `abha_prescription`, `change` enum: `created` \| `updated` \| `stopped` |
+| MEDICATION_EVENT_RESOLVED | the person who marked it, or SYSTEM_ACTOR_UUID for MISSED | `event_id` UUID, `schedule_id`, `subject_user_id`, `outcome` enum: `taken` \| `skipped` \| `missed`, `resolved_by_basis` enum: `self` \| `proxy_primary` \| `proxy_secondary` \| `guardian` \| `system` |
+| HEALTH_RECORD_FETCHED | the person who asked | `subject_user_id`, `consent_record_id` UUID, `hi_type` enum (CM §3.2 purpose types), `resource_count` integer |
+| HEALTH_SETTINGS_CHANGED | the admin | `setting` enum, `from`, `to` typed as above |
+| FINANCE_SETTINGS_CHANGED | the admin | `setting` enum, `from`, `to` typed as above, `direction` enum: `stricter` \| `looser`, `passkey_verified` boolean (must be true when `looser`) |
 
 ## 7. Data Lifecycle Management
 
 ### 7.1 Soft Delete & DPDP Compliance
 
-The DPDP Act 2023 mandates that user data is purged within 24 hours of a deletion request. Our soft-delete approach satisfies this:
-- User requests deletion → Service sets users.deleted_at = NOW() AND revokes all consent_handles immediately.
+The DPDP Act 2023 requires that a person's data is erased once they ask, except what the law requires be kept. Two rules in this document pulled against each other until v1.4: "purge the user after 24 hours" and "audit rows are never changed or removed, and they point at the user". The founder's ruling of 2026-09-21 settles it: **erase the person, keep an empty placeholder.**
+
+- User requests deletion → the service sets `users.deleted_at = NOW()`, revokes all consent_handles immediately, and performs the §4.3 responsibilities.
 - User receives confirmation: 'Your account will be fully deleted within 24 hours.'
-- Nightly purge job (runs at 01:00 IST) → Hard-deletes all rows where deleted_at < NOW() - 24h across all tables (ON DELETE CASCADE handles child tables).
-- If the family has only 1 admin requesting deletion: system requires assigning a new admin first, or allows deletion after 24h grace period with no new admin (family is fully dissolved).
+- Nightly purge job (01:00 IST), for every user with `deleted_at < NOW() - INTERVAL '24 hours' AND purged_at IS NULL`, in one transaction per user:
+  1. **Wait if money is unsettled.** If the user has a session in `EXECUTION`, skip this user tonight; the Healer resolves such sessions within minutes to hours (FTS §6–7). Everything else about the person is already inaccessible because every query filters `deleted_at IS NULL`.
+  2. **Delete personal child rows, by name:** `device_registry` (push tokens), `family_relationships` (both directions), `proxy_assignments` (as proxy and as managed), `consent_handles`, terminal `supervisor_sessions` that no `resource_lock` row references, `offline_task_queue` rows in a terminal status, and the user's rows in each module schema through that module's `purge_user(family_id, user_id)` SDK hook (Module Registry v1.2 §6.7).
+  3. **Keep, because they are evidence and hold no personal data beyond the UUID:** `audit_log` rows (append-only, 7 years, NFR §5); `consent_records` rows where this user is subject, parent, proxy or re-confirmer (proof of what was consented to and by whom; `granted_scope` is reset to `'{}'`); `resource_lock` history (7 days); `family_module_activations.activated_by`.
+  4. **Empty the `users` row in place:** `display_name = 'Deleted user'`, `phone_number = NULL`, `email = NULL`, `preferred_language = 'en'`, `verification_status = 'unverified'`, `shadow_node = FALSE`, `shadow_expires_at = NULL`, `purged_at = NOW()`. `role`, `is_child`, `family_id` and the timestamps stay (a role is not personal data once nothing else is attached). The row is now a placeholder: a UUID that old records can point at and that identifies nobody.
+  5. Append `DATA_DELETION_COMPLETED` (actor SYSTEM_ACTOR_UUID, `details = {"user_id": ...}`) in the same transaction.
+- A placeholder never reappears: every family-facing query already filters `deleted_at IS NULL`, the cardinality counts ignore it, and its phone number is free for reuse because the unique index covers non-NULL values only.
+- Family dissolution (last admin deleted with no successor, §4.1): every member is purged as above, then the `families` row is emptied the same way (`family_name = 'Deleted family'`, `deleted_at` set). The family's audit chain and its `audit_chain_heads` row stay until audit retention ends; removing them is an operator procedure outside the application, because no application role can delete audit rows.
+- What this is not: it is not "soft delete forever". After step 4 there is no column anywhere in `core` or a module schema that holds the person's name, number, address, health, finance or document data. The threat model (WP-42) reviews this list against every table.
 
 ### 7.2 Hash Chain Integrity Verification Schedule
 
@@ -1498,11 +1702,14 @@ WHERE s.session_id = rl.session_id
   AND rl.released_at IS NULL
   AND s.fsm_state IN ('ABORTED','FAILED','SUCCESS_CONFIRMATION');
 
--- Step 3: Purge released locks older than 7 days, then sessions older than 24h.
+-- Step 3: Purge released locks older than 7 days, then terminal sessions older than 24h that no lock row
+-- still references. v1.4: resource_lock.session_id is ON DELETE RESTRICT, so a session that held a lock
+-- lives as long as that lock's 7-day history; a session that never held one goes after 24 hours.
 DELETE FROM resource_lock WHERE released_at < NOW() - INTERVAL '7 days';
-DELETE FROM supervisor_sessions
-WHERE updated_at < NOW() - INTERVAL '24 hours'
-  AND fsm_state IN ('IDLE','SUCCESS_CONFIRMATION','FAILED','ABORTED');
+DELETE FROM supervisor_sessions s
+WHERE s.updated_at < NOW() - INTERVAL '24 hours'
+  AND s.fsm_state IN ('IDLE','SUCCESS_CONFIRMATION','FAILED','ABORTED')
+  AND NOT EXISTS (SELECT 1 FROM resource_lock rl WHERE rl.session_id = s.session_id);
 ```
 
 ## 8. Seed Data (Development & Testing)
@@ -1530,22 +1737,24 @@ INSERT INTO families (family_id, family_name, subscription_tier)
 VALUES ('a0000000-0000-4000-8000-000000000001', 'Sharma Family', 'pro');
 
 -- 2. Create users
-INSERT INTO users (user_id, family_id, phone_number, display_name, role, verification_status) VALUES
+INSERT INTO users (user_id, family_id, phone_number, display_name, role, verification_status, is_child) VALUES
   -- Admin: Ravi Sharma
   ('b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
-   '+919876543210', 'Ravi Sharma', 'admin', 'kyc_verified'),
+   '+919876543210', 'Ravi Sharma', 'admin', 'kyc_verified', FALSE),
   -- Member (spouse): Priya Sharma
   ('b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001',
-   '+919876543211', 'Priya Sharma', 'member', 'otp_verified'),
+   '+919876543211', 'Priya Sharma', 'member', 'otp_verified', FALSE),
   -- Minor: Arjun (17 years old)
   ('b0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000001',
-   '+919876543212', 'Arjun Sharma', 'minor', 'otp_verified'),
-  -- Managed profile: Nani (Ravi's mother, no phone)
+   '+919876543212', 'Arjun Sharma', 'minor', 'otp_verified', TRUE),
+  -- Managed profile: Nani (Ravi's mother, no phone). An adult: is_child FALSE.
   ('b0000000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000001',
-   NULL, 'Nani (Savitri Sharma)', 'managed', 'unverified'),
+   NULL, 'Nani (Savitri Sharma)', 'managed', 'unverified', FALSE),
   -- Staff: Ramesh (driver)
   ('b0000000-0000-4000-8000-000000000005', 'a0000000-0000-4000-8000-000000000001',
-   '+919876543213', 'Ramesh Kumar', 'staff', 'otp_verified');
+   '+919876543213', 'Ramesh Kumar', 'staff', 'otp_verified', FALSE);
+-- Tests that need a managed CHILD (an infant: role 'managed', is_child TRUE, proxies = the parents) create
+-- one in their own fixture; the canonical family stays at five people.
 
 -- 3. Create relationships (bidirectional, one transaction — §3.3)
 INSERT INTO family_relationships (family_id, from_user_id, to_user_id, relationship_type) VALUES
@@ -1553,6 +1762,8 @@ INSERT INTO family_relationships (family_id, from_user_id, to_user_id, relations
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', 'spouse'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000003', 'parent'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000001', 'child'),
+  ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000003', 'parent'),  -- Priya → Arjun (v1.4: v_guardians needs both parents)
+  ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000002', 'child'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000004', 'child'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000004', 'b0000000-0000-4000-8000-000000000001', 'parent'),
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000005', 'employer'),
@@ -1574,18 +1785,23 @@ INSERT INTO device_registry (family_id, owner_user_id, device_name, device_type,
   ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'Kitchen Tablet', 'tablet',  TRUE);
   -- Kitchen Tablet: is_public_surface=TRUE → blocks finance/health queries
 
--- 6. Module activations (v1.3). secure_vault is non-deactivatable and needs no row.
---    Requires the finance and health rows in module_registry, which boot registration creates (MR §8.1).
-INSERT INTO family_module_activations (family_id, module_id, activated_by) VALUES
-  ('a0000000-0000-4000-8000-000000000001', 'finance', 'b0000000-0000-4000-8000-000000000001'),
-  ('a0000000-0000-4000-8000-000000000001', 'health',  'b0000000-0000-4000-8000-000000000001');
+-- 6. Module activations are NOT part of the migration seed (v1.4). family_module_activations.module_id
+--    references module_registry, whose rows exist only after the application has booted and registered the
+--    on-disk manifests (MR §8.1); V001 runs before any boot. The two rows below are a POST-REGISTRATION
+--    fixture: `python -m familylifeos.devtools seed-activations` in development, the `sharma_family` pytest
+--    fixture in tests. Both run them after boot registration, as Ravi, through the normal activation service
+--    (so MODULE_ACTIVATED audit rows exist too). secure_vault is non-deactivatable and needs no row.
+--      ('a0000000-0000-4000-8000-000000000001', 'finance', activated_by 'b0000000-0000-4000-8000-000000000001')
+--      ('a0000000-0000-4000-8000-000000000001', 'health',  activated_by 'b0000000-0000-4000-8000-000000000001')
 
 -- 7. Consent disclosure + Priya's AA balance consent (v1.3). The consent_handles row must exist first
 --    (trigger enforce_dpi_handle, §3.12).
 INSERT INTO consent_ui_disclosures (purpose_code, version, disclosure_text, data_types_summary, is_material_change, changed_by, change_rationale)
 VALUES ('AA_BALANCE_FETCH', '1.0.0',
         'FamilyLifeOS will read your HDFC account balance to check funds before a bill payment. Balance is kept for 15 minutes. You can revoke this at any time.',
-        ARRAY['Account balance (amount only)', 'No transaction history'], TRUE, 'seed', 'Initial disclosure');
+        ARRAY['Account balance (amount only)', 'No transaction history'], FALSE, 'seed', 'Initial disclosure');
+-- v1.4: is_material_change is FALSE. A first disclosure has no earlier consents to re-obtain, and TRUE
+-- without a material_change_reason violated chk_material_reason, so the v1.3 seed could not run.
 
 INSERT INTO consent_handles (consent_id, user_id, family_id, provider, external_consent_id, status, granted_at, expires_at, data_scope)
 VALUES ('c0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001',
@@ -1627,7 +1843,7 @@ alembic downgrade -1
 
 When engineers implement module-specific tables (finance_transactions, health_records, etc.), they must follow these conventions for consistency:
 - Always include family_id UUID NOT NULL REFERENCES families(family_id) ON DELETE CASCADE.
-- Always include user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE (the user who owns or triggered the record).
+- Always include user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE (the user who owns or triggered the record). **Exception (v1.4): family-level tables.** A table whose row describes the family, not a person, is keyed by `family_id` alone and carries no `user_id` and no `deleted_at`. The standard case is `<module_id>.family_settings`: one row per family, PRIMARY KEY `family_id`, one typed column per setting with a CHECK for its bounds, `settings_version INTEGER NOT NULL DEFAULT 1` incremented on every change, `updated_by UUID REFERENCES core.users(user_id)`, `updated_at`. No row means every setting is at its shipped default. There is no generic key-value settings table and no kernel settings service (Module Registry v1.2 §6.6 has the behavioural rules).
 - Always include created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() and updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW().
 - Always include deleted_at TIMESTAMPTZ for soft-delete support.
 - Always create an index on (family_id, created_at DESC) as the primary access pattern.
@@ -1635,7 +1851,7 @@ When engineers implement module-specific tables (finance_transactions, health_re
 
 ### 9.4 v1.3 Change Summary & Migration Plan
 
-No database has been created yet, so `V001__initial_schema` is authored directly from this version; there is no v1.2.1 → v1.3 migration script. The Alembic revision must create, in this order: extension pgcrypto; schema `core`; tables §3.1–3.9 and §3.11–3.16; the trigger function and triggers of §3.10; the views of §3.17; the functions of §3.18; the seeds of §8 (SYSTEM family/actor and role_module_permissions in every environment, the Sharma family only in dev and test).
+No database has been created yet, so `V001__initial_schema` is authored directly from this version; there is no v1.2.1 → v1.3 migration script. The Alembic revision must create, in this order: extension pgcrypto; schema `core`; tables §3.1–3.9 and §3.11–3.16; the trigger function and triggers of §3.10; the views of §3.17; the functions of §3.18; the seeds of §8 (SYSTEM family/actor and role_module_permissions in every environment, the Sharma family only in dev and test). v1.4 corrections to that order: `consent_ui_disclosures` (§3.13) is created before `consent_records` (§3.12) because of the composite foreign key; `audit_chain_heads` and the role `familylifeos_audit_owner` come with §3.18; module activations are a post-registration fixture, not a migration seed (§8 item 6). WP-18 is not done until `alembic upgrade head` plus the seeds run clean on an empty PostgreSQL 15.
 
 | # | Change | Where | Origin |
 |---|---|---|---|
@@ -1656,6 +1872,32 @@ No database has been created yet, so `V001__initial_schema` is authored directly
 | 15 | consent_records.proxy_consent_user_id + idx_consent_proxy; action PROXY_CONSENT_GRANTED (taxonomy is now 41 codes) | §3.12, §6 | Founder ruling 2026-09-17 on Health PRD OI-2; CM v1.3 §2.6 |
 
 Consequential edits made the same day in other documents: FTS v1.2 (`fsm_state` naming; lock release semantics), Consent Manager v1.2 (`fsm_state`; lowercase role values; 'cancelled'; ONDC provider; DDL now lives here), Module Registry v1.1 (registry DDL, kernel views and audit functions now live here; consent-provider enum narrowed), Runbook v1.2 (fetch_count_today semantics). Review round 2 by Codex covers this document and the Module Registry together.
+
+### 9.5 v1.4 Change Summary
+
+Still no database, so these are edits to what V001 will contain, not migrations. Origin column: "#10 f3" is finding 3 of Codex's round-2 verdict on issue #10, and so on.
+
+| # | Change | Where | Origin |
+|---|---|---|---|
+| 17 | Per-family chain head row `audit_chain_heads` is the lock, also for an empty chain; waiting writers read the new head | §3.18 | #10 f1 |
+| 18 | `audit_log.chain_seq` is the append order for locking and verification; `timestamp` = append time (clock_timestamp), new `occurred_at` = event time, new `p_occurred_at` argument | §3.6, §3.18, Q12 | #10 f2 |
+| 19 | Audit functions schema-qualified, `SET search_path = core, pg_temp`, no-login owner with INSERT/SELECT only; app role loses INSERT on audit_log | §3.6, §3.18 | #10 f3 |
+| 20 | Seed runs as one migration: disclosure seed not material; activations moved to a post-registration fixture; one SYSTEM_ACTOR_UUID | §6, §8, §9.4 | #10 f4 |
+| 21 | Purge empties the `users` row in place (`purged_at`), deletes personal child rows by name, keeps audit and consent evidence; families likewise | §1.1, §3.2, §3.6, §4.3, §7.1 | #10 f5; founder ruling 2026-09-21 |
+| 22 | Account deletion never aborts an EXECUTION session; purge waits for the Healer | §4.3, §7.1 | #10 f6 |
+| 23 | `consent_records.proxy_reconfirm_required / _by / _at`, index, action PROXY_CONSENT_RECONFIRMED | §3.12, §6 | #10 f7 |
+| 24 | `users.is_child` with CHECK; child protections follow it, not the role | §3.2, §3.12, §3.17, §8 | #10 f10; founder ruling 2026-09-21 |
+| 25 | Table of persisted states versus words used in other specs; `fsm_exit_state` is mapped, never copied | §3.7 | #10 f11 |
+| 26 | One intent identifier (`PAY_BILL`); `supervisor_sessions.resource_key`; collision index includes it and no longer hides completed payments | §3.7 | #10 f12 |
+| 27 | `resource_lock.session_id` ON DELETE RESTRICT; session purge skips sessions with lock history | §3.11, §7.4 | #10 f13 |
+| 28 | `v_active_consents` and `v_device_surfaces` filter to live, unexpired rows; views are candidate references, not authorisation | §3.17 | #10 f14 |
+| 29 | Composite FK `consent_records (purpose_code, consent_ui_version)` → `consent_ui_disclosures` | §3.12, §9.4 | #10 f15 |
+| 30 | Ten module audit codes and PROXY_CONSENT_RECONFIRMED registered; typed payload table; SHADOW_NODE_EXPIRED loses display_name | §6, §6.1 | #10 f16 |
+| 31 | Relationship types `guardian` / `ward`; kernel view `v_guardians` with live-subject, role and same-family predicates on both branches; Priya ↔ Arjun edges in the seed | §3.3, §3.17, §8 | Founder ruling 2026-09-17 (was "change 16" in PR #22); PR #22 f3 |
+| 32 | `GRANT USAGE ON SCHEMA core` to module roles | §3.17 | #9 f12 |
+| 33 | Family-level table convention (`<module>.family_settings`) | §9.3 | #9 f10; #10 settings recommendation |
+
+Finding #10 f17 (date of birth and the DigiLocker purpose) and findings f8–f9 (proxy grant flows) are Consent Manager changes: CM v1.4 §3.2 and §2.6. Dependent documents updated in the same pull request: Consent Manager v1.4, Module Registry v1.2, Financial Transaction Safety v1.3, AGENTS.md invariants 7, 12, 17, 19 and 22.
 
 ## 10. Open Issues & Q&A
 
@@ -1678,6 +1920,7 @@ Consequential edits made the same day in other documents: FTS v1.2 (`fsm_state` 
 | Engineering | Why is the audit log hash computed in application code rather than a DB trigger? | Three reasons: (1) DB triggers create tight coupling to the database engine, making the hash algorithm impossible to verify without DB access. (2) Application-computed hashes can be independently verified by auditors using any SHA-256 tool. (3) Triggers fire even for DBA-executed queries, making it impossible to detect a DBA who bypasses the application entirely. A separate verification job is a stronger guarantee. |
 | Engineering | Should we use PostgreSQL row-level security (RLS) instead of application-layer RBAC? | No for V1. RLS is powerful but adds operational complexity (every query must set role-context variables, debugging is harder, performance is unpredictable). Application-layer RBAC is easier to test, easier to debug, and sufficient for the scale targets. RLS is worth revisiting at 100K+ families. |
 | Engineering | Why does device_registry belong to the core schema instead of a separate auth service? | Surface context (public vs private device) is used by the Supervisor FSM at INTENT_ANALYSIS time to block sensitive queries. It must be available in the same transaction as the permission check, not across a service boundary. Co-locating it in the core database avoids a network hop on the critical path of every query. |
+| Legal/Compliance (v1.4) | If the `users` row survives the purge, has the person really been erased? | Yes. What survives is a UUID, a role code and timestamps. Name, phone, email, language, devices, relationships, consent handles and all module data are gone, and no query returns the row. The DPDP Act 2023 (section 8(7)) lets a fiduciary keep what another law requires it to keep; the audit trail of payments and consents is that kind of record, and it contains identifiers only. The alternative, deleting the row, would force either cascading through the audit log or rewriting hashed history, which destroys the one property the log exists for. |
 | Legal/Compliance | Does the soft-delete approach (24h window) satisfy DPDP Act 2023? | Yes. The DPDP Act requires data to be 'erased without delay' which is interpreted as within 72 hours. Our 24-hour window exceeds this requirement. The key requirement is that the user cannot be re-identified after deletion. We satisfy this by revoking all DPI consents immediately on deletion request (not waiting for the 24h window). |
 | Engineering | How does revalidation_required get set? Who sends the AA webhook and who handles it? | The AA framework (Sahamati network) sends a consent status notification to the FIU's registered webhook endpoint when a user revokes consent externally. The webhook handler sets revalidation_required = TRUE for the matching consent_handle row. The next time CONSENT_REVERIFY runs for that consent, it detects the flag, makes a live API call to AA to confirm current status, and either marks the consent 'revoked' or resets the flag to FALSE. This prevents serving stale 'active' data for up to 15 minutes after external revocation. |
 | Engineering (v1.3) | Modules now write audit rows through a database function. Doesn't that contradict 'hash computed in application code'? | No. fn_append_audit inserts a hash the caller computed and only verifies that the caller's previous_hash still matches the chain head; it never serialises `details` itself. That matters because jsonb key ordering differs from Python's sort_keys, so a hash computed in the database would not be reproducible by an external auditor with a plain SHA-256 tool. The function exists for privilege isolation (modules have no table access) and for the per-family row lock (fn_lock_audit_tail), not for hashing. |
@@ -1685,4 +1928,4 @@ Consequential edits made the same day in other documents: FTS v1.2 (`fsm_state` 
 | Engineering | Why does SYSTEM_ACTOR_UUID need to be a real user row rather than NULL in audit_log.user_id? | The audit_log.user_id has a NOT NULL foreign key to users(user_id). Allowing NULL would require removing the FK constraint, breaking referential integrity and making it harder to JOIN for dashboards. Using a seeded system user row keeps the schema consistent. The system family and user are inserted as part of the database migration (V001), never exposed to end users, and filtered out of all family-facing queries. |
 
 **END OF DOCUMENT**
-Data_Model_Schema.md  •  FamilyLifeOS  •  v1.3 (revision in review)  •  September 2026
+Data_Model_Schema.md  •  FamilyLifeOS  •  v1.4 (revision in review)  •  September 2026
