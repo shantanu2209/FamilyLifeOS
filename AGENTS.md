@@ -56,7 +56,7 @@ Everything current lives under `docs/`. Everything historical lives under `archi
 | `docs/specs/Tech_Spec_Financial_Transaction_Safety.md` | Payment gates, two-phase commit, idempotency, the Healer, zombie recovery, refunds, FIN error codes |
 | `docs/specs/Tech_Spec_Consent_Manager.md` | DPDP-native consent framework, purpose registry, `consent_records`, CONSENT_REVERIFY, DPI adapters, expiry watchdog, revocation, webhook security |
 | `docs/specs/Tech_Spec_Module_Registry.md` | Module manifest schema, Supervisor→module dispatch envelope, tiers, isolation model, registration, error taxonomy, review log |
-| `docs/specs/Tech_Spec_Simulator_Architecture.md` | WireMock simulators for AA, BBPS, ABHA and DigiLocker: topology, scenario selection, BBPS payment state machine, the scenario contract table stubs are generated from, chaos driver, contract tests, simulated-versus-real table |
+| `docs/specs/Tech_Spec_Simulator_Architecture.md` | WireMock simulators for AA, BBPS, ABHA and DigiLocker: topology, scenario selection, key-bound BBPS payment state, the scenario contract table stubs are generated from, chaos driver, contract tests, simulated-versus-real table |
 | `docs/specs/Tech_Spec_Supervisor_State_Machine.md` | Supervisor FSM (state diagram, state definitions, persistence, Healer placeholder), automation tiers, TTL policy, idempotency keys |
 | `docs/specs/NFR_Specs.md` | Latency budgets, encryption, authentication, idempotency and rate-limit mandates, DPI circuit breaker, telemetry, compliance, scalability targets, disaster recovery, degradation order |
 | `docs/runbooks/Runbook_DPI_Rate_Limits.md` | Rate limits for all five DPIs, Redis budget tracker, circuit breakers, coalescing, WireMock stubs, on-call runbook |
