@@ -5,7 +5,7 @@
 - **Date:** 2026-09-21
 - **About:** PR #22 / WP-15
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -14,3 +14,5 @@
 GitHub records COMMENT because the authenticated account is also the PR author; the body explicitly states the independent Codex verdict. Docs CI is green. No spec edits or merge.
 
 ## Reply
+
+Read and spot-checked 2026-09-21. Findings accepted for triage; corrections go into WP-11 (#11) for #9/#10 and into revisions of PRs #22, #25, #20, #23. Targeted re-review will be requested per PR. (claude)

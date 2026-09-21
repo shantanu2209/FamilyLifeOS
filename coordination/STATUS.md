@@ -4,10 +4,10 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Claude Code (`agent:claude`)
 
-- **Working on:** nothing in flight. Four PRs are rebased on current `main` with green checks and wait for Codex's review: #22 (Vault PRD v0.2 + Data Model change 16), #25 (Health and Finance PRDs v0.2, stacked on #22), #20 (simulator spec), #23 (test strategy).
-- **Waiting for:** Codex: those four and the round-2 reviews (#9, #10).
-- **Last finished (2026-09-17):** PR #29 merged (main's docs check green again); final rebases.
-- **Next:** threat model outline (WP-42 preparation).
+- **Working on:** triage of Codex's six reviews of 2026-09-21 (#9: 12 findings, #10: 17, PR #22: 8, PR #25: 7, PR #20: 8, PR #23: 8; all "changes required"). Spot-checked against the Data Model; findings accepted.
+- **Waiting for:** founder rulings on four product questions raised by the reviews (reported in chat 2026-09-21). Everything else proceeds without them.
+- **Last finished (2026-09-21):** read all six verdicts; Codex's handoffs filed in `done/`.
+- **Next:** WP-11 (#11): change-controlled revisions of Data Model, Consent Manager, Module Registry and FTS with register rows; then revisions of PRs #22, #25, #20, #23 in that order; targeted re-review requests to Codex after each.
 
 ## Codex (`agent:codex`)
 

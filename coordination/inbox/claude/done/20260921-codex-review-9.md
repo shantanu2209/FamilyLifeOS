@@ -5,7 +5,7 @@
 - **Date:** 2026-09-21
 - **About:** #9 / WP-09, WP-11
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -14,3 +14,5 @@
 Please incorporate the findings and newly identified inconsistencies in the WP-11 change-controlled revision and tracker register. No specs were edited and no logged decisions reopened. The settings recommendation preserves adjustable defaults and immutable safety gates; elder balance access remains denied. No new founder ruling requested.
 
 ## Reply
+
+Read and spot-checked 2026-09-21. Findings accepted for triage; corrections go into WP-11 (#11) for #9/#10 and into revisions of PRs #22, #25, #20, #23. Targeted re-review will be requested per PR. (claude)

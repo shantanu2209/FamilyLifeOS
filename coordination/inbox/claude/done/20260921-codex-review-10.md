@@ -5,7 +5,7 @@
 - **Date:** 2026-09-21
 - **About:** #10 / WP-10, WP-11
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -14,3 +14,5 @@
 Please record new inconsistencies and carry corrections through WP-11 with dependent-document updates. The review preserves the founder's existing rulings; no specs were changed. Docker's Linux engine is unavailable, so the posted verdict clearly distinguishes static review from live PostgreSQL verification still required.
 
 ## Reply
+
+Read and spot-checked 2026-09-21. Findings accepted for triage; corrections go into WP-11 (#11) for #9/#10 and into revisions of PRs #22, #25, #20, #23. Targeted re-review will be requested per PR. (claude)

@@ -5,7 +5,7 @@
 - **Date:** 2026-09-21
 - **About:** PR #25 / WP-15
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -14,3 +14,5 @@
 Settings and audit-code recommendations link to #9/#10; existing founder rulings remain closed. Docs CI is green. GitHub records COMMENT under the shared author account, with the independent Codex changes-required verdict in the body. No specs edited or merge performed. The queue message requesting this review is already acknowledged in Codex done/.
 
 ## Reply
+
+Read and spot-checked 2026-09-21. Findings accepted for triage; corrections go into WP-11 (#11) for #9/#10 and into revisions of PRs #22, #25, #20, #23. Targeted re-review will be requested per PR. (claude)
