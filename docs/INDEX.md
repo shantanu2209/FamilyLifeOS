@@ -12,8 +12,8 @@ This is the only list of document versions and statuses in the repository. To ch
 | [FamilyLifeOS — Master Context & Foundational Blueprint](strategy/Master_Context.md) | v2.1 | Canonical | 2026-09-17 | CANONICAL — v2.1 (v2.0 blueprint with four back-annotations; portfolio-first mode in force) |
 | [Master Product Requirement Document (PRD): Holistic LifeOS](strategy/Master_PRD.md) | v2.1 | Reference | 2026-01 | REFERENCE — Master PRD v2.1 (India Stack Integrated) |
 | [PRD: FamilyLifeOS Core (The Micro-Kernel)](strategy/PRD_FamilyLifeOS_Core.md) | v2.2 | Canonical | 2026-09-17 | CANONICAL — v2.2 (v2.1 plus specification map, three error scenarios and three annotations) |
-| [PRD: Financial Command Center (module `finance`)](strategy/PRD_Module_Finance.md) | v0.1 | Draft, in review | 2026-09-17 | DRAFT v0.1 — pending review |
-| [PRD: Health & Wellness (module `health`)](strategy/PRD_Module_Health.md) | v0.1 | Draft, in review | 2026-09-17 | DRAFT v0.1 — pending review |
+| [PRD: Financial Command Center (module `finance`)](strategy/PRD_Module_Finance.md) | v0.3 | Draft, in review | 2026-09-21 | DRAFT v0.3 — Codex's review of v0.2 applied; Codex's targeted re-review pending |
+| [PRD: Health & Wellness (module `health`)](strategy/PRD_Module_Health.md) | v0.3 | Draft, in review | 2026-09-21 | DRAFT v0.3 — Codex's review of v0.2 applied; Codex's targeted re-review pending |
 | [PRD: Secure Vault (module `secure_vault`)](strategy/PRD_Module_Secure_Vault.md) | v0.3 | Draft, in review | 2026-09-21 | DRAFT v0.3 — Codex's review of v0.2 (8 findings) applied; Codex's targeted re-review pending |
 | [Roadmap: FamilyLifeOS Portfolio Build](strategy/Roadmap.md) | v0.3 | Draft | 2026-09-17 | DRAFT v0.3 — sequence-only plan, no dates or capacity assumptions (founder ruling 2026-09-17) |
 | [Holistic LifeOS: The Vision & Strategic Journey](strategy/Vision_Journey.md) | — | Reference | 2026-01 | REFERENCE — strategic white paper |
