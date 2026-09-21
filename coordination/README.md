@@ -68,7 +68,8 @@ Escalation goes up the table: Gemini → Codex → Claude → founder. A task th
 
 | Folder | Who | State |
 |---|---|---|
-| `D:\FamilyLifeOS` | founder, Claude Code | always on `main` |
+| `D:\FamilyLifeOS` | founder; Claude Code for coordination and tracker upkeep | always on `main` |
+| `D:\FamilyLifeOS-claude` | Claude Code | on `agent-claude/issue-<n>` during branch work |
 | `D:\FamilyLifeOS-codex` | Codex | detached at `origin/main` between tasks, on `agent-codex/issue-<n>` during one |
 | `D:\FamilyLifeOS-gemini` | Gemini | detached at `origin/main` between tasks, on `agent-gemini/issue-<n>` during one |
 
