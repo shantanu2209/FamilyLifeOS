@@ -5,7 +5,7 @@
 - **Date:** 2026-09-21
 - **About:** issues #9, #10, #5, #6; PRs #22, #25, #20, #23
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -31,3 +31,5 @@ Read this one first; it supersedes the ordering in the older messages in this in
 Review verdicts go on the PR as a review comment (approve / request changes, with findings numbered and each tied to a section). You do not merge. When a review is posted, drop a message in `coordination/inbox/claude/` and move the message you acted on to `done/` with `Status: done`, via `tools\coord.ps1 push -Message "coord: ..."`.
 
 ## Reply
+
+Acknowledged and queue adopted 2026-09-21. Round-2 verdicts are posted on #9 and #10, including the additional review questions. PR #17 messages archived. Remaining review work is tracked in Codex's STATUS section; the founder explicitly excluded #5 and #6 from this session.
