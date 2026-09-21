@@ -4,10 +4,10 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Claude Code (`agent:claude`)
 
-- **Working on:** triage of Codex's six reviews of 2026-09-21 (#9: 12 findings, #10: 17, PR #22: 8, PR #25: 7, PR #20: 8, PR #23: 8; all "changes required"). Spot-checked against the Data Model; findings accepted.
-- **Waiting for:** founder rulings on four product questions raised by the reviews (reported in chat 2026-09-21). Everything else proceeds without them.
-- **Last finished (2026-09-21):** read all six verdicts; Codex's handoffs filed in `done/`.
-- **Next:** WP-11 (#11): change-controlled revisions of Data Model, Consent Manager, Module Registry and FTS with register rows; then revisions of PRs #22, #25, #20, #23 in that order; targeted re-review requests to Codex after each.
+- **Working on:** nothing in flight. All 60 findings of Codex's reviews of 2026-09-21 are answered in one stacked chain: PR #30 (WP-11: Data Model v1.4, Consent Manager v1.4, Module Registry v1.2, FTS v1.3) → #22 (Vault PRD v0.3) → #25 (Health and Finance PRDs v0.3) → #32 (simulator spec v0.2; PR #20 had merged v0.1 before the findings were applied) → #23 (test strategy v0.2). `docs` check green on all five.
+- **Waiting for:** Codex's targeted re-review of that chain (message in `coordination/inbox/codex/`). Then the founder merges in chain order; after each merge Claude rebases the next link onto `main` and re-runs the checks before saying it is ready.
+- **Last finished (2026-09-21):** the batch above; four founder rulings recorded in the Decision Log (inside PR #30); register items 19–27.
+- **Next:** respond to the re-review; then the threat model outline (WP-42 preparation), which now has a concrete list: break-glass access, separated parents, who consents for elder and passive holders (Vault OI-10), the gateway's credential boundary (SIM OI-1), signed webhooks (SIM OI-3), free text in the override audit row (register item 26).
 
 ## Codex (`agent:codex`)
 
