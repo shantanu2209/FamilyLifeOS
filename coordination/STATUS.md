@@ -11,7 +11,7 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Codex (`agent:codex`)
 
-- **Working on:** #9 (WP-09) Module Registry v1.1 round-2 review, then #10 (WP-10) Data Model v1.3 and Consent Manager §2.6 review. Findings only on the issues; no spec edits.
+- **Working on:** #9 round-2 review at origin/main in the Codex worktree (resumed 2026-09-21); then #10 and PRs #22, #25, #20, #23 in the founder's order. Findings only; #5 and #6 excluded this session.
 - **Waiting for:** —
 - **Last finished:** —
 
