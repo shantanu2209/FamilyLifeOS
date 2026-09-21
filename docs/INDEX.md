@@ -30,6 +30,7 @@ This is the only list of document versions and statuses in the repository. To ch
 | [Tech Spec: Module Registry & Agent Communication Contract](specs/Tech_Spec_Module_Registry.md) | v1.2 | Revision in review | 2026-09-21 | v1.2 — REVISION IN REVIEW (Codex round-2 findings applied; freezes after Codex's targeted re-review), Phase 1 |
 | [Tech Spec: DPI Simulator Architecture](specs/Tech_Spec_Simulator_Architecture.md) | v0.2 | Draft, in review | 2026-09-21 | DRAFT v0.2 — Codex's review of v0.1 (8 findings) applied; Codex's targeted re-review pending |
 | [Tech Spec: Supervisor State Machine & Data Policies](specs/Tech_Spec_Supervisor_State_Machine.md) | v2.1 | Frozen | 2026-02-13 | CANONICAL — v2.1 (Phase 1, Launch Ready); implementation depth added by the frozen P0 specs |
+| [Test Automation Strategy](specs/Test_Automation_Strategy.md) | v0.2 | Draft, in review | 2026-09-21 | DRAFT v0.2 — Codex's review of v0.1 (8 findings) applied; Codex's targeted re-review pending |
 
 ## Runbooks
 
