@@ -2,10 +2,10 @@
 
 _Payment execution protocol, two-phase commit, the Healer, zombie recovery, refunds, FIN error taxonomy_
 
-> **Status:** FROZEN — v1.2 (v1.1 protocol unchanged; naming aligned with Data Model v1.3) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-17
+> **Status:** v1.3 — REVISION IN REVIEW (change-controlled edits to §4, §5.3, §6 and §11.3 from Codex review round 2; the gates, the key rules and the Healer's decisions are unchanged; re-freezes after Codex's targeted re-review) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-21
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `Tech_Spec_Financial_Transaction_Safety_v1.1.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted. Superseded versions in the archive: `Tech_Spec_Financial_Transaction_Safety_v1.0.docx`.
 > **Cited elsewhere as:** Tech_Spec_Financial_Transaction_Safety v1.1, Financial Safety spec, FTS §n.
-> **Note:** Depends on: Data Model v1.3 (`resource_lock` §3.11, `supervisor_sessions` §3.7, audit write protocol §3.18) • Tech_Spec_Supervisor_State_Machine v2.1 • NFR v2.2 • Consent Manager v1.2 (gate G5).
+> **Note:** Depends on: Data Model v1.4 (`resource_lock` §3.11, `supervisor_sessions` §3.7, audit write protocol §3.18) • Module Registry v1.2 (§6.4 ledger, §6.7 hooks and ownership) • Tech_Spec_Supervisor_State_Machine v2.1 • NFR v2.2 • Consent Manager v1.2 (gate G5).
 
 ## 0. Document Governance
 
@@ -14,6 +14,7 @@ _Payment execution protocol, two-phase commit, the Healer, zombie recovery, refu
 | v1.0 | 2026-02-21 | Initial release. Payment execution protocol; two-phase commit; idempotency key lifecycle; Healer algorithm (5-min cron, AUDIT_LOG_WRITE priority); zombie classification decision tree; refund policy; concurrent payment prevention (resource_lock); FIN_001–FIN_015 error taxonomy; manual escalation protocol. | Shantanu Chaudhary |
 | v1.1 | 2026-02-21 | Hardening patch (two independent reviewer rounds). Four changes: (1) §6.4 NOT_FOUND — explicit hard rule: Healer must reuse original idempotency_key, never generate new, with rationale. (2) §6.1 expanded — distributed lock promoted from Q&A to §6.1.1 (first-class algorithm); per-run processing cap added as §6.1.2; system-level circuit breaker added as §6.1.3. (3) §6.3 — AUDIT_LOG_WRITE exception block cross-references system circuit breaker at §6.1.3. (4) §11.3 — manual override now specifies SELECT FOR UPDATE on latest audit_log row + previous_hash recomputed inside same transaction to prevent hash chain corruption under concurrency. Reviewer 2: LAUNCH READINESS VERIFIED. | Shantanu Chaudhary |
 | v1.2 | 2026-09-17 | Alignment release, no protocol change: (1) `session_status` renamed to `fsm_state` throughout to match Data Model v1.3 §3.7 (Inconsistency Register item 2); the columns `intent_type`, `bbps_transaction_ref_id`, `healer_poll_count` and `session_notes` this spec uses now exist there; (2) `resource_lock` is the table of Data Model v1.3 §3.11 — `DELETE FROM resource_lock` in the code blocks below is to be read as the release UPDATE (released_at, release_reason) defined there, and `resource_lock` is only ever released, never physically deleted (§9.2 note); (3) §1.3 wording fixed: every BBPS bill payment requires biometric approval regardless of amount (gate G4); the ₹100 figure comes from FSM §2's automation-tier examples (item 9); (4) action code BILL_PAYMENT_EXECUTED confirmed as canonical in Data Model v1.3 §6 (item 7); (5) audit rows are written through fn_lock_audit_tail / fn_append_audit (Data Model v1.3 §3.18), which is the §11.3 SELECT FOR UPDATE discipline made reusable. | Shantanu Chaudhary (with Claude Code) |
+| v1.3 | 2026-09-21 | Codex review round 2 (issue #9 findings 1–4; issue #10 findings 2, 6, 11, 12; PR #25 finding 7; PR #20 finding 8). No gate, key rule or Healer decision changes; what changes is who does each write and through what. (1) New §4.6: the **kernel** owns Phase 1 and Phase 2 (session and payment audit rows); the module owns its business row and idempotency ledger and is brought level by `reconcile()`. (2) Every audit write in this document goes through `fn_lock_audit_tail` / `fn_append_audit` (Data Model v1.4 §3.18); the code blocks that show `INSERT INTO audit_log` or lock "the latest audit row" are read that way, and a recovered payment passes the provider's execution time as `occurred_at`. (3) §4.5 crash scenario B now agrees with §6.4: NOT_FOUND inside 24 hours is resubmitted with the original key, not failed. (4) §5.3 collision query uses `intent_type = 'PAY_BILL'` and `supervisor_sessions.resource_key`. (5) §6.3 never reuses a `previous_hash` stored in a task payload. (6) §6.4 calls the module's `reconcile()` before Phase 2, resubmits through an `execute` dispatch with `recovery`, and keeps working when the paying user's account has since been deleted. (7) §11.3: `fsm_exit_state` is mapped (`SUCCESS`), not copied from the session state. Lock release is an UPDATE everywhere (Data Model §3.11). | Shantanu Chaudhary (with Claude Code; review by Codex) |
 
 > 📋 STATUS: HARDENED v1.1 — Architecture Frozen
 > This document specifies the complete financial transaction safety protocol for FamilyLifeOS v1.
@@ -92,7 +93,7 @@ The system must pass all five gates before entering EXECUTION state. Failure at 
 | G2  Resource Lock | Acquire UNIQUE lock on (family_id, 'BBPS_' + biller_id). Prevents concurrent payment to same biller. | FIN_009: 409 Conflict. Inform user a payment is already in progress. | REASONING |
 | G3  Balance Fetch | Force-fetch bank balance via AA (bypasses TTL). Block if fetch fails or balance < bill amount + ₹50 buffer. | FIN_006 (stale) or FIN_005 (insufficient). Release lock. | REASONING |
 | G4  Biometric Auth | Admin/Spouse provides fingerprint or Face ID. Required for all BBPS payments (all amounts, per Product decision). | FIN_008: Auth failed. Release lock. User may retry. | AWAITING_APPROVAL |
-| G5  CONSENT_REVERIFY | Re-check AA consent handle status in DB. Block if status != 'active'. Prevents TOCTOU race on consent revocation. | FIN_007: Consent expired. Route to consent renewal flow. Release lock. | CONSENT_REVERIFY |
+| G5  CONSENT_REVERIFY | v1.3: for the **exact purpose** `AA_BALANCE_FETCH` and the paying user as subject (Consent Manager v1.4 §5.2; Module Registry v1.2 §7.3 step 6), not "some AA handle". Re-check AA consent handle status in DB. Block if status != 'active'. Prevents TOCTOU race on consent revocation. | FIN_007: Consent expired. Route to consent renewal flow. Release lock. | CONSENT_REVERIFY |
 
 ### 2.3 The Happy Path (Step-by-Step)
 
@@ -228,6 +229,8 @@ FAILURE OCCURS
 
 A financial system faces an inherent problem: the external API call (BBPS) and the database write (audit log) cannot be wrapped in a single atomic transaction — the database cannot hold a transaction open across an external HTTP call. The two-phase commit protocol is our solution: Phase 1 executes the payment; Phase 2 persists the evidence. The protocol guarantees that if Phase 2 fails, the Healer can always reconstruct Phase 2 from the idempotency key alone.
 
+> ⚠ v1.3, how to read the code blocks in §4, §6 and §11.3. They were written before the audit write protocol existed. Wherever a block shows `INSERT INTO audit_log (...)`, `log_audit(...)`, a hash computed in SQL, or `SELECT ... FROM audit_log ... FOR UPDATE` to lock "the latest row", the implementation is the two-call protocol of Data Model v1.4 §3.18: `fn_lock_audit_tail(family_id)` → hash in application code → `fn_append_audit(...)`, inside the same transaction as the session update shown next to it. Wherever a block shows `DELETE FROM resource_lock`, the implementation is the release UPDATE of Data Model §3.11 / Q7 (`released_at`, `release_reason`). The order of operations and the transaction boundaries in the blocks are unchanged and binding. §4.6 says which component runs each block.
+
 ### 4.2 Phase 1: Payment Execution
 
 ```sql
@@ -334,10 +337,26 @@ IF bbps_response.status == 'FAILED':
 | Crash Moment | System State After Restart | Recovery Action | User Impact |
 |---|---|---|---|
 | Server crashes before Phase 1 COMMIT | Session in previous state (AWAITING_APPROVAL). Idempotency key NOT written. | Session rehydrated from PG journal. User re-prompted for biometric. New idempotency key generated. | Minor: re-approve. No money moved. |
-| Server crashes after Phase 1 COMMIT, before BBPS call | Session in EXECUTION. No BBPS call made. | Healer detects zombie after 5 min. BBPS status poll returns 'not found'. Session set to FAILED. Lock released. | Minor: ~5 min delay. No money moved. |
+| Server crashes after Phase 1 COMMIT, before BBPS call | Session in EXECUTION. No BBPS call made. | Healer detects zombie after 5 min. BBPS status poll returns NOT_FOUND. v1.3: inside the 24-hour window the Healer **resubmits with the original idempotency key** (§6.4 hard rule; this row said "set to FAILED" since v1.0 and contradicted it). Exactly one payment request reaches BBPS, carrying the persisted key. Beyond 24 hours: FAILED, lock released. | Minor: ~5 min delay. The bill the user approved is paid once. |
 | Server crashes after BBPS SUCCESS, before Phase 2 COMMIT | Session in EXECUTION. Money moved. Audit log NOT written. | Healer detects zombie. BBPS poll confirms SUCCESS. Healer writes audit log (AUDIT_LOG_WRITE task). Session → SUCCESS_CONFIRMATION. | Minimal: user not immediately notified. Healer notifies within 5 min. |
 | Phase 2 DB crash mid-transaction (COMMIT fails) | Session in EXECUTION. Audit log partially written (rolled back). | Identical to above — Healer reconciles from BBPS poll + idempotency key. | Minimal: same as above. |
 | Server crashes after Phase 2 COMMIT, before lock release | Session SUCCESS_CONFIRMATION. Lock still held in resource_lock. | Healer detects stale lock (held > 30 min, session SUCCESS). Releases lock. | None: user was already notified via push before crash. |
+
+### 4.6 Who runs which step (v1.3)
+
+Module Registry v1.1 had the module write the payment's audit row beside its own state change and return before the session moved. This document requires audit row and session update in **one** transaction (§4.3). Both cannot hold: a crash between the module's commit and the session update left a paid, audited payment in EXECUTION, and the Healer audited it a second time. v1.3 settles it (Module Registry v1.2 §6.7 is the module-side contract):
+
+| Step | Runs in | Writes |
+|---|---|---|
+| Gates G1–G5 (§2.2) | Kernel (Supervisor). G3's forced balance fetch is done by the Finance module in a `prepare` dispatch, through the DPI Gateway | `resource_lock` row (G2) |
+| Phase 1 (§4.2) | Kernel, one transaction | session → `EXECUTION` with the key; audit `BILL_PAYMENT_INITIATED` |
+| The BBPS call | Finance module, in the `execute` dispatch, through the DPI Gateway | its own transaction A before the call (ledger `pending`, business row `INITIATED`) and transaction B after it (business outcome, ledger `final`) |
+| Phase 2 (§4.3, §4.4) | Kernel, one transaction, on receiving the module's response | audit `BILL_PAYMENT_EXECUTED` or `BILL_PAYMENT_FAILED` **and** the session update; then the lock release |
+| Recovery (§6) | Kernel (Healer) | calls `reconcile()` on the module so its business row and ledger reach the same outcome, **then** runs Phase 2 |
+
+The module never writes `supervisor_sessions`, `resource_lock` or a `BILL_PAYMENT_*` audit row. The kernel never writes the module's tables. Transaction B and Phase 2 are separate transactions under separate database roles; the pair is safe because B comes first, the session leaves EXECUTION only in Phase 2, and every step after Phase 1 is idempotent, so any crash in between is a zombie that the Healer closes. The four crash scenarios of §4.5 are unchanged by this; scenario C ("after BBPS SUCCESS, before Phase 2 COMMIT") now has two sub-cases, before and after transaction B, and `reconcile()` being a no-op in the second is what the crash test asserts.
+
+An `execute` dispatch that ends without a valid response (module exception, invalid envelope, deadline passed) is **outcome unknown**, not failure: the session stays in EXECUTION and the lock stays held (Module Registry v1.2 §6.5, §9 rule 3).
 
 ## 5. Idempotency Key Lifecycle
 
@@ -370,10 +389,13 @@ The idempotency key MUST be written to supervisor_sessions as part of the Phase 
 SELECT idempotency_key, fsm_state
 FROM supervisor_sessions
 WHERE family_id = $family_id
-  AND intent_type = 'BILL_PAYMENT'
-  AND intent_payload->>'biller_id' = $biller_id
+  AND intent_type = 'PAY_BILL'                         -- v1.3: the intent code; 'BILL_PAYMENT' was never stored
+  AND resource_key = 'BBPS_' || $biller_id             -- v1.3: a column (Data Model v1.4 §3.7), same format as the lock
   AND fsm_state NOT IN ('FAILED', 'ABORTED', 'SUCCESS_CONFIRMATION')
   AND created_at > NOW() - INTERVAL '24 hours';
+-- Served by idx_session_intent_lookup (family_id, intent_type, resource_key, created_at DESC).
+-- v1.2 read intent_payload->>'biller_id', but the payload nests it under "entities", so the check
+-- never matched and a double tap minted a second session and key.
 
 -- If a row is found: return that session's status to the user.
 -- Do NOT create a new session. Do NOT generate a new idempotency key.
@@ -494,9 +516,14 @@ FOR each task:
   payload = parse_json(task.payload)
   # payload contains: {
   #   'session_id', 'family_id', 'user_id',
-  #   'action', 'details', 'previous_hash', 'amount_paise',
-  #   'transaction_ref_id', 'idempotency_key'
+  #   'action', 'details', 'amount_paise',
+  #   'transaction_ref_id', 'idempotency_key', 'executed_at'
   # }
+  # v1.3: NO previous_hash in the payload. A hash captured when the task was queued is stale by the
+  # time it runs. The chain head is read under the lock, inside the transaction below
+  # (fn_lock_audit_tail), and the hash is computed then. 'executed_at' is the provider's execution
+  # time and is passed as p_occurred_at, so the row says when the money moved and chain_seq says
+  # when we recorded it (Data Model v1.4 §3.6).
 
   # 1. Verify the BBPS transaction is still confirmed (paranoia check)
   bbps_status = GET_BBPS_STATUS(transaction_ref_id=payload.transaction_ref_id)
@@ -505,6 +532,8 @@ FOR each task:
     # 2. Recompute hash using canonical payload
     current_hash = SHA256(log_id || user_id || action || canonical_details || previous_hash)
 
+    # 2b (v1.3). Bring the module level first: finance.reconcile(idempotency_key, outcome='executed',
+    #     external_ref, occurred_at). Idempotent; a no-op if the module had already finalised.
     # 3. Write audit log + update session in one atomic transaction
     BEGIN TRANSACTION;
       INSERT INTO audit_log (... all fields ...) VALUES (...)
@@ -568,6 +597,7 @@ FOR each zombie_session:
 
     CASE 'FAILED':
       # Money did not move (or was reversed by BBPS)
+      # v1.3: finance.reconcile(idempotency_key, outcome='failed') first, then one transaction:
       log_audit(action='BILL_PAYMENT_ZOMBIE_FAILED', actor=SYSTEM_ACTOR_UUID)
       UPDATE supervisor_sessions SET fsm_state='FAILED'
       DELETE FROM resource_lock WHERE resource_key = zombie_session.resource_key
@@ -600,6 +630,11 @@ FOR each zombie_session:
       IF elapsed < 24_hours:
         # Within BBPS idempotency window — safe to re-submit with original key.
         # BBPS will dedup if the original request was received but status API was lagging.
+        # v1.3: the task is executed as an `execute` dispatch to the Finance module with the SAME
+        # key and recovery={mode:'resubmit', reason:'provider_not_found'} (Module Registry v1.2 §6.2,
+        # §6.4). That flag is what lets the module call BBPS for a ledger row that is 'pending'.
+        # No gate is re-run and no approval is asked again: the user approved this exact payment,
+        # and the key makes it the same payment. The Healer never creates or approves one.
         queue_task(BILL_PAYMENT, priority=P3, payload={
           resubmit=True,
           idempotency_key=zombie_session.idempotency_key,  # MUST be original key
@@ -618,6 +653,8 @@ FOR each zombie_session:
       IF zombie_session.healer_poll_count >= 3:
         alert_admin(FIN_011, 'BBPS unreachable for 15+ minutes. Manual check required.')
 ```
+
+> ℹ v1.3, deleted users. The zombie sweep does not filter on the paying user's `deleted_at`. If the user asked for account deletion while their payment was in EXECUTION, the session is still there (Data Model v1.4 §4.3; Consent Manager v1.4 §2.2) and the Healer finishes it exactly as above, writing as SYSTEM_ACTOR_UUID. A status poll needs no consent of the user. A NOT_FOUND for a deleted user is **not** resubmitted: the person has left, so the session goes to FAILED with `session_notes = 'user deleted before submission'`. The nightly purge skips a user who still has a session in EXECUTION.
 
 ### 6.5 Healer Backoff Schedule
 
@@ -859,7 +896,9 @@ POST /api/v1/admin/sessions/{session_id}/override
 
 BEGIN TRANSACTION;
 
-  -- Step 1: Lock the latest audit_log row for this family.
+  -- Step 1 (v1.3: implemented as SELECT core.fn_lock_audit_tail($family_id), which locks the family's
+  -- chain-head row and also works for a family with no audit rows yet; the SELECT below is the v1.1 text).
+  -- Lock the latest audit_log row for this family.
   -- This prevents the Healer from concurrently writing a new audit entry
   -- between our previous_hash fetch and our INSERT, which would corrupt
   -- the hash chain (our entry would reference a stale previous_hash).
@@ -886,7 +925,10 @@ BEGIN TRANSACTION;
     'ADMIN_SESSION_OVERRIDE',
     '{"session_id":"$session_id","new_status":"$new_status",
       "reason":"$reason","biometric_verified":true}',
-    previous_hash, current_hash, $new_status, NOW()
+    previous_hash, current_hash,
+    -- v1.3: fsm_exit_state is MAPPED, never copied: 'SUCCESS_CONFIRMATION' -> 'SUCCESS', 'FAILED' -> 'FAILED'
+    -- (Data Model v1.4 §3.7 table). 'SUCCESS_CONFIRMATION' is not a legal value of that column.
+    map_exit_state($new_status), NOW()
   );
 
   -- Step 4: Change session status (AFTER audit log write, inside same transaction)

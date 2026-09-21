@@ -2,9 +2,9 @@
 
 _DPDP-native consent framework, purpose registry, CONSENT_REVERIFY, DPI adapters, expiry watchdog, revocation, webhook security_
 
-> **Status:** v1.3 — one addition (§2.6 proxy consent for managed profiles) awaiting Codex review round 2; everything else is the frozen v1.2 text · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-17
+> **Status:** v1.4 — REVISION IN REVIEW (Codex round-2 findings applied to §2.2, §2.5, §2.6, §3.2, §4.2–4.4, §5.2, §7.2; awaiting Codex's targeted re-review; the rest is the frozen v1.2 text) · **Author:** Shantanu Chaudhary (Lead Product Architect) · **Last content change:** 2026-09-21
 > **Canonical copy.** Converted to Markdown on 2026-09-16 from `Tech_Spec_Consent_Manager_v1.1.docx` (original kept in `archive/originals/`). Content is unchanged; only formatting was converted. Superseded versions in the archive: `Tech_Spec_Consent_Manager_v1.0.docx`.
-> **Cited elsewhere as:** Tech_Spec_Consent_Manager v1.1, Consent_Manager v1.1, CM §n.
+> **Cited elsewhere as:** Consent Manager v1.4, Tech_Spec_Consent_Manager v1.1, Consent_Manager v1.1, CM §n.
 
 ### Document Governance
 
@@ -14,6 +14,7 @@ _DPDP-native consent framework, purpose registry, CONSENT_REVERIFY, DPI adapters
 | v1.1 | 2026-02-21 | Hardening. Five fixes applied after first independent review: (1) §4.1 PostgreSQL trigger enforcing consent_handle_id NOT NULL for DPI purpose codes — prevents silent bypass of external consent gate at CONSENT_REVERIFY Check 2; (2) §2.2 deletion sequence now explicitly aborts active supervisor_sessions to prevent orphaned EXECUTION sessions after account deletion; (3) §7.3 renewal flow now inherits fetch_count_today from old handle when revoked within 1 hour — prevents RBI rate-limit evasion via renewal spam; (4) §4.6 consent_ui_disclosures table added — consent_ui_version on consent_records now references an auditable canonical record; (5) §9.3 Step 4 webhook DB writes wrapped in explicit BEGIN/COMMIT — prevents partial state on audit_log failure after consent_handles UPDATE. | Shantanu Chaudhary |
 | v1.2 | 2026-09-17 | Alignment release, no behavioural change: (1) `session_status` → `fsm_state` (Data Model v1.3 §3.7); (2) role values written lowercase as stored (`minor`, `admin`, `member`) and the minor check reads `users.role`, not `family_relationships.role` (Inconsistency Register item 3); (3) `offline_task_queue.status = 'cancelled'` is now a valid value (Data Model v1.3 §3.9; item 10); (4) `consent_handles.provider` now includes 'ONDC' so ONDC_ADDRESS_SHARE can carry a handle as the enforce_dpi_handle trigger requires; (5) the `consent_records` and `consent_ui_disclosures` DDL, the trigger, and the audit action codes of §4.4 are now also in Data Model v1.3 (§3.12–3.13, §6); the Data Model is the DDL source and this document remains the behavioural authority. Note the expiry index is named `idx_consent_records_expiry` there. | Shantanu Chaudhary (with Claude Code) |
 | v1.3 | 2026-09-17 | One addition by founder ruling (Health PRD OI-2): §2.6 Proxy Consent for Managed Profiles. New nullable column `consent_records.proxy_consent_user_id` (§4.1), its index, the insert-time rule, and the audit action `PROXY_CONSENT_GRANTED` (§4.4). No change to any existing behaviour; minors still use `parental_consent_user_id`. Goes to Codex review round 2 together with Data Model v1.3, then re-freezes. | Shantanu Chaudhary (with Claude Code) |
+| v1.4 | 2026-09-21 | Codex review round 2 (issue #10 findings 5–10, 14, 15, 17; PR #25 findings 4 and 6; PR #20 finding 3) and founder rulings of 2026-09-21. (1) §2.2: deletion never aborts an EXECUTION session, and the purge empties the `users` row in place instead of deleting it (Data Model v1.4 §7.1). (2) §2.5: child protections follow `users.is_child`, not the role, so a managed infant keeps them. (3) §2.6 rewritten: availability predicate for the primary proxy; the rule is checked at insert, at pending→active and at renewal, under the family lock; actor and subject are separate throughout; ordinary replacement of a proxy versus deletion of the granting proxy; re-confirmation state `proxy_reconfirm_required` with its own clearing event `PROXY_CONSENT_RECONFIRMED`. (4) §3.2: DIGILOCKER_DOCUMENT discloses the transient use of date of birth and the stored milestone (material change, disclosure 2.0.0); new first-party purpose HEALTH_MEDICATION_REMINDERS. (5) §4.2–4.4: grant writes `proxy_consent_user_id` and both audit rows through the audit protocol; withdrawal authorises the actor against the subject; disclosure row must exist before the grant. (6) §5.2: Check 0 (live subject) and Check 1b (proxy re-confirmation); the limit of flag-driven polling stated. (7) §7.2: notices for a dependent go to the current primary proxy or the guardians. | Shantanu Chaudhary (with Claude Code; review by Codex) |
 
 > ✅ STATUS: HARDENED v1.1 — Architecture Frozen
 > This document is the authoritative specification for all consent infrastructure in FamilyLifeOS.
@@ -153,12 +154,16 @@ T+0:  User submits deletion request (requires biometric confirmation)
       → UPDATE supervisor_sessions
           SET fsm_state = 'ABORTED'
           WHERE user_id = $uid
-            AND fsm_state NOT IN ('SUCCESS_CONFIRMATION','FAILED','ABORTED');
-        -- CRITICAL: Abort all non-terminal sessions BEFORE revoking DPI handles.
-        -- Without this, an EXECUTION-state session survives account deletion,
-        -- completes via Healer, and writes an audit_log entry for a user_id
-        -- that no longer has a valid account. The audit chain is orphaned.
-        -- Terminal states (SUCCESS_CONFIRMATION, FAILED, ABORTED) are left as-is.
+            AND fsm_state NOT IN ('SUCCESS_CONFIRMATION','FAILED','ABORTED','EXECUTION');
+        -- v1.4: every non-terminal session is aborted EXCEPT one in EXECUTION. Such a session may
+        -- already have moved money; only the Healer may take it out of EXECUTION (FTS §6–7,
+        -- Data Model v1.4 §4.3, §7.4). v1.1 aborted it here "so the audit chain is not orphaned";
+        -- that concern is gone because the users row is never deleted (see T+24h), and aborting
+        -- hid a possibly-paid bill from the only job that reconciles it. The Healer finishes the
+        -- books as SYSTEM_ACTOR_UUID; it needs no consent of the deleted user, because a status
+        -- query on a submitted payment reads the biller network, not the user's bank.
+      → Records this user granted AS A PROXY for a managed profile are NOT revoked:
+          SET proxy_reconfirm_required = TRUE  (§2.6.4)
       → Write audit_log: ACCOUNT_DELETION_REQUESTED
         (This is the last audit entry written by the user's own action.)
       COMMIT;
@@ -172,14 +177,18 @@ T+0:  User submits deletion request (requires biometric confirmation)
 
 T+0 to T+24h: Soft-delete window
       → User can cancel deletion within this window (Admin-only action)
-      → All sessions already ABORTED — no active processing
+      → All sessions ABORTED, except a payment in EXECUTION that the Healer is reconciling
       → No new DPI calls can be made (all consents revoked)
       → Family still intact if other members exist
 
 T+24h: Nightly purge job (01:00 IST)
-      → Hard-delete all rows WHERE deleted_at < NOW() - 24h
-      → ON DELETE CASCADE handles child tables automatically
-      → Write audit_log: DATA_DELETION_COMPLETED (final entry before cascade)
+      → v1.4 (founder ruling 2026-09-21): ERASE THE PERSON, KEEP AN EMPTY PLACEHOLDER.
+        Data Model v1.4 §7.1 is the procedure: skip the user tonight if a session is still in
+        EXECUTION; delete the personal child rows by name (devices, relationships, proxy
+        assignments, consent handles, module data); empty the users row in place
+        (name 'Deleted user', phone/email NULL, purged_at set); keep audit_log rows and
+        consent_records rows as evidence (granted_scope reset to '{}').
+      → Write audit_log: DATA_DELETION_COMPLETED (actor SYSTEM_ACTOR_UUID) in the same transaction
       → If user was sole Admin: family is dissolved, all members notified
 ```
 
@@ -208,7 +217,7 @@ Under DPDP Act 2023, users must be informed of a data breach 'without undue dela
 
 > ⚖ DPDP ACT 2023: Processing of personal data of a child (under 18) requires verifiable parental consent. The Data Fiduciary must not undertake processing that is detrimental to the child or involves tracking, behavioural monitoring, or targeted advertising.
 
-In FamilyLifeOS, minor role users (users.role = 'minor'; v1.2 wording) require specific handling:
+In FamilyLifeOS a **child** is any user with `users.is_child = TRUE` (Data Model v1.4 §3.2): every `minor`, and any `managed` profile marked as a child (an infant has no login, so it cannot hold the minor role). v1.4 moved every rule in this section from the role to that marker (founder ruling 2026-09-21); where the text below says Minor, read child. Children require specific handling:
 - Any consent_record for a Minor must have parental_consent_user_id set to a verified Adult or Admin in the same family. The system cannot grant consent on behalf of a Minor without this field populated.
 - The Minor's RBAC already restricts access to Vault and Wealth pillars (PRD v2.1). The consent framework adds: no consent for analytics, no consent for behavioural data collection, no consent for any DPI that would create a financial or health record in the Minor's name without explicit Admin approval.
 - When a Minor turns 18: the Supervisor detects this via birth certificate data in the Vault (Scenario 5 in PRD v2.1). The Admin is prompted to confirm role upgrade. Upon confirmation, existing consents granted by the parent are migrated to the user's own consent record. The user receives a notification explaining what data exists and that they can revoke any consent.
@@ -217,43 +226,89 @@ In FamilyLifeOS, minor role users (users.role = 'minor'; v1.2 wording) require s
 ```text
 -- Enforced at consent_records insert time (application layer, not DB constraint):
 
-IF user.role == 'minor':
+IF subject.is_child:                                   # v1.4: was `user.role == 'minor'`
   IF consent_record.parental_consent_user_id IS NULL:
-    RAISE ConsentError('Minor consent requires verified parental_consent_user_id')
-  parent = SELECT * FROM users WHERE user_id = parental_consent_user_id
-  IF parent.family_id != minor.family_id OR parent.role NOT IN ('admin','member'):
-    RAISE ConsentError('Parental consent must come from verified adult in same family')
+    RAISE ConsentError('A child's consent requires verified parental_consent_user_id')
+  # v1.4: the consenting adult must be this child's parent or legal guardian, live, same family.
+  g = SELECT 1 FROM v_guardians
+      WHERE dependent_user_id = subject.user_id AND guardian_user_id = parental_consent_user_id
+        AND family_id = subject.family_id AND basis IN ('parent','legal_guardian')
+  IF g IS NULL:
+    # Fallback only when the child has NO live parent or guardian in the family: a live admin.
+    IF EXISTS(v_guardians rows for subject with basis IN ('parent','legal_guardian'))
+       OR NOT is_live_admin(parental_consent_user_id, subject.family_id):
+      RAISE ConsentError('Parental consent must come from the child's parent or legal guardian')
   IF purpose_registry[consent_record.purpose_code].minor_allowed == False:
-    RAISE ConsentError('This purpose is not permitted for Minor users')
+    RAISE ConsentError('This purpose is not permitted for a child')
+# A managed child ALSO passes through §2.6: both columns are set, and may name the same person.
 ```
 
-### 2.6 Proxy Consent for Managed Profiles (added in v1.3)
+### 2.6 Proxy Consent for Managed Profiles (added in v1.3, rewritten in v1.4)
 
-A managed profile (users.role = 'managed'; Nani in the Sharma seed) is an adult who does not operate the product herself. DPDP treats a lawful guardian's consent on behalf of a person who cannot consent for themselves like parental consent; FamilyLifeOS records it separately from parental consent so the audit trail says exactly who consented for whom and in what capacity.
+A managed profile (users.role = 'managed'; Nani in the Sharma seed) is a person who does not operate the product themselves: usually an adult who cannot or will not, sometimes an infant. DPDP treats a lawful guardian's consent on behalf of a person who cannot consent for themselves like parental consent; FamilyLifeOS records it separately from parental consent so the audit trail says exactly who consented for whom and in what capacity. v1.3 said "a managed profile is an adult"; that was wrong (Data Model §3.2 has always allowed infants) and v1.4 removes it: a managed **child** gets this section **and** §2.5.
 
-- Any consent_record whose user_id is a managed profile must have proxy_consent_user_id set to that profile's **primary proxy** (proxy_assignments.proxy_rank = 'primary', Data Model §3.4). The proxy grants with their own biometric or PIN (§1.3 still holds: only a human grants consent).
-- The secondary proxy may grant only when the primary proxy's account is deleted or suspended; the audit details then carry `"proxy_rank":"secondary"`. Otherwise a secondary proxy's attempt is rejected.
-- When the primary proxy changes, existing consents stay valid until they expire; the expiry watchdog (§7) sends renewals to the new primary proxy. When a proxy's account is deleted, §2.2 applies to the proxy's own consents; consents they granted for the managed profile are flagged `revalidation_required` for the new primary proxy rather than revoked, so medication reminders do not stop silently.
-- A managed profile can never carry parental_consent_user_id, and a minor can never carry proxy_consent_user_id. An ordinary adult carries neither.
-- Revocation: the primary proxy or any admin can withdraw a managed profile's consent (§4.3 flow, actor recorded).
+Two people are involved in every flow below and they are never the same variable: the **actor** (authenticated, holds the passkey, `session.user_id`) and the **subject** (whose data it is, `consent_records.user_id`). The client may send `acting_as = <subject>`; the server verifies it against `proxy_assignments` and never trusts it.
+
+#### 2.6.1 Who may grant
+
+- The subject's **primary proxy** (proxy_assignments.proxy_rank = 'primary', Data Model §3.4) grants with their own biometric or PIN (§1.3 still holds: only a human grants consent). `proxy_consent_user_id` = that proxy.
+- The **secondary proxy** may grant only when the primary is **unavailable**, defined exactly as: the primary's `users` row has `deleted_at IS NOT NULL`, or there is no primary assignment row. Nothing else counts. There is no "suspended" account state in the Data Model, so v1.3's "deleted or suspended" is reduced to what exists; if a suspension state is ever added, it is added to this predicate by a version bump. The audit details then carry `"proxy_rank":"secondary"`.
+- An **admin who is not an assigned proxy cannot grant**, link a document that needs the subject's consent, or renew. Being admin gives the right to assign proxies (PROXY_ASSIGNED, Level 0), not to consent for the person. An admin who needs the subject's data either already has a valid existing consent of the subject to rely on, or the system prompts the authorised proxy.
+- A managed adult never carries parental_consent_user_id. A managed child carries both columns (§2.5). A `minor` never carries proxy_consent_user_id. An ordinary adult carries neither.
+
+#### 2.6.2 When the rule is checked
+
+Not only "at insert time" (v1.3). The check below runs, inside one transaction that first takes the family lock (`SELECT 1 FROM families WHERE family_id = $1 FOR UPDATE`, the same lock the proxy-assignment and role-change services take, Data Model §4), at each of these moments:
+
+1. INSERT of a consent_record for a managed subject (status `pending` or `active`);
+2. the `pending` → `active` transition (the DPI redirect may return minutes later; the assignment may have changed meanwhile);
+3. renewal (§7.3), which is a new grant;
+4. re-confirmation (§2.6.4).
 
 ```text
--- Enforced at consent_records insert time (application layer, not DB constraint):
-
-IF user.role == 'managed':
-  IF consent_record.proxy_consent_user_id IS NULL:
-    RAISE ConsentError('Managed-profile consent requires proxy_consent_user_id')
+check_proxy_grant(actor, subject, record):            # inside the family-locked transaction
+  REQUIRE subject.deleted_at IS NULL AND subject.role == 'managed'
+  REQUIRE actor.deleted_at IS NULL AND actor.role IN ('admin','member')
+          AND actor.verification_status IN ('otp_verified','kyc_verified')
+  REQUIRE actor.family_id == subject.family_id == record.family_id
   pa = SELECT * FROM proxy_assignments
-       WHERE managed_user_id = user.user_id AND proxy_user_id = proxy_consent_user_id
-  IF pa IS NULL OR pa.family_id != user.family_id:
-    RAISE ConsentError('Proxy consent must come from an assigned proxy in the same family')
-  IF pa.proxy_rank == 'secondary' AND primary_proxy_is_active(user.user_id):
-    RAISE ConsentError('Secondary proxy may consent only when the primary proxy is unavailable')
-  IF consent_record.parental_consent_user_id IS NOT NULL:
-    RAISE ConsentError('parental_consent_user_id is for minors only')
-  WRITE audit_log action = 'PROXY_CONSENT_GRANTED'
-        details = {purpose_code, managed_user_id, proxy_user_id, proxy_rank, consent_record_id}
+       WHERE managed_user_id = subject.user_id AND proxy_user_id = actor.user_id
+         AND family_id = subject.family_id
+  IF pa IS NULL: RAISE ConsentError('Proxy consent must come from an assigned proxy in the same family')
+  IF pa.proxy_rank == 'secondary' AND primary_proxy_is_available(subject):
+     RAISE ConsentError('Secondary proxy may consent only when the primary proxy is unavailable')
+  REQUIRE record.proxy_consent_user_id == actor.user_id      # the column names the human who confirmed
+  IF subject.is_child: run the §2.5 check as well
+  IF NOT subject.is_child AND record.parental_consent_user_id IS NOT NULL:
+     RAISE ConsentError('parental_consent_user_id is for children only')
+
+primary_proxy_is_available(subject):
+  RETURN EXISTS (SELECT 1 FROM proxy_assignments pa JOIN users p ON p.user_id = pa.proxy_user_id
+                 WHERE pa.managed_user_id = subject.user_id AND pa.proxy_rank = 'primary'
+                   AND pa.family_id = subject.family_id AND p.deleted_at IS NULL)
 ```
+
+A failed check at moment 2 leaves the record `pending`, revokes the just-issued external handle (§4.3 Step 3 path), and tells the current primary proxy that a consent request is waiting for them. The grant writes `CONSENT_GRANTED` and `PROXY_CONSENT_GRANTED` through the audit protocol (Data Model v1.4 §3.18) in the same transaction as the record; both rows carry `user_id` = the actor and `details.subject_user_id` = the subject.
+
+#### 2.6.3 The primary proxy is replaced (ordinary hand-over)
+
+Ravi takes over from Priya; Priya is still in the family. Existing consents **stay valid until they expire**; nothing is flagged; no one has to do anything. From the next watchdog run, renewal notices go to the new primary (§7.2). Medication reminders and other processing continue unchanged. Withdrawal rights move with the role: the new primary can withdraw, the former primary cannot.
+
+#### 2.6.4 The granting proxy's account is deleted (re-confirmation)
+
+Different event, different rule, because the person who vouched for the consent is gone.
+
+- At T+0 of the proxy's deletion (§2.2) every active consent_record with `proxy_consent_user_id` = the deleted user gets `proxy_reconfirm_required = TRUE` (Data Model v1.4 §3.12). The records are **not** revoked and their DPI handles are **not** touched: the consent was validly given for the subject, and the founder's decision stands that a dependent's medication reminders must not stop silently.
+- This is **not** `consent_handles.revalidation_required`. v1.3 reused that flag, which does not exist for first-party records and is cleared by §5.2 Check 2 when the *provider* says ACTIVE; a provider's status says nothing about whether the new proxy has looked at the consent.
+- While the flag is set: processing of data **already held** under the record continues (reminder schedules, stored documents' metadata). **No new external fetch** passes CONSENT_REVERIFY (§5.2 Check 1b, code CONSENT_009); the expiry watchdog still runs on the record.
+- Who clears it: the subject's **current primary proxy** only (or the secondary under the §2.6.1 unavailability rule), by viewing the same disclosure the record points at and confirming with biometric or PIN. The transaction runs `check_proxy_grant` (moment 4), sets `proxy_reconfirm_required = FALSE`, `proxy_reconfirmed_by`, `proxy_reconfirmed_at`, and appends `PROXY_CONSENT_RECONFIRMED`. `proxy_consent_user_id` keeps naming the original grantor: history is not rewritten. The Supervisor, the Healer, an admin who is not the proxy, and a provider status call can never clear it.
+- The new primary may instead withdraw (§4.3). Doing nothing is allowed: the record simply expires on its date.
+- If the managed profile has no available proxy at all, the admins are alerted (Data Model §4.3, "without a caregiver"); assigning a proxy is the only way forward.
+- The deleted proxy's `users` row is emptied, not removed (Data Model v1.4 §7.1), so `proxy_consent_user_id` stays a valid reference and the purge is not blocked by it.
+
+#### 2.6.5 Withdrawal and renewal
+
+The primary proxy or any admin can withdraw a managed profile's consent (§4.3 flow, actor recorded). Withdrawing reduces processing, so it is deliberately open to admins; granting is not. Renewal is a grant: §2.6.1 applies.
 
 ## 3. Purpose Registry
 
@@ -273,13 +328,18 @@ Every consent_record written to the database must reference a valid purpose_code
 | ABHA_PRESCRIPTION | Access prescriptions from linked hospitals for medication reminders | Prescription: drug name, dosage, prescribing doctor | 7 years (MCI guidelines) | ABHA | With parental consent | No |
 | ABHA_DIAGNOSTICS | Access diagnostic reports (blood tests, scans) for health tracking | Diagnostic report: test name, values, reference range | 7 years | ABHA | With parental consent | No |
 | ABHA_VITALS | Access vitals from wearable devices linked via ABHA | Heart rate, SpO2, blood pressure, steps | 1 year (re-consent after) | ABHA | With parental consent | No |
-| DIGILOCKER_DOCUMENT | Retrieve a specific government document (Aadhaar, PAN, driving licence) from DigiLocker | Document type, document number (redacted), issue date, expiry date | Duration of document validity | DigiLocker | With parental consent | No |
+| DIGILOCKER_DOCUMENT | Retrieve a specific government document (Aadhaar, PAN, driving licence) from DigiLocker, and work out dates the family should know about (renewals, a child turning 18) | Document type, document number (redacted), issue date, expiry date. **v1.4:** the holder's date of birth is read from the document **in memory only** to work out milestones and is never stored, logged or sent to a hosted LLM; what is stored is the milestone type and the date it falls on | Duration of document validity; milestones are deleted when the document is unlinked | DigiLocker | With parental consent | No |
+| HEALTH_MEDICATION_REMINDERS | Keep a medication schedule for a family member and remind the right people when a dose is due or missed (**v1.4, first-party**) | Medicine name and dose timing as entered by the family or taken from a prescription already fetched under ABHA_PRESCRIPTION; dose events (taken, skipped, missed); who was notified | While the schedule is active + 1 year | None | With parental consent | No |
 | VOICE_INTENT_PROCESSING | Process voice input to extract user intent via Bhashini | Voice transcript (text only). Raw audio not retained. | Session only (deleted on session end) | Bhashini | Yes (parental consent for Minor) | Yes |
 | OCR_DOCUMENT_PROCESSING | Extract structured data (dates, amounts, names) from a photo of a physical document | Extracted fields only. Full image retained in vault only if user confirms. | Image: vault retention. Extracted fields: purpose-specific. | None (in-house OCR engine) | With parental consent | No |
 | DEVICE_REGISTRATION | Register device for push notifications and surface-context detection | Device ID, push token, OS type, surface type (public/private) | Duration of device registration | None | With parental consent | Yes |
 | FAMILY_DATA_SHARING | Share one family member's non-sensitive data with other members per RBAC rules | Name, schedule, task status — never financial or health data cross-role | Active family membership | None | Yes | Yes |
 | ONDC_ADDRESS_SHARE | Share family delivery address with ONDC seller for an order | Delivery address (street, city, pincode) | Duration of order + 30 days for dispute | ONDC | With parental consent | No |
 | PRODUCT_ANALYTICS | Collect anonymised usage data to improve the product | Feature usage counts, error rates — no PII, no family identifiers | 1 year rolling | None | No | No |
+
+> ℹ v1.4 notes on the two rows changed above.
+> **DIGILOCKER_DOCUMENT** (founder ruling 2026-09-21): adding date of birth is a new data type, so the disclosure goes to a new MAJOR version (2.0.0) with `is_material_change = TRUE` and a `material_change_reason` (§4.6). Anyone who consented under 1.x is asked again before any milestone is derived from their documents; until they do, their documents stay linked and no milestone is computed for them. No real user has consented yet, so in practice V001 seeds 2.0.0 as the first disclosure for this purpose. A milestone date can be turned back into a birth date, so the Vault treats `milestone_at` as sensitive derived data: shown only to people who may see the document, never written to audit details (Data Model v1.4 §6.1).
+> **HEALTH_MEDICATION_REMINDERS**: AGENTS invariant 8 says no processing without an active consent record for a registered purpose. Before v1.4 reminders ran under ABHA_PRESCRIPTION alone, which left two gaps: a schedule typed in by hand had no purpose at all, and a schedule taken from a prescription lost its authorisation the day the ABHA consent expired, although nothing was being fetched any more. The reminder purpose is separate, first-party (no DPI handle, so `enforce_dpi_handle` does not apply), granted once per subject when the first schedule is created (by the subject, or by the proxy under §2.6, or with parental consent under §2.5). Expiry or withdrawal of ABHA_PRESCRIPTION stops **fetching**; reminders continue under this purpose. Withdrawal of this purpose stops reminders and the admins are told that it did (never silently). It is not an "essential" purpose: a family can use Health without it.
 
 ### 3.3 Jurisdiction-Specific Overrides (v1: DPDP only)
 
@@ -315,6 +375,7 @@ purpose_registry_overrides:
 
 ### 4.1 consent_records Table (DDL also in Data Model v1.3 §3.12)
 
+> ⚠ v1.4: **the DDL printed below is the v1.3 text and is no longer complete.** Data Model v1.4 §3.12 is the only DDL source and adds `proxy_reconfirm_required`, `proxy_reconfirmed_by`, `proxy_reconfirmed_at`, the index `idx_consent_proxy_reconfirm` and the composite foreign key `(purpose_code, consent_ui_version)` → `consent_ui_disclosures`. The copy stays here only so that the v1.1 review history still reads; do not author a migration from it.
 > ℹ v1.2: this DDL was folded into Data Model v1.3 §3.12 on 2026-09-17, which is now the single DDL source (the expiry index is named `idx_consent_records_expiry` there to avoid clashing with consent_handles' `idx_consent_expiry`). This section is retained for the rationale and the trigger's sync rule.
 
 This table is a backward-compatible addition to the frozen Data Model. It does not modify any existing table. All existing queries in Data_Model_Schema v1.2.1 §5 remain valid.
@@ -460,18 +521,25 @@ The grant flow is triggered when a feature requires a purpose_code that the user
 ```sql
 CONSENT GRANT FLOW — canonical sequence
 
+Step 0 (v1.4): RESOLVE actor and subject
+  actor   = the authenticated user (session.user_id)
+  subject = the person whose data the purpose covers. Usually the actor. For a managed profile it is
+            session.acting_as, verified server-side against proxy_assignments (§2.6); for a child it is
+            the child. Every query below is keyed by the SUBJECT ($sid); every confirmation and audit
+            row names the ACTOR.
+
 Step 1: DETECT missing consent
   Supervisor checks: SELECT * FROM consent_records
-    WHERE user_id=$uid AND purpose_code=$code AND status='active'
-    AND expires_at > NOW()
+    WHERE user_id=$sid AND purpose_code=$code AND status='active'
+    AND expires_at > NOW() AND proxy_reconfirm_required = FALSE
   IF no row: proceed to Step 2
   IF row exists: consent already active, proceed with the original intent
 
 Step 2: FETCH purpose details from registry
   purpose = purpose_registry[$code]
   IF purpose not found: RAISE ConsentError (unknown purpose — block operation)
-  IF user.role == 'minor' AND purpose.minor_allowed == False:
-    RAISE ConsentError('Purpose not permitted for Minor users')
+  IF subject.is_child AND purpose.minor_allowed == False:          # v1.4: marker, not role
+    RAISE ConsentError('Purpose not permitted for a child')
 
 Step 3: PRESENT consent UI
   Show to user (in their preferred language via Bhashini):
@@ -481,15 +549,21 @@ Step 3: PRESENT consent UI
     - How to revoke (link to settings)
     - If DPI: which external system will be accessed
   Record: consent_ui_version = current UI disclosure version
+  v1.4: that (purpose_code, version) row MUST already exist in consent_ui_disclosures; the composite
+  foreign key (Data Model v1.4 §3.12) rejects a grant that points at a screen nobody recorded.
 
 Step 4: USER CONFIRMS (explicit affirmative action required)
   Method: biometric (preferred) OR 4-digit PIN
   No pre-ticked boxes. No 'continue = consent' implied.
 
-Step 5: If Minor user: VERIFY parental consent
-  Notify parent (Admin/Member) with consent request
-  Parent must confirm separately with their own biometric
-  parental_consent_user_id = parent.user_id
+Step 5: If the subject is a child: VERIFY parental consent (§2.5)
+  Notify a parent or legal guardian (v_guardians) with the consent request
+  That adult must confirm separately with their own biometric
+  parental_consent_user_id = that adult's user_id
+
+Step 5b (v1.4): If the subject is a managed profile: the ACTOR is the proxy (§2.6)
+  Step 4's confirmation was the proxy's own biometric. proxy_consent_user_id = actor.user_id
+  check_proxy_grant(actor, subject, record) runs in Step 7's transaction, and again at pending→active
 
 Step 6: If DPI required: INITIATE DPI consent flow
   (AA: see §6.1 | ABHA: see §6.2 | DigiLocker: see §6.3)
@@ -498,15 +572,23 @@ Step 6: If DPI required: INITIATE DPI consent flow
 
 Step 7: WRITE consent_record (atomic transaction)
   BEGIN TRANSACTION;
+    SELECT 1 FROM families WHERE family_id=$fid FOR UPDATE;   -- v1.4: only when subject is managed or a child
+    check_proxy_grant(...) / §2.5 check                       -- v1.4
     INSERT INTO consent_records (
-      user_id, family_id, purpose_code, status, granted_at,
+      user_id /* the SUBJECT */, family_id, purpose_code, status, granted_at,
       expires_at, jurisdiction, lawful_basis, parental_consent_user_id,
+      proxy_consent_user_id /* v1.4 */,
       consent_handle_id, granted_scope, consent_ui_version
     ) VALUES (...);
-    INSERT INTO audit_log (action='CONSENT_GRANTED', details={
-      purpose_code, granted_scope, expires_at, consent_ui_version,
-      parental_consent_user_id (if Minor), consent_handle_id (if DPI)
+    -- v1.4: audit rows go through fn_lock_audit_tail / fn_append_audit (Data Model v1.4 §3.18),
+    -- never a direct INSERT. user_id of each audit row = the ACTOR.
+    APPEND audit (action='CONSENT_GRANTED', details={
+      purpose_code, subject_user_id, consent_record_id, expires_at, consent_ui_version,
+      parental_consent_user_id (if child), proxy_consent_user_id (if managed), consent_handle_id (if DPI)
     });
+    IF child:   APPEND audit (action='PARENTAL_CONSENT_GRANTED', ...)
+    IF managed: APPEND audit (action='PROXY_CONSENT_GRANTED', details={
+      purpose_code, subject_user_id, proxy_user_id, proxy_rank, consent_record_id })
   COMMIT;
 
 Step 8: RESUME original intent
@@ -532,16 +614,23 @@ Step 3: If DPI consent: REVOKE external handle first
 
 Step 4: UPDATE consent_records (atomic transaction with audit_log)
   BEGIN TRANSACTION;
+    -- v1.4: authorise the ACTOR against the record's SUBJECT, then update by record and family.
+    -- Allowed actors: the subject themselves; for a managed subject, the current primary proxy
+    -- (or the secondary under §2.6.1) or any live admin of the family; for a child, a parent or
+    -- legal guardian (v_guardians) or any live admin. v1.3 filtered `user_id=$uid`, which made
+    -- every withdrawal by a proxy or admin a silent no-op.
+    REQUIRE may_withdraw(actor, record)
     UPDATE consent_records
       SET status='withdrawn', revoked_at=NOW(), updated_at=NOW()
-      WHERE record_id=$id AND user_id=$uid;
+      WHERE record_id=$id AND family_id=$fid AND status IN ('active','pending');
+    REQUIRE rowcount == 1
     IF consent_handle_id IS NOT NULL:
       UPDATE consent_handles
         SET status='revoked', revoked_at=NOW()
         WHERE consent_id=consent_handle_id;
-    INSERT INTO audit_log (action='CONSENT_WITHDRAWN', details={
-      purpose_code, revoked_at, dpi_revocation_status
-    });
+    APPEND audit (action='CONSENT_WITHDRAWN', user_id = ACTOR, details={
+      purpose_code, subject_user_id, consent_record_id, actor_basis, dpi_revocation_acknowledged
+    });   -- actor_basis: self | proxy_primary | proxy_secondary | guardian | admin
   COMMIT;
 
 Step 5: PROPAGATE revocation (see §8 — Revocation Propagation)
@@ -552,7 +641,7 @@ Step 5: PROPAGATE revocation (see §8 — Revocation Propagation)
 
 ### 4.4 Consent Audit Trail
 
-These action codes are additions to the audit_log action taxonomy defined in Data_Model_Schema v1.2.1 §6:
+These action codes are part of the audit_log action taxonomy in Data Model §6 (the canonical list). v1.4: every row below also carries `subject_user_id` and `consent_record_id`; the audit row's own `user_id` is the actor. Payloads hold identifiers, enum values and timestamps only; `granted_scope` and `features_affected`, which v1.1 listed, are **not** written to audit details (scope JSON can name banks and hospitals; the record itself holds it).
 
 | Action Code | Trigger | Key Fields in details JSONB |
 |---|---|---|
@@ -563,7 +652,9 @@ These action codes are additions to the audit_log action taxonomy defined in Dat
 | CONSENT_RENEWED | User renews an expired or expiring consent | purpose_code, previous_expires_at, new_expires_at, new_consent_handle_id (if DPI) |
 | CONSENT_REVERIFY_PASSED | CONSENT_REVERIFY state gate passed successfully | purpose_code, consent_handle_id, revalidation_required_was: false |
 | CONSENT_REVERIFY_FAILED | CONSENT_REVERIFY gate failed — consent revoked or expired | purpose_code, failure_reason, session_id, action_taken |
-| PARENTAL_CONSENT_GRANTED | Parent grants consent on behalf of Minor | minor_user_id, purpose_code, parent_user_id, biometric_verified: true |
+| PARENTAL_CONSENT_GRANTED | Parent or legal guardian grants consent on behalf of a child | subject_user_id, purpose_code, parent_user_id, basis (parent \| legal_guardian \| admin_fallback), biometric_verified: true |
+| PROXY_CONSENT_GRANTED | Assigned proxy grants consent for a managed profile (§2.6); same transaction as CONSENT_GRANTED | subject_user_id, purpose_code, proxy_user_id, proxy_rank, consent_record_id |
+| PROXY_CONSENT_RECONFIRMED | Current primary proxy re-confirms a record whose granting proxy was deleted (§2.6.4) | subject_user_id, purpose_code, consent_record_id, original_proxy_user_id, reconfirmed_by, proxy_rank |
 | DATA_EXPORT_COMPLETED | Family data export completed (portability) | exported_purposes, format, file_size_bytes, delivered_to |
 | CONSENT_UI_VERSION_CHANGED | Consent disclosure text updated — re-consent triggered | purpose_code, old_version, new_version, affected_user_count |
 
@@ -684,15 +775,25 @@ CONSENT_REVERIFY is not only for financial flows. Any flow that reaches an EXECU
 CONSENT_REVERIFY GATE — executes immediately before Phase 1 two-phase commit
 
 Inputs:
-  - session.user_id
-  - session.purpose_code  (e.g., 'AA_BALANCE_FETCH')
+  - session.user_id          the ACTOR
+  - session.subject_user_id  whose data the external call touches ($sid; = actor unless acting_as, v1.4)
+  - session.purpose_code     the EXACT registered purpose of this call (e.g., 'AA_BALANCE_FETCH').
+                             "Some active consent with the same provider" is never enough (MR v1.2 §7.3)
   - session.consent_handle_id (if DPI consent)
+
+Check 0 (v1.4): the subject is a live member of this family
+  IF NOT EXISTS (SELECT 1 FROM users WHERE user_id=$sid AND family_id=$fid AND deleted_at IS NULL):
+    FAIL → CONSENT_006
 
 Check 1: consent_records freshness
   record = SELECT * FROM consent_records
-    WHERE user_id=$uid AND purpose_code=$code
+    WHERE user_id=$sid AND family_id=$fid AND purpose_code=$code
     AND status='active' AND expires_at > NOW()
   IF no record: FAIL → CONSENT_006 (consent_record not found or expired)
+
+Check 1b (v1.4): proxy re-confirmation (§2.6.4)
+  IF record.proxy_reconfirm_required: FAIL → CONSENT_009 (waiting for the new primary proxy)
+  # Cleared only by PROXY_CONSENT_RECONFIRMED. Nothing in this gate clears it.
 
 Check 2: revalidation_required flag
   IF record.consent_handle_id IS NOT NULL:
@@ -717,9 +818,13 @@ Check 3: scope adequacy
     FAIL → CONSENT_008 (scope insufficient for this operation)
     # This can happen if user narrowed consent scope after session creation
 
-PASS: all 3 checks passed → proceed to Phase 1 two-phase commit
-FAIL: log audit entry CONSENT_REVERIFY_FAILED, session → CONSENT_REVERIFY_FAILED state
+PASS: all checks passed → proceed to Phase 1 two-phase commit
+FAIL: log audit entry CONSENT_REVERIFY_FAILED; the session is persisted as fsm_state = 'FAILED'
+      (or 'ABORTED' where §5.3 says so). "CONSENT_REVERIFY_FAILED" in §5.3 is the name of the outcome and of
+      the audit action; it is not a stored state (Data Model v1.4 §3.7 mapping table).
 ```
+
+> ⚠ v1.4, what this gate does **not** detect. Check 2 asks the provider only when `revalidation_required` is already TRUE, and that flag is set by a verified webhook (§9) or by the watchdog. A consent revoked at the provider while our flag is still FALSE and no webhook has arrived passes this gate; the external call itself then fails at the provider with a consent error, which the DPI Gateway maps to the same CONSENT_007 path. That is the design since v1.0 (polling every provider before every payment would spend the AA budget of 3 fetches an hour on status calls), and it is recorded here so that no test or document claims otherwise (Inconsistency Register item 19; Simulator spec §11 OI-3).
 
 ### 5.3 CONSENT_REVERIFY State Transition Matrix
 
@@ -732,6 +837,7 @@ FAIL: log audit entry CONSENT_REVERIFY_FAILED, session → CONSENT_REVERIFY_FAIL
 | Check 2: revalidation_required, DPI confirms active | PASS | Continue to Check 3 | Clear flag, proceed | (no user message) |
 | Check 2: DPI unreachable | FAIL (safe default) | CONSENT_REVERIFY_FAILED | Queue CONSENT_REFRESH task. Alert Admin if persistent. | Unable to verify your bank connection. Please try again shortly. |
 | Check 3: scope insufficient | FAIL | CONSENT_REVERIFY_FAILED | Prompt user to re-grant consent with required scope | Your bank permission doesn't cover this account. Please update. |
+| Check 1b: proxy re-confirmation pending (v1.4) | FAIL | CONSENT_REVERIFY_FAILED | Notify the current primary proxy with the re-confirm action; data already held keeps being processed | This needs a quick confirmation from {proxy_first_name} first. We've asked them. |
 | All checks pass | PASS | Proceeds to EXECUTION | Phase 1 two-phase commit begins | (no user message — flow continues) |
 
 ### 5.4 TTL Policy for Consent Checks
@@ -951,7 +1057,13 @@ STEP 3: For each expiring consent, send notification
   days_remaining = CEIL((record.expires_at - NOW()) / INTERVAL '1 day')
   priority = 'HIGH' IF days_remaining <= 1 ELSE 'MEDIUM'
 
-  notify_user(user_id=record.user_id, message=
+  # v1.4: who is told. A notice goes to someone who can act on it:
+  #   subject is an ordinary adult            -> the subject
+  #   subject is managed                      -> the CURRENT primary proxy (secondary if the primary is
+  #                                              unavailable, §2.6.1), resolved now, not at grant time
+  #   subject is a child with a login (minor) -> the child AND the parents / legal guardians (v_guardians)
+  # recipients = resolve_consent_recipients(record)   # live users only; if empty -> notify_admin HIGH
+  notify_user(user_id=recipients, message=
     f'Your {purpose_registry[record.purpose_code].description} access expires in'
     f' {days_remaining} day(s). Renew to continue.',
     action_url='/settings/consent/{record.record_id}/renew',
@@ -1346,4 +1458,4 @@ Audit log entries written:
 | Operations | The AA consent expires after 1 year. What if the user is on holiday and misses the renewal notification? | The expiry watchdog sends notifications at T-7 days, T-3 days, and T-1 day (HIGH priority for last two). If still not renewed at expiry: consent_record becomes 'expired', all AA fetches return CONSENT_REVERIFY_FAILED, and the user is shown the renewal CTA on next app open. No data is lost. The bill payment queue will hold retries for 48 hours (offline_task_queue expiry) — if the user renews within 48 hours, the queued payment can be retried. After 48 hours, the session fails permanently and the user must re-initiate. This is acceptable — a missed electricity bill payment due to consent expiry is recoverable; a missed consent that exposes financial data is not. |
 | Engineering | What prevents a compromised Supervisor from granting its own consent for a user? | Three controls: (a) consent_grant requires explicit user biometric confirmation (Step 4 in §4.2) — the Supervisor can present the consent UI but cannot simulate the biometric confirm. (b) consent_records.user_id is set from the authenticated session, not from Supervisor input — the Supervisor cannot grant consent as a different user. (c) The audit_log CONSENT_GRANTED entry includes actor=user_id (the human who confirmed biometrically), not SYSTEM_ACTOR_UUID — any grant with actor=SYSTEM_ACTOR_UUID would be a data integrity violation detectable by the hash chain. The Supervisor can only prompt for consent; it cannot grant it. |
 
-— End of Tech_Spec_Consent_Manager_v1.1 —
+— End of Tech_Spec_Consent_Manager (v1.4, revision in review) —
