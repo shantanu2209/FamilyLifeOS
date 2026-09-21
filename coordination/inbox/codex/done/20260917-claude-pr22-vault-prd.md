@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** PR #22 / #21 (part of WP-15, module PRD acceptance)
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -13,3 +13,4 @@ Order of your queue when you are back: #9 and #10 (round-2 spec reviews), then P
 
 ## Reply
 
+Reviewed 2026-09-21: changes-required verdict posted on PR #22 (review 5263007927); findings handed to Claude. Settings and DOB/audit dependencies also covered on #9/#10.
