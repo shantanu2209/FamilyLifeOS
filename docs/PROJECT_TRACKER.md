@@ -8,14 +8,14 @@
 
 ## 📍 Current state
 
-_As of: 2026-09-17_
+_As of: 2026-09-21_
 
-- **Phase:** Roadmap Phase 0 (tooling and agent onboarding) is done in substance; Phase 1 (spec close-out) is under way. No application code yet.
-- **Agents:** Claude Code, Codex and Gemini are onboarded, each in its own worktree. Codex is out of credits until its reset; its queue is in `coordination/inbox/codex/`.
-- **Specs:** Financial Transaction Safety and the DPI runbook are frozen. Data Model v1.3, Module Registry v1.1 and the Consent Manager's one addition (§2.6) wait for Codex's round-2 review, then freeze. Work continues against the current text meanwhile (Decision Log).
-- **In review:** simulator spec, test strategy, the three module PRDs at v0.2 (with Data Model change 16, `v_guardians`), Gemini's cross-reference tool. See the project board for the live list.
-- **Build Gate:** blocked on the round-2 reviews and on scaffolding and CI (Codex). Checklist below.
-- **Waiting on the founder:** nothing blocking. Branch protection on `main` once CI exists; two switches under the project board's Workflows menu (auto-add, item closed → Done).
+- **Phase:** Roadmap Phase 1 (spec close-out). No application code yet.
+- **Agents:** Claude Code, Codex and Gemini are onboarded, each in its own worktree.
+- **Specs:** Codex's round-2 review (2026-09-21) required changes everywhere it looked: 29 findings on the Data Model, Consent Manager and Module Registry, 31 on four open pull requests. All are answered in one batch: Data Model v1.4, Consent Manager v1.4, Module Registry v1.2 and Financial Transaction Safety v1.3 (WP-11), and revisions of the Vault, Health and Finance PRDs, the simulator spec and the test strategy. The four specs are unfrozen until Codex's targeted re-review passes; the DPI runbook stays frozen.
+- **In review:** the WP-11 pull request and PRs #22, #25, #20, #23, in that merge order. See the project board for the live list.
+- **Build Gate:** blocked on that re-review and on scaffolding and CI (Codex, #5 and #6). Checklist below.
+- **Waiting on the founder:** nothing blocking. Branch protection on `main` (require the `docs` check).
 
 ---
 
@@ -55,12 +55,18 @@ Decisions that shape scope and process. Add a row whenever one is made; agents m
 ---
 
 | 2026-09-17 | **One home per fact; living documents checked by script.** Document versions and states live only in each document's Status line, with `docs/INDEX.md` generated from them. The plan has two levels and no more: Roadmap (phases, gates, milestones) and Execution Plan (work packages). Live status is the GitHub issues, milestones and project board, not a file: `coordination/BOARD.md` is retired and the board is kept in step by `tools/board_sync.py`. The tracker keeps the current state, decisions, change log, register, open gaps, Build Gate and parking lot; its February 2026 sections moved verbatim to `docs/reference/Project_Tracker_Snapshot_2026-02.md`. `tools/docs_index.py --check`, `tools/living_docs_check.py` and (once merged) `tools/xref_check.py --strict` run on every pull request. | An audit found the tracker's status overview days out of date and the same facts hand-copied in up to nine places. Discipline failed within a day; a failing check does not. The Roadmap and Execution Plan stay Markdown because they hold reasoning, gates and definitions, which change rarely; GitHub's roadmap view needs dates, which this project does not use. |
+| 2026-09-21 | **Erase the person, keep an empty placeholder.** The nightly purge deletes a person's data and empties their `users` row in place (`purged_at`); the row is never deleted. Audit rows are never rewritten or cascaded. | Founder ruling on Codex #10 finding 5. "Purge after 24 hours" and "audit rows are append-only and point at the user" could not both hold. DM v1.4 §7.1, CM v1.4 §2.2. The threat model reviews the list of what is kept. |
+| 2026-09-21 | **Child protections follow a marker, not the role.** `users.is_child`: always true for `minor`, optional for `managed` (an infant has no login). Parental consent and the no-analytics rule key on it. | Founder ruling on Codex #10 finding 10. The proxy-consent rule had treated every managed profile as an adult. DM v1.4 §3.2, CM v1.4 §2.5–2.6. |
+| 2026-09-21 | **Date of birth is disclosed in the DigiLocker consent.** Read in memory to derive milestones, never stored or logged; the milestone is stored and treated as sensitive. Disclosure 2.0.0, material change. | Founder ruling on Codex #10 finding 17. Keeps the "Arjun turns 18" milestone; no real user has consented under the old wording. CM v1.4 §3.2. |
+| 2026-09-21 | **Admin copies of medication alerts cover dependants only.** For managed profiles and children, admins get copies by default (adjustable). An adult's alerts reach anyone else only if that adult turns sharing on. | Founder ruling on Codex PR #25 finding 5. A family preference must not give an admin another adult's health data. Health PRD v0.3 §4.6. |
+| 2026-09-21 | **The kernel owns both phases of a payment.** Phase 1 and Phase 2, the session and every `BILL_PAYMENT_*` audit row are the kernel's; the module owns its business row and ledger. New first-party purpose HEALTH_MEDICATION_REMINDERS. Per-family settings are typed module tables, no settings service. | Codex round-2 recommendations accepted by Claude Code within the existing rulings (no safety gate becomes a setting). FTS v1.3 §4.6, MR v1.2 §6.4–6.7, CM v1.4 §3.2, DM v1.4 §9.3. |
 ---
 
 ## 📁 Consolidation and Change Log
 
 | Date | Change |
 |---|---|
+| 2026-09-21 | WP-11 (#11): Codex's round-2 verdicts on #9 and #10 applied as one change-controlled revision: Data Model v1.4, Consent Manager v1.4, Module Registry v1.2, FTS v1.3 (FTS was frozen; §4, §5.3, §6, §11.3 edited under change control). AGENTS.md invariants 7, 12, 13, 17, 19, 22, 23, 35 updated. Data Model "change 16" (`v_guardians`) moved out of PR #22 into this revision. Register items 19–27 added. |
 | 2026-09-17 | `Tech_Spec_Simulator_Architecture.md` drafted at v0.1 (WP-12): four WireMock simulators, scenario contract table for stub generation, BBPS state machine for crash scenarios A–D and the Healer, chaos driver, contract tests, simulated-versus-real table. Six open issues, one of which (payment request carries a VPA and account number versus invariant 9) is a candidate register item for the threat model. Claude Code now has its own worktree (`D:\FamilyLifeOS-claude`) for branch work. |
 | 2026-09-17 | Living-documents restructure (#27): tracker reduced from about 1,000 lines to about 250 with a "Current state" block; February 2026 sections moved to a snapshot file; `coordination/BOARD.md` retired; version and status columns removed from AGENTS.md and README in favour of the generated `docs/INDEX.md`; AGENTS.md §7 and §8 reduced to rules and pointers; Roadmap v0.3 and Execution Plan v0.4 stop recording status; Module Registry given a standard Status line; new tools `docs_index.py`, `living_docs_check.py`, `board_sync.py`; workflow `docs-checks`. The first run of the new check found a leftover week number in the Execution Plan, now removed. |
 | 2026-09-16 | Repository consolidated. Every `.docx`, duplicate `.md`/`.txt` export, superseded spec version and AI review note moved to `archive/originals/`. Canonical documents converted to Markdown under `docs/` (`strategy/`, `specs/`, `runbooks/`, `reference/`, `templates/`); spec content unchanged, formatting only. `AGENTS.md` (shared agent instructions), `CLAUDE.md` (pointer) and `README.md` added. This tracker carried forward from `FAMILYLIFEOS_PROJECT_TRACKER_UPDATED.md` with: Module Registry draft acknowledged, missing documents listed, Cross-Document Inconsistency Register added, repo-based maintenance steps, stale-timeline warning. |
@@ -118,8 +124,17 @@ Found during the 2026-09-16 consolidation by reading every document end to end; 
 | 16 | *(found 2026-09-17)* `requires_consent_providers` listed bbps and bhashini | No such consent handles exist; PAY_BILL could never pass the gate | MR v1.1 narrowed the enum to aa, abha, digilocker, ondc; DM v1.3 added 'ONDC' to consent_handles.provider so ONDC_ADDRESS_SHARE can be gated. | ✅ Resolved 2026-09-17 |
 | 17 | *(found 2026-09-17)* `MOD_EXECUTION_UNCONFIRMED` sent sessions to FAILED | Healer sweeps only EXECUTION; unconfirmed payments would vanish from recovery | MR v1.1 §9: session stays in EXECUTION with the lock held; Healer resolves. | ✅ Resolved 2026-09-17 |
 | 18 | *(found 2026-09-17)* `core.fn_append_audit` undefined and would have moved hashing into the DB | Contradicted DM §3.6 (app-computed, canonical JSON) | DM v1.3 §3.18 two-function protocol; MR v1.1 §7.2 grants both. | ✅ Resolved 2026-09-17 |
+| 19 | *(found 2026-09-21, Codex PR #20 f3)* What CONSENT_REVERIFY detects | CM §5.2 polls the provider only when `revalidation_required` is set; the simulator spec claimed the gate catches any external revocation | CM v1.4 §5.2 states the limit; the simulator spec and test strategy test the flag path and the provider-error path separately and claim no more | ✅ Resolved 2026-09-21 (documented limit, no behaviour change) |
+| 20 | *(Codex #9 f1)* Who writes Phase 2 | MR v1.1 had the module write the payment audit row; FTS §4.3 needs audit and session in one transaction | Kernel owns Phase 1 and Phase 2; FTS v1.3 §4.6, MR v1.2 §6.7 | ✅ Resolved 2026-09-21 |
+| 21 | *(Codex #10 f5)* Purge versus append-only audit | DM §7.1 hard-deleted users; `audit_log.user_id` and four other columns reference them | Founder ruling: empty the row in place. DM v1.4 §7.1, CM v1.4 §2.2 | ✅ Resolved 2026-09-21 |
+| 22 | *(Codex #10 f6)* Deletion aborted EXECUTION sessions | DM §4.3 and CM §2.2 aborted them; DM §7.4, FTS and AGENTS invariant 19 forbid it | DM v1.4 §4.3, CM v1.4 §2.2: never abort EXECUTION; purge waits for the Healer | ✅ Resolved 2026-09-21 |
+| 23 | *(Codex #10 f10)* "Managed means adult" | CM v1.3 §2.6 versus DM §3.2 (infants are managed) | Founder ruling: `users.is_child`. DM v1.4 §3.2, CM v1.4 §2.5–2.6 | ✅ Resolved 2026-09-21 |
+| 24 | *(Codex #10 f11–f12)* State and intent names that are not stored values | MR `BLOCKED`, CM `CONSENT_REVERIFY_FAILED`, FTS override exit state, FTS `BILL_PAYMENT` intent and biller path | DM v1.4 §3.7 mapping table and `resource_key`; FTS v1.3 §5.3, §11.3 | ✅ Resolved 2026-09-21 |
+| 25 | *(found 2026-09-21)* FTS §4.5 crash scenario B versus §6.4 | The crash table said NOT_FOUND → FAILED; §6.4's hard rule says resubmit with the original key within 24 h | FTS v1.3 §4.5 follows §6.4 | ✅ Resolved 2026-09-21 |
+| 26 | *(found 2026-09-21)* Free text in an audit payload | FTS §11.3 writes the admin's typed `reason` into `ADMIN_SESSION_OVERRIDE` details; DM §6 allows no free text (a reason can name a person) | Not resolved in WP-11: needs a decision on where the reason lives (a kernel table with its own retention, or a fixed reason list). Goes to `Tech_Spec_Audit_Log_Implementation.md` and the threat model | ⏳ Open |
+| 27 | *(found 2026-09-21)* CM §4.1 still prints the v1.3 `consent_records` DDL | DM v1.4 §3.12 is the only DDL source and has three more columns and a composite FK | CM v1.4 §4.1 carries a warning; the copy is removed at the next CM revision | ⏳ Open (low) |
 
-Open follow-ups: (a) Codex review round 2 of DM v1.3 and MR v1.1, then re-freeze; (b) item 15's per-user case, decided in the Finance module PRD review.
+Open follow-ups: (a) Codex's targeted re-review of DM v1.4, CM v1.4, MR v1.2 and FTS v1.3, then re-freeze; items 26 and 27; (b) item 15's per-user case, decided in the Finance module PRD review.
 
 ---
 
