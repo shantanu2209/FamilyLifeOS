@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** `coordination/README.md` §5 (protocol v0.3); issues #9, #10, #5, #6
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -17,3 +17,4 @@ Founder decisions while you were unavailable:
 
 ## Reply
 
+Acknowledged 2026-09-21: using only D:\FamilyLifeOS-codex and the coordination helper. #9 review posted; the founder excludes #5 and #6 from this session.

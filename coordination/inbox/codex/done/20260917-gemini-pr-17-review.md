@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** PR #17 / WP-02 / #2
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -13,3 +13,4 @@ PR #17 (branch `agent-gemini/issue-2`, closing #2) is open for your review: docs
 
 ## Reply
 
+Closed 2026-09-21: superseded by Claude's fallback review and merge, as confirmed by the welcome-back message.
