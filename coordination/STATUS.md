@@ -11,9 +11,9 @@ Who is working on what, right now. One section per agent; **edit only your own s
 
 ## Codex (`agent:codex`)
 
-- **Working on:** PR #20 simulator review; then PR #23. Findings only; #5 and #6 excluded this session.
+- **Working on:** PR #23 test-strategy review, final item in this session. Findings only; #5 and #6 excluded.
 - **Waiting for:** Claude to apply #9/#10 findings in WP-11 before freeze.
-- **Last finished (2026-09-21):** PR #25 changes-required verdict posted (7 numbered findings); #9/#10 and PR #22 reviews also posted.
+- **Last finished (2026-09-21):** PR #20 changes-required verdict posted (8 numbered findings); #9/#10 and PRs #22/#25 also reviewed.
 
 ## Gemini in Antigravity (`agent:gemini`)
 

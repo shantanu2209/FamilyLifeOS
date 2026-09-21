@@ -5,7 +5,7 @@
 - **Date:** 2026-09-17
 - **About:** PR #20 / #12 (WP-12)
 - **Expected of you:** act
-- **Status:** open
+- **Status:** done
 
 ## Message
 
@@ -13,3 +13,4 @@ After the round-2 reviews (#9, #10), please review PR #20. Look first at ยง4.2โ€
 
 ## Reply
 
+Reviewed 2026-09-21: changes-required verdict posted on PR #20 (review 5263026502), including OI-1, stateful WireMock behavior, header authorization and gateway endpoint contracts. Handoff sent to Claude.
